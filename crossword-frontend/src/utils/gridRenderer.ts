@@ -1,4 +1,4 @@
-import { CellType, RenderedCell, Direction } from '../types'
+import type { CellType, RenderedCell, Direction } from '../types'
 
 export function parseGridString(gridString: string): CellType[][] {
     return gridString.trim().split('\n').map(row => 

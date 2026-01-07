@@ -163,7 +163,7 @@ textarea {
 
 /* Create Puzzle Form */
 .create-puzzle-form {
-  width: 600px;
+  max-width: 1200px;
   margin: 0 auto;
   text-align: left;
   background: #2a2a2a;
@@ -186,7 +186,24 @@ textarea {
   font-weight: bold;
 }
 
-.form-group input,
+.image-upload-label {
+  display: inline-block;
+  padding: 8px 16px;
+  background: #4a4a4a;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  border: 1px solid #666;
+  transition: background 0.2s;
+}
+
+.image-upload-label:hover {
+  background: #5a5a5a;
+}
+
+.form-group input[type="text"],
+.form-group select,
 .form-group textarea {
   width: 100%;
   padding: 0.5rem;
@@ -195,6 +212,11 @@ textarea {
   background: #1a1a1a;
   color: white;
   font-family: monospace;
+}
+
+.form-group textarea {
+  white-space: pre;
+  overflow-x: auto;
 }
 
 .form-actions {
@@ -209,4 +231,38 @@ textarea {
   padding: 0.5rem;
   background: rgba(255, 107, 107, 0.1);
   border-radius: 4px;
+}
+
+/* Grid Preview Layout */
+.grid-input-container {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.grid-text-input {
+  flex: 1;
+}
+
+.grid-preview {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.preview-box {
+  border: 1px solid #444;
+  padding: 10px;
+  background: #1a1a1a;
+  min-width: 300px;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.no-preview {
+  color: #666;
+  font-style: italic;
 }

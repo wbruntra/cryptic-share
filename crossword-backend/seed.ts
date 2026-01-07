@@ -9,7 +9,14 @@ db.run(`
     title TEXT NOT NULL,
     grid TEXT NOT NULL,
     clues TEXT NOT NULL -- Stored as JSON string
-  )
+  );
+
+  CREATE TABLE IF NOT EXISTS puzzle_sessions (
+    session_id TEXT PRIMARY KEY,
+    puzzle_id INTEGER NOT NULL,
+    state TEXT NOT NULL, -- JSON string of user answers
+    FOREIGN KEY(puzzle_id) REFERENCES puzzles(id)
+  );
 `);
 
 const INITIAL_GRID_DATA = `

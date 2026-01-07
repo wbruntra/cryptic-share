@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { parseGridString, parseGridJson, renderGrid } from './utils/gridRenderer'
 import { CrosswordGrid } from './CrosswordGrid'
-import { PuzzleSummary } from './types'
+import type { PuzzleSummary } from './types'
 
 interface CreatePuzzleFormProps {
     onSubmit: (title: string, grid: string, cluesJson: string) => Promise<void>
@@ -16,6 +16,7 @@ export function CreatePuzzleForm({ onSubmit, onCancel }: CreatePuzzleFormProps) 
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [puzzles, setPuzzles] = useState<PuzzleSummary[]>([])
+    const [transcribing, setTranscribing] = useState(false)
     
     // Fetch puzzles for copy functionality
     useEffect(() => {
@@ -32,6 +33,47 @@ export function CreatePuzzleForm({ onSubmit, onCancel }: CreatePuzzleFormProps) 
         } catch (err) {
             console.error(err)
             setError('Failed to copy grid')
+        }
+    }
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        if (!file.type.startsWith('image/')) {
+            setError('Please upload an image file')
+            return
+        }
+
+        setTranscribing(true)
+        setError(null)
+
+        try {
+            const reader = new FileReader()
+            reader.readAsDataURL(file)
+            reader.onload = async () => {
+                try {
+                    const base64Image = reader.result as string
+                    const response = await axios.post('/api/clues/from-image', {
+                        image: base64Image
+                    })
+                    setCluesJson(JSON.stringify(response.data, null, 2))
+                } catch (err: unknown) {
+                    const message = err instanceof Error ? err.message : 'Failed to transcribe clues'
+                    console.error('Transcription error:', err)
+                    setError('Transcription failed: ' + message)
+                } finally {
+                    setTranscribing(false)
+                }
+            }
+            reader.onerror = () => {
+                setError('Failed to read file')
+                setTranscribing(false)
+            }
+        } catch (err) {
+            console.error(err)
+            setError('Failed to process image')
+            setTranscribing(false)
         }
     }
 
@@ -157,6 +199,18 @@ export function CreatePuzzleForm({ onSubmit, onCancel }: CreatePuzzleFormProps) 
 
                 <div className="form-group">
                     <label htmlFor="clues">Clues (JSON format):</label>
+                    <div style={{ marginBottom: '10px' }}>
+                        <label className="image-upload-label">
+                            {transcribing ? 'Transcribing...' : 'Auto-fill from Image'}
+                            <input 
+                                type="file" 
+                                accept="image/*"
+                                onChange={handleImageUpload}
+                                disabled={transcribing}
+                                style={{ display: 'none' }}
+                            />
+                        </label>
+                    </div>
                     <textarea 
                         id="clues"
                         value={cluesJson}
