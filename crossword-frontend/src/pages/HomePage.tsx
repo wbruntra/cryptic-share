@@ -44,9 +44,14 @@ export function HomePage() {
                         {puzzles.map(puzzle => (
                             <div key={puzzle.id} className="puzzle-card">
                                 <h3>{puzzle.title}</h3>
-                                <button onClick={() => handleStartSession(puzzle.id)}>
-                                    Play
-                                </button>
+                                <div className="puzzle-actions">
+                                    <button onClick={() => handleStartSession(puzzle.id)}>
+                                        Play
+                                    </button>
+                                    <Link to={`/edit/${puzzle.id}`} className="button button-secondary">
+                                        Edit
+                                    </Link>
+                                </div>
                             </div>
                         ))}
                         {puzzles.length === 0 && (

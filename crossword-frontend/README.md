@@ -1,11 +1,72 @@
-# React + TypeScript + Vite
+# Cryptic Crosswords Frontend
+
+This is a React-based frontend for creating, editing, and playing cryptic crosswords.
+
+## Routes
+
+The application uses React Router for navigation:
+
+- **`/`** (HomePage): Lists all available puzzles. From here you can:
+  - **Play** - Start a new playing session for a puzzle
+  - **Edit** - Open the grid editor for a puzzle
+  
+- **`/create`** (PuzzleCreator): Create a new puzzle from scratch
+  
+- **`/edit/:puzzleId`** (EditPuzzle): Edit an existing puzzle's grid layout
+  
+- **`/play/:sessionId`** (PlaySession): Play a puzzle and save progress
+
+## Features
+
+- **Grid Editor**: Click cells to toggle between Numbered (N), White (W), and Black (B)
+- **Play Mode**: Type letters to fill the grid, use arrow keys to navigate
+- **Session Management**: Save and resume puzzle progress via unique session URLs
+- **Image Clue Transcription**: Upload an image to automatically transcribe clues using AI
+
+## Development
+
+Install dependencies:
+
+```bash
+bun install
+```
+
+Run dev server:
+
+```bash
+bun run dev
+```
+
+Build for production:
+
+```bash
+bun run build
+```
+
+Preview production build:
+
+```bash
+bun run preview
+```
+
+## Technology
+
+- **React 19** with TypeScript
+- **Vite** for fast development and builds
+- **React Router** for client-side routing
+- **Axios** for API communication
+
+## Linting
+
+Run linter:
+
+```bash
+bun run lint
+```
+
+---
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
 ## React Compiler
 
@@ -21,7 +82,7 @@ export default defineConfig([
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
-      // Other configs...
+      // Other configs... 
 
       // Remove tseslint.configs.recommended and replace with this
       tseslint.configs.recommendedTypeChecked,
@@ -71,3 +132,4 @@ export default defineConfig([
   },
 ])
 ```
+

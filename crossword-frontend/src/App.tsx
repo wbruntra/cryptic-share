@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { HomePage } from './pages/HomePage'
 import { PlaySession } from './pages/PlaySession'
 import { PuzzleCreator } from './pages/PuzzleCreator'
+import { EditPuzzle } from './pages/EditPuzzle'
 import './App.css'
 
 function App() {
@@ -10,6 +11,7 @@ function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/create" element={<PuzzleCreator />} />
+        <Route path="/edit/:puzzleId" element={<EditPuzzle />} />
         <Route path="/play/:sessionId" element={<PlaySession />} />
       </Routes>
     </BrowserRouter>

@@ -5,12 +5,17 @@
   "private": true,
   "scripts": {
     "start": "bun run index.ts",
-    "dev": "bun --watch index.ts"
+    "dev": "bun --watch index.ts",
+    "migrate:make": "knex migrate:make -x ts",
+    "migrate:latest": "knex migrate:latest",
+    "migrate:rollback": "knex migrate:rollback"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/bun": "latest",
-    "@types/express": "^5.0.6"
+    "@types/express": "^5.0.6",
+    "knex": "^3.1.0",
+    "ts-node": "^10.9.2"
   },
   "peerDependencies": {
     "typescript": "^5"
@@ -18,6 +23,7 @@
   "dependencies": {
     "better-sqlite3": "^12.5.0",
     "express": "^5.2.1",
-    "openai": "^6.15.0"
+    "openai": "^6.15.0",
+    "sqlite3": "^5.1.7"
   }
 }
