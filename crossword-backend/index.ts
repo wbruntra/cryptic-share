@@ -24,7 +24,7 @@ const db = knex({
   useNullAsDefault: true,
 })
 
-const port = 3000
+const port = process.env.PORT || 8921
 
 // Middleware
 app.use(express.json({ limit: '50mb' }))
