@@ -5,142 +5,186 @@ import type { PuzzleSummary } from '../types'
 import { SkeletonPuzzleCard } from '../components/SkeletonLoader'
 
 export function AdminDashboard() {
-    const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
-    const [password, setPassword] = useState('')
-    const [loginError, setLoginError] = useState('')
-    const [puzzles, setPuzzles] = useState<PuzzleSummary[]>([])
-    const [loading, setLoading] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const [password, setPassword] = useState('')
+  const [loginError, setLoginError] = useState('')
+  const [puzzles, setPuzzles] = useState<PuzzleSummary[]>([])
+  const [loading, setLoading] = useState(false)
 
-    useEffect(() => {
-        checkAuth();
-    }, [])
+  useEffect(() => {
+    checkAuth()
+  }, [])
 
-    const checkAuth = async () => {
-        try {
-            await axios.get('/api/check-auth');
-            setIsAuthenticated(true);
-            fetchPuzzles();
-        } catch {
-            setIsAuthenticated(false);
-        }
+  const checkAuth = async () => {
+    try {
+      await axios.get('/api/check-auth')
+      setIsAuthenticated(true)
+      fetchPuzzles()
+    } catch {
+      setIsAuthenticated(false)
     }
+  }
 
-    const fetchPuzzles = () => {
-        setLoading(true)
-        axios.get('/api/puzzles')
-            .then(res => setPuzzles(res.data))
-            .catch(console.error)
-            .finally(() => setLoading(false))
+  const fetchPuzzles = () => {
+    setLoading(true)
+    axios
+      .get('/api/puzzles')
+      .then((res) => setPuzzles(res.data))
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this puzzle? This action cannot be undone.'))
+      return
+    try {
+      await axios.delete(`/api/puzzles/${id}`)
+      fetchPuzzles()
+    } catch (error) {
+      console.error('Failed to delete puzzle:', error)
+      alert('Failed to delete puzzle.')
     }
+  }
 
-    const handleDelete = async (id: number) => {
-        if (!confirm('Are you sure you want to delete this puzzle? This action cannot be undone.')) return;
-        try {
-            await axios.delete(`/api/puzzles/${id}`);
-            fetchPuzzles();
-        } catch (error) {
-            console.error('Failed to delete puzzle:', error);
-            alert('Failed to delete puzzle.');
-        }
+  const handleRename = async (id: number, currentTitle: string) => {
+    const newTitle = prompt('Enter new title:', currentTitle)
+    if (!newTitle || newTitle === currentTitle) return
+
+    try {
+      await axios.put(`/api/puzzles/${id}`, { title: newTitle })
+      fetchPuzzles()
+    } catch (error) {
+      console.error('Failed to rename puzzle:', error)
+      alert('Failed to rename puzzle.')
     }
+  }
 
-    const handleRename = async (id: number, currentTitle: string) => {
-        const newTitle = prompt('Enter new title:', currentTitle);
-        if (!newTitle || newTitle === currentTitle) return;
-        
-        try {
-            await axios.put(`/api/puzzles/${id}`, { title: newTitle });
-            fetchPuzzles();
-        } catch (error) {
-            console.error('Failed to rename puzzle:', error);
-            alert('Failed to rename puzzle.');
-        }
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoginError('')
+    try {
+      await axios.post('/api/login', { password })
+      setIsAuthenticated(true)
+      fetchPuzzles()
+    } catch {
+      setLoginError('Invalid password')
     }
+  }
 
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoginError('');
-        try {
-            await axios.post('/api/login', { password });
-            setIsAuthenticated(true);
-            fetchPuzzles();
-        } catch {
-            setLoginError('Invalid password');
-        }
-    }
-
-    if (isAuthenticated === null) return <div className="loading">Checking auth...</div>;
-
-    if (!isAuthenticated) {
-        return (
-            <div className="admin-login" style={{ maxWidth: '400px', margin: '4rem auto' }}>
-                <h1>Admin Access</h1>
-                <form onSubmit={handleLogin} className="card">
-                    <div className="form-group">
-                        <label style={{ display: 'block', marginBottom: '0.5rem' }}>Password</label>
-                        <input 
-                            type="password" 
-                            value={password} 
-                            onChange={e => setPassword(e.target.value)}
-                            placeholder="Enter admin password"
-                            style={{ width: '100%', padding: '0.5rem', marginBottom: '1rem' }}
-                        />
-                    </div>
-                    {loginError && <p className="error-message" style={{ marginBottom: '1rem' }}>{loginError}</p>}
-                    <button type="submit" className="button button-primary" style={{ width: '100%' }}>
-                        Login
-                    </button>
-                </form>
-            </div>
-        )
-    }
-
+  if (isAuthenticated === null)
     return (
-        <div className="admin-dashboard">
-            <h1>Admin Dashboard</h1>
-            
-            <div className="actions" style={{ marginBottom: '2rem' }}>
-                <Link to="/create" className="button button-primary">Create New Puzzle</Link>
-            </div>
-
-            <div className="puzzle-list">
-                <h2>Manage Puzzles</h2>
-                {loading ? (
-                    <div className="puzzle-grid">
-                        {[1, 2, 3, 4].map(i => (
-                            <SkeletonPuzzleCard key={i} />
-                        ))}
-                    </div>
-                ) : (
-                    <div className="puzzle-grid">
-                        {puzzles.map(puzzle => (
-                            <div key={puzzle.id} className="puzzle-card">
-                                <h3>{puzzle.title}</h3>
-                                <div className="puzzle-actions">
-                                    <Link to={`/edit/${puzzle.id}`} className="button button-primary">
-                                        Edit
-                                    </Link>
-                                    <button 
-                                        onClick={() => handleRename(puzzle.id, puzzle.title)}
-                                        className="button button-secondary"
-                                    >
-                                        Rename
-                                    </button>
-                                    <button 
-                                        onClick={() => handleDelete(puzzle.id)}
-                                        className="button button-destructive"
-                                    >
-                                        Delete
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                        {puzzles.length === 0 && (
-                            <p>No puzzles found.</p>
-                        )}
-                    </div>
-                )}
-            </div>
-        </div>
+      <div className="flex items-center justify-center min-h-[50vh] text-text-secondary animate-pulse gap-2">
+        <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+        Checking authorization...
+      </div>
     )
+
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16">
+        <div className="bg-surface p-8 rounded-2xl shadow-xl border border-border">
+          <h1 className="text-3xl font-bold mb-6 text-center text-text italic tracking-tight">
+            Admin Access
+          </h1>
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-text-secondary">
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter admin password"
+                className="w-full px-4 py-3 rounded-xl bg-input-bg border border-border text-text focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+              />
+            </div>
+            {loginError && (
+              <div className="p-3 bg-error/10 border border-error/20 rounded-lg text-error text-sm text-center font-medium">
+                {loginError}
+              </div>
+            )}
+            <button
+              type="submit"
+              className="w-full py-3 px-6 rounded-xl bg-primary text-white font-bold shadow-md hover:bg-primary-hover transition-all active:scale-[0.98] border-none cursor-pointer"
+            >
+              Login
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-8 pb-12">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10 pb-6 border-b border-border">
+        <div>
+          <h1 className="text-3xl font-bold text-text italic tracking-tight">Admin Dashboard</h1>
+          <p className="text-text-secondary text-sm">Manage and create cryptic crosswords.</p>
+        </div>
+        <Link
+          to="/create"
+          className="w-full sm:w-auto px-6 py-3 rounded-xl bg-primary text-white font-bold shadow-md hover:bg-primary-hover hover:shadow-lg active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
+        >
+          <span className="text-xl">+</span> Create New Puzzle
+        </Link>
+      </header>
+
+      <section>
+        <h2 className="text-2xl font-bold mb-6 text-text border-l-4 border-primary pl-4">
+          Manage Puzzles
+        </h2>
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <SkeletonPuzzleCard key={i} />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {puzzles.map((puzzle) => (
+              <div
+                key={puzzle.id}
+                className="group bg-surface rounded-xl p-6 shadow-lg border border-border hover:border-primary transition-all duration-300"
+              >
+                <h3 className="text-xl font-bold mb-6 text-text group-hover:text-primary transition-colors min-h-[3rem] line-clamp-2">
+                  {puzzle.title}
+                </h3>
+                <div className="space-y-3">
+                  <Link
+                    to={`/edit/${puzzle.id}`}
+                    className="block w-full py-2 px-4 rounded-lg bg-input-bg border border-border text-text font-bold text-center no-underline hover:border-primary hover:text-primary transition-all"
+                  >
+                    Edit
+                  </Link>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleRename(puzzle.id, puzzle.title)}
+                      className="flex-1 py-2 px-4 rounded-lg bg-input-bg border border-border text-text-secondary text-sm font-medium hover:text-text hover:border-text transition-all border-none cursor-pointer"
+                    >
+                      Rename
+                    </button>
+                    <button
+                      onClick={() => handleDelete(puzzle.id)}
+                      className="flex-1 py-2 px-4 rounded-lg bg-error/10 border border-error/30 text-error text-sm font-medium hover:bg-error hover:text-white transition-all border-none cursor-pointer"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {puzzles.length === 0 && (
+              <div className="col-span-full py-16 text-center bg-surface rounded-2xl border-2 border-dashed border-border shadow-inner">
+                <p className="text-text-secondary italic">
+                  No puzzles found. Click "Create New Puzzle" to get started.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+    </div>
+  )
 }

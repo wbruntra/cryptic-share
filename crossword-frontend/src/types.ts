@@ -1,5 +1,5 @@
 export type CellType = 'N' | 'W' | 'B'
-export type Mode = 'edit' | 'play'
+export type Mode = 'edit' | 'play' | 'view'
 export type Direction = 'across' | 'down'
 
 export interface PuzzleSummary {
@@ -23,9 +23,9 @@ export interface PuzzleData {
 }
 
 export interface RenderedCell {
-    type: CellType
-    number: number | null
-    isSelected: boolean
-    isActiveWord: boolean
-    answer: string
+  type: CellType
+  number: number | null
+  isSelected: boolean
+  isActiveWord: boolean
+  answer: string
 }

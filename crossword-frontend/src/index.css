@@ -1,20 +1,70 @@
 @import 'tailwindcss';
 
-/* Custom CSS variables that integrate with Tailwind */
 @theme {
-  --color-surface: #1e1e1e;
-  --color-surface-light: #ffffff;
-  --color-bg: #121212;
-  --color-bg-light: #f0f2f5;
-  --color-primary: #4da6ff;
-  --color-primary-hover: #70baff;
-  --color-border: #333;
-  --color-border-light: #ccc;
-  --color-text: #e0e0e0;
-  --color-text-light: #213547;
-  --color-text-secondary: #aaaaaa;
+  --color-surface: var(--surface-color);
+  --color-bg: var(--bg-color);
+  --color-primary: var(--primary-color);
+  --color-primary-hover: var(--primary-hover);
+  --color-border: var(--border-color);
+  --color-text: var(--text-color);
+  --color-text-secondary: var(--text-secondary);
+  --color-input-bg: var(--input-bg);
+  --color-error: var(--error-color);
+  --color-success: var(--success-color);
+  --color-selection: var(--selection-color);
+  --color-active-word: var(--active-word-color);
+}
 
-  /* Mobile bottom sheet */
-  --sheet-height: 60vh;
-  --sheet-handle-width: 40px;
+:root {
+  --bg-color: #121212;
+  --surface-color: #1e1e1e;
+  --text-color: #e0e0e0;
+  --text-secondary: #aaaaaa;
+  --primary-color: #4da6ff;
+  --primary-hover: #70baff;
+  --border-color: #333;
+  --input-bg: #2a2a2a;
+  --error-color: #f44336;
+  --success-color: #4caf50;
+  --selection-color: #fdd835;
+  --active-word-color: #1e3a5f;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme='light'] {
+  --bg-color: #f0f2f5;
+  --surface-color: #ffffff;
+  --text-color: #213547;
+  --text-secondary: #666666;
+  --primary-color: #0066cc;
+  --primary-hover: #0052a3;
+  --border-color: #ccc;
+  --input-bg: #ffffff;
+  --selection-color: #ffeb3b;
+  --active-word-color: #bbdefb;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-text antialiased transition-colors duration-300;
+    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+  }
+
+  h1 {
+    @apply text-4xl font-bold;
+  }
+  h2 {
+    @apply text-2xl font-bold;
+  }
+  h3 {
+    @apply text-xl font-bold;
+  }
+
+  button {
+    @apply cursor-pointer transition-all duration-200 outline-none;
+  }
 }

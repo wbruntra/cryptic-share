@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
 import type { CellType, Direction, Clue, PuzzleData } from '../types'
@@ -17,7 +17,7 @@ export function PlaySession() {
 
   // --- State ---
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const isFirstRun = useRef(true)
   const [title, setTitle] = useState('')
 
   // Grid structure (static)
@@ -92,37 +92,27 @@ export function PlaySession() {
   }
 
   // --- Actions ---
-  const handleSave = async () => {
-    if (!sessionId) return
-    setSaving(true)
-    try {
-      await axios.put(`/api/sessions/${sessionId}`, {
-        state: answers,
-      })
+  // --- Auto-save Logic ---
+  useEffect(() => {
+    if (loading || !sessionId) return
 
-      // Also update timestamp locally on save
-      // We need puzzleId, which we can get if we store it in state,
-      // or we can just update the existing entry without puzzleId if we modify saveLocalSession,
-      // but simpler to just store puzzleId in state.
-      // Let's assume we can get it from the loaded data.
-      // Actually, I didn't save puzzleId in state.
-      // I'll skip adding it to state for now and rely on the load update,
-      // but ideally "Resume" from home page updates it.
-      // Actually, saveLocalSession merges updates, so if we only update timestamp it might be enough if we had a way to just update timestamp by ID.
-      // But my saveLocalSession requires the full object or merges...
-      // Let's look at saveLocalSession implementation.
-      // It merges: sessions[existingIndex] = { ...sessions[existingIndex], ...session, lastPlayed: Date.now() };
-      // So I can just pass sessionId and partial data if I wanted, but Typescript might complain.
-      // Let's just update the timestamp on load for now, that's sufficient for "Continue Playing" ordering.
-
-      // Optional: visual feedback
-    } catch (error) {
-      console.error('Failed to save session:', error)
-      alert('Failed to save progress.')
-    } finally {
-      setSaving(false)
+    if (isFirstRun.current) {
+      isFirstRun.current = false
+      return
     }
-  }
+
+    const timer = setTimeout(async () => {
+      try {
+        await axios.put(`/api/sessions/${sessionId}`, {
+          state: answers,
+        })
+      } catch (error) {
+        console.error('Failed to auto-save session:', error)
+      }
+    }, 1000)
+
+    return () => clearTimeout(timer)
+  }, [answers, loading, sessionId])
 
   // --- Interaction Logic ---
   const handleCellClick = (r: number, c: number) => {
@@ -302,13 +292,25 @@ export function PlaySession() {
     return clueList.find((c) => c.number === currentClueNumber) || null
   }, [clues, currentClueNumber, cursor?.direction])
 
-  if (loading) return <div className="loading">Loading session...</div>
-  if (!grid.length) return <div className="error">Failed to load puzzle grid.</div>
+  if (loading)
+    return (
+      <div className="flex items-center justify-center min-h-[50vh] text-text-secondary animate-pulse gap-2">
+        <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+        Loading session...
+      </div>
+    )
+
+  if (!grid.length)
+    return (
+      <div className="flex items-center justify-center min-h-[50vh] text-error p-8 bg-error/10 rounded-xl">
+        Failed to load puzzle grid.
+      </div>
+    )
 
   // Mobile Layout
   if (isMobile) {
     return (
-      <div className="play-session-mobile min-h-screen bg-[var(--bg-color)]">
+      <div className="play-session-mobile min-h-screen bg-bg">
         {/* Floating clue bar - only when a clue is active */}
         <FloatingClueBar
           clue={currentClue}
@@ -320,20 +322,11 @@ export function PlaySession() {
         <div className="px-2 pb-20" style={{ paddingTop: currentClue ? '60px' : '0' }}>
           {/* Compact header */}
           <div className="flex items-center justify-between py-3 px-2">
-            <h1 className="text-lg font-bold text-[var(--text-color)] m-0 truncate flex-1">
-              {title}
-            </h1>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="button button-primary text-sm px-3 py-1.5 shrink-0 ml-2"
-            >
-              {saving ? '...' : 'Save'}
-            </button>
+            <h1 className="text-xl font-bold text-text m-0 truncate flex-1">{title}</h1>
           </div>
 
           {/* Grid - full width */}
-          <div className="bg-[var(--surface-color)] rounded-lg p-2">
+          <div className="bg-surface rounded-xl p-2 shadow-lg border border-border">
             <CrosswordGrid grid={renderedGrid} mode="play" onCellClick={handleCellClick} />
           </div>
         </div>
@@ -342,16 +335,7 @@ export function PlaySession() {
         {!currentClue && (
           <button
             onClick={() => setIsClueSheetOpen(true)}
-            className="
-                            fixed bottom-6 right-6 z-20
-                            w-14 h-14 rounded-full
-                            bg-[var(--primary-color)] text-white
-                            flex items-center justify-center
-                            shadow-lg
-                            text-2xl
-                            border-none cursor-pointer
-                            active:scale-95 transition-transform
-                        "
+            className="fixed bottom-6 right-6 z-20 w-14 h-14 rounded-full bg-primary text-white flex items-center justify-center shadow-2xl text-2xl border-none cursor-pointer active:scale-95 transition-transform"
             aria-label="Open clues"
           >
             📝
@@ -377,24 +361,20 @@ export function PlaySession() {
     )
   }
 
-  // Desktop Layout (original)
+  // Desktop Layout
   return (
-    <div className="play-session">
-      <header className="session-header">
-        <h1>{title}</h1>
+    <div className="max-w-7xl mx-auto px-4 sm:px-8 pb-12">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 bg-surface p-6 rounded-2xl shadow-lg border border-border">
+        <div>
+          <h1 className="text-3xl font-bold text-text mb-1 italic tracking-tight">{title}</h1>
+          <p className="text-text-secondary text-sm">
+            Solve the cryptic clues to complete the grid.
+          </p>
+        </div>
+        <div className="flex items-center gap-4 self-end md:self-center"></div>
       </header>
 
-      <div className="session-controls">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="button button-primary save-button"
-        >
-          {saving ? 'Saving...' : 'Save Progress'}
-        </button>
-      </div>
-
-      <div className="main-container">
+      <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
         {clues && (
           <ClueList
             clues={clues}
@@ -404,13 +384,34 @@ export function PlaySession() {
           />
         )}
 
-        <div className="card puzzle-container">
+        <div className="flex-1 w-full bg-surface p-6 md:p-8 rounded-2xl shadow-xl border border-border relative overflow-hidden group">
+          <div className="absolute top-0 left-0 w-2 h-full bg-primary opacity-20"></div>
           <CrosswordGrid grid={renderedGrid} mode="play" onCellClick={handleCellClick} />
-          <div className="instructions">
-            <small>
-              <strong>Shortcuts:</strong> Arrow keys to move, Tab to switch direction, Backspace to
-              delete.
-            </small>
+
+          <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
+            <div className="flex items-center gap-4 text-xs text-text-secondary font-medium">
+              <span className="flex items-center gap-1.5">
+                <kbd className="px-1.5 py-0.5 bg-input-bg border border-border rounded text-[10px]">
+                  Arrows
+                </kbd>{' '}
+                Move
+              </span>
+              <span className="flex items-center gap-1.5">
+                <kbd className="px-1.5 py-0.5 bg-input-bg border border-border rounded text-[10px]">
+                  Tab
+                </kbd>{' '}
+                Direction
+              </span>
+              <span className="flex items-center gap-1.5">
+                <kbd className="px-1.5 py-0.5 bg-input-bg border border-border rounded text-[10px]">
+                  Back
+                </kbd>{' '}
+                Clear
+              </span>
+            </div>
+            <div className="text-[10px] uppercase tracking-widest text-text-secondary/50 font-bold">
+              Cryptic Share 2026
+            </div>
           </div>
         </div>
       </div>

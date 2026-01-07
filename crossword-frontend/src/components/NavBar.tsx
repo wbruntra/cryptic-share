@@ -1,34 +1,51 @@
-import { Link } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 
 export function NavBar() {
-    const [theme, setTheme] = useState(() => {
-        return localStorage.getItem('theme') || 'dark';
-    });
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('theme') || 'dark'
+  })
 
-    useEffect(() => {
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('theme', theme);
-    }, [theme]);
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('theme', theme)
+  }, [theme])
 
-    const toggleTheme = () => {
-        setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-    };
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
+  }
 
-    return (
-        <nav className="navbar">
-            <div className="navbar-content">
-                <Link to="/" className="navbar-brand">
-                    Cryptic Share
-                </Link>
-                <div className="navbar-links">
-                    <Link to="/" className="nav-link">Home</Link>
-                    <Link to="/admin" className="nav-link">Admin</Link>
-                    <button onClick={toggleTheme} style={{ padding: '0.4em 0.8em', fontSize: '0.9em' }}>
-                        {theme === 'dark' ? '☀️' : '🌙'}
-                    </button>
-                </div>
-            </div>
-        </nav>
-    );
+  return (
+    <nav className="bg-surface border-b border-border py-4 mb-8 sticky top-0 z-40">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 flex justify-between items-center">
+        <Link
+          to="/"
+          className="text-2xl font-bold text-text no-underline hover:text-primary transition-colors"
+        >
+          Cryptic Share
+        </Link>
+        <div className="flex items-center gap-6">
+          <Link
+            to="/"
+            className="text-text-secondary no-underline font-medium hover:text-primary transition-colors"
+          >
+            Home
+          </Link>
+          <Link
+            to="/admin"
+            className="text-text-secondary no-underline font-medium hover:text-primary transition-colors"
+          >
+            Admin
+          </Link>
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg bg-input-bg border border-border hover:border-primary flex items-center justify-center transition-all"
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
+        </div>
+      </div>
+    </nav>
+  )
 }

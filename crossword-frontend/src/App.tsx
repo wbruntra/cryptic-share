@@ -5,7 +5,6 @@ import { PuzzleCreator } from './pages/PuzzleCreator'
 import { EditPuzzle } from './pages/EditPuzzle'
 import { AdminDashboard } from './pages/AdminDashboard'
 import { NavBar } from './components/NavBar'
-import './App.css'
 
 function App() {
   return (
