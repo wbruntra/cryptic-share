@@ -361,7 +361,10 @@ export function PlaySession() {
         />
 
         {/* Main content area */}
-        <div className="px-2 pb-20" style={{ paddingTop: currentClue ? '60px' : '0' }}>
+        <div
+          className="px-2"
+          style={{ paddingBottom: isKeyboardOpen ? '280px' : '80px' }}
+        >
           {/* Compact header */}
           <div className="flex items-center justify-between py-3 px-2">
             <h1 className="text-xl font-bold text-text m-0 truncate flex-1">{title}</h1>

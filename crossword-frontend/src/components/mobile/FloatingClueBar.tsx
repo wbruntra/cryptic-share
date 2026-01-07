@@ -16,7 +16,7 @@ export function FloatingClueBar({ clue, direction, onTap }: FloatingClueBarProps
     <button
       onClick={onTap}
       className="
-                fixed top-0 left-0 right-0 z-30
+                sticky top-0 left-0 right-0 z-30
                 bg-[var(--primary-color)] text-white
                 px-4 py-3
                 flex items-center gap-2
