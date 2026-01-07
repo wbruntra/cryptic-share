@@ -1,0 +1,20 @@
+@import 'tailwindcss';
+
+/* Custom CSS variables that integrate with Tailwind */
+@theme {
+  --color-surface: #1e1e1e;
+  --color-surface-light: #ffffff;
+  --color-bg: #121212;
+  --color-bg-light: #f0f2f5;
+  --color-primary: #4da6ff;
+  --color-primary-hover: #70baff;
+  --color-border: #333;
+  --color-border-light: #ccc;
+  --color-text: #e0e0e0;
+  --color-text-light: #213547;
+  --color-text-secondary: #aaaaaa;
+
+  /* Mobile bottom sheet */
+  --sheet-height: 60vh;
+  --sheet-handle-width: 40px;
+}
