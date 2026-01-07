@@ -1,0 +1,212 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.card {
+  padding: 2em;
+}
+
+.header-controls {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  align-items: center;
+}
+
+.puzzle-selector {
+  padding: 10px;
+  font-size: 16px;
+  border-radius: 8px;
+  min-width: 200px;
+}
+
+.main-container {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.clues-container {
+  width: 390px;
+  height: 600px;
+  overflow-y: auto;
+  text-align: left;
+  border: 1px solid #444;
+  padding: 1rem;
+  background: #2a2a2a;
+  border-radius: 8px;
+}
+
+.clues-section {
+  margin-bottom: 2rem;
+}
+
+.clues-section h3 {
+  border-bottom: 1px solid #666;
+  padding-bottom: 0.5rem;
+  margin-top: 0;
+}
+
+.clue-item {
+  padding: 0.5rem;
+  cursor: pointer;
+  border-radius: 4px;
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.clue-item:hover {
+  background-color: #3a3a3a;
+}
+
+.clue-item.selected {
+  background-color: #a7d8ff;
+  color: #000;
+  font-weight: bold;
+}
+
+.clue-number {
+  font-weight: bold;
+  margin-right: 0.5rem;
+}
+
+.grid-container {
+  display: inline-block;
+  border: 2px solid #333;
+  background-color: #333;
+  gap: 1px;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.grid-row {
+  display: flex;
+}
+
+.grid-cell {
+  width: 40px;
+  height: 40px;
+  background-color: white;
+  border: 1px solid #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  font-family: monospace;
+  font-size: 1.2rem;
+}
+
+.grid-cell.black {
+  background-color: black;
+}
+
+.grid-cell.white {
+  background-color: white;
+}
+
+.grid-cell.selected {
+  background-color: #ffda00;
+}
+
+.grid-cell.active-word {
+  background-color: #a7d8ff;
+}
+
+.grid-cell.selected.active-word {
+  background-color: #ffda00;
+}
+
+.cell-number {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #444;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.cell-content {
+  font-size: 24px;
+  font-weight: bold;
+  text-transform: uppercase;
+  z-index: 1;
+  color: black;
+}
+
+.mode-toggle, .create-button {
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.hidden {
+  display: none;
+}
+
+textarea {
+  width: 100%;
+  height: 300px;
+  font-family: monospace;
+  margin-top: 20px;
+}
+
+/* Create Puzzle Form */
+.create-puzzle-form {
+  width: 600px;
+  margin: 0 auto;
+  text-align: left;
+  background: #2a2a2a;
+  padding: 2rem;
+  border-radius: 8px;
+}
+
+.create-puzzle-form h2 {
+  margin-top: 0;
+  text-align: center;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #666;
+  background: #1a1a1a;
+  color: white;
+  font-family: monospace;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.error-message {
+  color: #ff6b6b;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  background: rgba(255, 107, 107, 0.1);
+  border-radius: 4px;
+}
