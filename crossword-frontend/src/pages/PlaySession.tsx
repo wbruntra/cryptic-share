@@ -7,7 +7,7 @@ import { ClueList } from '../ClueList'
 import { CrosswordGrid } from '../CrosswordGrid'
 import { saveLocalSession } from '../utils/sessionManager'
 import { useIsMobile } from '../utils/useIsMobile'
-import { BottomSheet, FloatingClueBar, MobileClueList } from '../components/mobile'
+import { BottomSheet, FloatingClueBar, MobileClueList, VirtualKeyboard } from '../components/mobile'
 
 interface SessionData extends PuzzleData {
   sessionState: string[][] // Array of rows
@@ -37,6 +37,7 @@ export function PlaySession() {
   // Mobile UI state
   const isMobile = useIsMobile()
   const [isClueSheetOpen, setIsClueSheetOpen] = useState(false)
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
 
   // --- Data Loading & Socket Setup ---
   useEffect(() => {
@@ -153,6 +154,10 @@ export function PlaySession() {
 
       return { r, c, direction: newDirection }
     })
+    
+    if (isMobile) {
+      setIsKeyboardOpen(true)
+    }
   }
 
   const moveCursor = useCallback(
@@ -221,6 +226,28 @@ export function PlaySession() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [cursor, answers, grid, moveCursor])
+
+  const handleVirtualKeyPress = (key: string) => {
+    if (!cursor) return
+    const { r, c, direction } = cursor
+    const newAnswers = answers.map((row) => [...row])
+    newAnswers[r][c] = key
+    setAnswers(newAnswers)
+    moveCursor(r, c, direction, 1)
+  }
+
+  const handleVirtualDelete = () => {
+    if (!cursor) return
+    const { r, c, direction } = cursor
+    const currentVal = answers[r][c]
+    const newAnswers = answers.map((row) => [...row])
+    newAnswers[r][c] = ''
+    setAnswers(newAnswers)
+
+    if (currentVal === '') {
+      moveCursor(r, c, direction, -1)
+    }
+  }
 
   // --- Render Preparation ---
   const { renderedGrid, currentClueNumber, numberMap } = useMemo(() => {
@@ -346,6 +373,17 @@ export function PlaySession() {
           </div>
         </div>
 
+        {/* Keyboard Toggle FAB (Always visible when keyboard is closed) */}
+        {!isKeyboardOpen && (
+          <button
+            onClick={() => setIsKeyboardOpen(true)}
+            className="fixed bottom-24 right-6 z-20 w-14 h-14 rounded-full bg-surface border border-border text-text flex items-center justify-center shadow-lg text-2xl cursor-pointer active:scale-95 transition-transform"
+            aria-label="Open keyboard"
+          >
+            ⌨️
+          </button>
+        )}
+
         {/* FAB to open clues (when no clue selected) */}
         {!currentClue && (
           <button
@@ -357,7 +395,7 @@ export function PlaySession() {
           </button>
         )}
 
-        {/* Bottom sheet with clues */}
+          {/* Bottom sheet with clues */}
         <BottomSheet
           isOpen={isClueSheetOpen}
           onClose={() => setIsClueSheetOpen(false)}
@@ -372,11 +410,19 @@ export function PlaySession() {
             />
           )}
         </BottomSheet>
+
+        <VirtualKeyboard
+          isOpen={isKeyboardOpen}
+          onClose={() => setIsKeyboardOpen(false)}
+          onKeyPress={handleVirtualKeyPress}
+          onDelete={handleVirtualDelete}
+        />
       </div>
     )
   }
 
   // Desktop Layout
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 pb-12">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 bg-surface p-6 rounded-2xl shadow-lg border border-border">
