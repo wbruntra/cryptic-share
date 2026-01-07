@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
+import { io, Socket } from 'socket.io-client'
 import type { CellType, Direction, Clue, PuzzleData } from '../types'
 import { ClueList } from '../ClueList'
 import { CrosswordGrid } from '../CrosswordGrid'
@@ -20,6 +21,9 @@ export function PlaySession() {
   const isFirstRun = useRef(true)
   const [title, setTitle] = useState('')
 
+  // Socket
+  const socketRef = useRef<Socket | null>(null)
+
   // Grid structure (static)
   const [grid, setGrid] = useState<CellType[][]>([])
   const [clues, setClues] = useState<{ across: Clue[]; down: Clue[] } | null>(null)
@@ -34,9 +38,17 @@ export function PlaySession() {
   const isMobile = useIsMobile()
   const [isClueSheetOpen, setIsClueSheetOpen] = useState(false)
 
-  // --- Data Loading ---
+  // --- Data Loading & Socket Setup ---
   useEffect(() => {
     if (!sessionId) return
+
+    // Initialize Socket
+    socketRef.current = io()
+    socketRef.current.emit('join_session', sessionId)
+
+    socketRef.current.on('puzzle_updated', (newState: string[][]) => {
+      setAnswers(newState)
+    })
 
     const fetchSession = async () => {
       setLoading(true)
@@ -82,6 +94,10 @@ export function PlaySession() {
     }
 
     fetchSession()
+
+    return () => {
+      socketRef.current?.disconnect()
+    }
   }, [sessionId])
 
   // --- Helpers ---
@@ -92,7 +108,7 @@ export function PlaySession() {
   }
 
   // --- Actions ---
-  // --- Auto-save Logic ---
+  // --- Auto-save Logic (via Socket) ---
   useEffect(() => {
     if (loading || !sessionId) return
 
@@ -101,15 +117,14 @@ export function PlaySession() {
       return
     }
 
-    const timer = setTimeout(async () => {
-      try {
-        await axios.put(`/api/sessions/${sessionId}`, {
+    const timer = setTimeout(() => {
+      if (socketRef.current) {
+        socketRef.current.emit('update_puzzle', {
+          sessionId,
           state: answers,
         })
-      } catch (error) {
-        console.error('Failed to auto-save session:', error)
       }
-    }, 1000)
+    }, 3000) // Debounce increased to 3 seconds
 
     return () => clearTimeout(timer)
   }, [answers, loading, sessionId])

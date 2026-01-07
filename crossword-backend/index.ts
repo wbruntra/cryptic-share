@@ -1,4 +1,7 @@
 import express from 'express'
+import { createServer } from 'http'
+import { Server } from 'socket.io'
+import knex from 'knex'
 import cookieSession from 'cookie-session'
 import puzzlesRouter from './routes/puzzles'
 import sessionsRouter from './routes/sessions'
@@ -6,6 +9,21 @@ import cluesRouter from './routes/clues'
 import { ADMIN_PASSWORD, COOKIE_SECRET } from './config'
 
 const app = express()
+const httpServer = createServer(app)
+const io = new Server(httpServer, {
+  cors: {
+    origin: '*',
+  },
+})
+
+const db = knex({
+  client: 'sqlite3',
+  connection: {
+    filename: './crossword.db',
+  },
+  useNullAsDefault: true,
+})
+
 const port = 3000
 
 // Middleware
@@ -17,6 +35,34 @@ app.use(
     maxAge: 24 * 60 * 60 * 1000, // 1 day
   }),
 )
+
+// Socket.IO Logic
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id)
+
+  socket.on('join_session', (sessionId) => {
+    socket.join(sessionId)
+    console.log(`User ${socket.id} joined session ${sessionId}`)
+  })
+
+  socket.on('update_puzzle', async ({ sessionId, state }) => {
+    // Broadcast to others in the room
+    socket.to(sessionId).emit('puzzle_updated', state)
+
+    // Persist to DB
+    try {
+      await db('puzzle_sessions')
+        .where({ session_id: sessionId })
+        .update({ state: JSON.stringify(state) })
+    } catch (error) {
+      console.error('Error saving session state via socket:', error)
+    }
+  })
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id)
+  })
+})
 
 // Login Route
 app.post('/api/login', (req, res) => {
@@ -43,6 +89,6 @@ app.use('/api/puzzles', puzzlesRouter)
 app.use('/api/sessions', sessionsRouter)
 app.use('/api/clues', cluesRouter)
 
-app.listen(port, () => {
+httpServer.listen(port, () => {
   console.log(`Backend server running at http://localhost:${port}`)
 })
