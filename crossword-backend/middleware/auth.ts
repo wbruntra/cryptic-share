@@ -1,15 +1,11 @@
-import type { Request, Response, NextFunction } from 'express';
-import { COOKIE_SECRET, SESSION_TOKEN } from '../config';
+import type { Request, Response, NextFunction } from 'express'
+import { COOKIE_SECRET } from '../config'
 
 export const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-  // Check for signed cookie (if using cookie-parser with secret)
-  // or just a simple cookie for now.
-  // Using 'signedCookies' if cookie-parser is set up with secret.
-  const token = req.signedCookies?.admin_token;
-
-  if (token === SESSION_TOKEN) {
-    next();
+  // Check for session-based auth
+  if (req.session && req.session.isAdmin) {
+    next()
   } else {
-    res.status(401).json({ error: 'Unauthorized' });
+    res.status(401).json({ error: 'Unauthorized' })
   }
-};
+}
