@@ -223,10 +223,10 @@ export function CreatePuzzleForm({ onSubmit, onCancel }: CreatePuzzleFormProps) 
                 {error && <div className="error-message">{error}</div>}
 
                 <div className="form-actions">
-                    <button type="submit" disabled={submitting}>
+                    <button type="submit" disabled={submitting} className="button button-primary">
                         {submitting ? 'Creating...' : 'Create Puzzle'}
                     </button>
-                    <button type="button" onClick={onCancel} disabled={submitting}>
+                    <button type="button" onClick={onCancel} disabled={submitting} className="button button-secondary">
                         Cancel
                     </button>
                 </div>

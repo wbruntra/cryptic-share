@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import axios from 'axios'
 import type { CellType } from '../types'
 import { CrosswordGrid } from '../CrosswordGrid'
@@ -85,7 +85,6 @@ export function EditPuzzle() {
     return (
         <div className="edit-puzzle">
             <header className="page-header">
-                <Link to="/" className="back-link">← Home</Link>
                 <h1>Edit: {title}</h1>
             </header>
 

@@ -8,26 +8,39 @@ interface CrosswordGridProps {
 
 export function CrosswordGrid({ grid, mode, onCellClick }: CrosswordGridProps) {
     return (
-        <div className="grid-container">
-            {grid.map((row, rIndex) => (
-                <div key={rIndex} className="grid-row">
-                    {row.map((cell, cIndex) => (
-                        <div 
-                            key={`${rIndex}-${cIndex}`} 
-                            className={`
-                                grid-cell 
-                                ${cell.type === 'B' ? 'black' : 'white'}
-                                ${cell.isSelected ? 'selected' : ''}
-                                ${cell.isActiveWord ? 'active-word' : ''}
-                            `}
-                            onClick={() => onCellClick(rIndex, cIndex)}
-                        >
-                            {cell.number && <span className="cell-number">{cell.number}</span>}
-                            {mode === 'play' && cell.answer && <span className="cell-content">{cell.answer}</span>}
+        <div className="grid-outer">
+            <div className="grid-scroll" role="grid" aria-label="Crossword Grid">
+                <div className="grid-container">
+                    {grid.map((row, rIndex) => (
+                        <div key={rIndex} className="grid-row" role="row">
+                            {row.map((cell, cIndex) => (
+                                <div 
+                                    key={`${rIndex}-${cIndex}`} 
+                                    className={`
+                                        grid-cell 
+                                        ${cell.type === 'B' ? 'black' : 'white'}
+                                        ${cell.isSelected ? 'selected' : ''}
+                                        ${cell.isActiveWord ? 'active-word' : ''}
+                                    `}
+                                    onClick={() => onCellClick(rIndex, cIndex)}
+                                    role="gridcell"
+                                    tabIndex={cell.type === 'B' ? -1 : 0}
+                                    aria-label={cell.type === 'B' ? 'Black square' : `Cell ${rIndex + 1}, ${cIndex + 1}${cell.number ? `, Clue ${cell.number}` : ''}`}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            onCellClick(rIndex, cIndex);
+                                        }
+                                    }}
+                                >
+                                    {cell.number && <span className="cell-number">{cell.number}</span>}
+                                    {mode === 'play' && cell.answer && <span className="cell-content">{cell.answer}</span>}
+                                </div>
+                            ))}
                         </div>
                     ))}
                 </div>
-            ))}
+            </div>
         </div>
     )
 }

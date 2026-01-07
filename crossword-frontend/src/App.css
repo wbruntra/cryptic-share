@@ -1,12 +1,233 @@
+:root {
+  /* Default Dark Theme */
+  --bg-color: #121212;
+  --surface-color: #1e1e1e;
+  --text-color: #e0e0e0;
+  --text-secondary: #aaaaaa;
+  --primary-color: #4da6ff;
+  --primary-hover: #70baff;
+  --border-color: #333;
+  --input-bg: #2a2a2a;
+  --card-bg: #1e1e1e;
+  --skeleton-color: #333;
+  --success-color: #4caf50;
+  --error-color: #f44336;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: var(--text-color);
+  background-color: var(--bg-color);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+[data-theme="light"] {
+  --bg-color: #f0f2f5;
+  --surface-color: #ffffff;
+  --text-color: #213547;
+  --text-secondary: #666666;
+  --primary-color: #0066cc;
+  --primary-hover: #0052a3;
+  --border-color: #ccc;
+  --input-bg: #ffffff;
+  --card-bg: #ffffff;
+  --skeleton-color: #e0e0e0;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+}
+
+a {
+  font-weight: 500;
+  color: var(--primary-color);
+  text-decoration: inherit;
+}
+a:hover {
+  color: var(--primary-hover);
+}
+
+body {
+  margin: 0;
+  display: block; /* changed from flex to block to avoid centering issues */
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+  color: var(--text-color);
+}
+
+h2, h3 {
+  color: var(--text-color);
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: var(--surface-color);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: border-color 0.25s, background-color 0.25s;
+  border: 1px solid var(--border-color);
+}
+button:hover {
+  border-color: var(--primary-color);
+  background-color: var(--input-bg);
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+
+/* Button Hierarchy */
+.button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.25s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button-primary {
+  background-color: var(--primary-color);
+  color: white;
+  border: 1px solid var(--primary-color);
+}
+
+.button-primary:hover {
+  background-color: var(--primary-hover);
+  border-color: var(--primary-hover);
+  color: white;
+}
+
+.button-secondary {
+  background-color: transparent;
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+
+.button-secondary:hover {
+  background-color: var(--input-bg);
+  border-color: var(--text-secondary);
+}
+
+.button-destructive {
+  background-color: transparent;
+  color: var(--error-color);
+  border: 1px solid var(--error-color);
+}
+
+.button-destructive:hover {
+  background-color: rgba(244, 67, 54, 0.1);
+}
+
+/* Grid Cell Responsive */
+.grid-cell {
+  width: min(40px, 6.5vw);
+  height: min(40px, 6.5vw);
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  font-family: monospace;
+  font-size: min(1.2rem, 4vw);
+  color: var(--text-color);
+}
+
+.cell-number {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  font-size: min(13px, 2.5vw);
+  font-weight: bold;
+  color: var(--text-secondary);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.cell-content {
+  font-size: min(24px, 4vw);
+  font-weight: bold;
+  text-transform: uppercase;
+  z-index: 1;
+  color: var(--text-color);
+}
+
 #root {
   max-width: 1280px;
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
+  width: 100%;
 }
 
 .card {
   padding: 2em;
+  background-color: var(--surface-color);
+  border-radius: 12px;
+  box-shadow: 0 4px 6px var(--shadow-color);
+  border: 1px solid var(--border-color);
+}
+
+.puzzle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.puzzle-card {
+  background-color: var(--surface-color);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px var(--shadow-color);
+  transition: transform 0.2s, box-shadow 0.2s;
+  text-align: left;
+  border: 1px solid var(--border-color);
+}
+
+.puzzle-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 12px var(--shadow-color);
+  border-color: var(--primary-color);
+}
+
+.puzzle-card h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.25rem;
+}
+
+.puzzle-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
 .header-controls {
@@ -22,6 +243,9 @@
   font-size: 16px;
   border-radius: 8px;
   min-width: 200px;
+  background-color: var(--input-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
 }
 
 .main-container {
@@ -29,6 +253,7 @@
   gap: 2rem;
   align-items: flex-start;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 .clues-container {
@@ -36,10 +261,93 @@
   height: 600px;
   overflow-y: auto;
   text-align: left;
-  border: 1px solid #444;
+  border: 1px solid var(--border-color);
   padding: 1rem;
-  background: #2a2a2a;
+  background: var(--surface-color);
   border-radius: 8px;
+  box-shadow: 0 4px 6px var(--shadow-color);
+  flex-shrink: 0;
+}
+
+/* Session Controls */
+.session-controls {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 2rem;
+  margin-bottom: 1rem;
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+  #root {
+    padding: 0.5rem;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
+  /* Specific mobile adjustments for puzzle play */
+  .puzzle-container {
+    padding: 0.5rem !important; /* Override card padding */
+    width: 100%;
+    overflow: visible; /* Allow grid to scroll */
+  }
+
+  .session-controls {
+    justify-content: center;
+    padding: 0 1rem;
+  }
+  
+  .save-button {
+    width: 100%;
+  }
+
+  .main-container {
+    flex-direction: column-reverse;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .clues-container {
+    width: 100%;
+    max-width: 100%;
+    height: 30vh;
+    min-height: 200px;
+  }
+
+  .grid-scroll {
+    max-width: 100%;
+    width: 100%;
+    min-width: 0;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 2px;
+    margin-bottom: 10px;
+    border: none;
+  }
+
+  .grid-row {
+    width: max-content; /* Ensure rows don't wrap and determine container width */
+  }
+
+  .grid-cell {
+    /* Ensure minimum touch target size while allowing fit */
+    width: 8vw;
+    height: 8vw;
+    max-width: 40px;
+    max-height: 40px;
+    font-size: min(1.2rem, 5vw);
+    min-width: 30px; /* Absolute minimum size */
+    min-height: 30px;
+  }
+
+  .cell-number {
+    font-size: 8px;
+  }
 }
 
 .clues-section {
@@ -47,7 +355,7 @@
 }
 
 .clues-section h3 {
-  border-bottom: 1px solid #666;
+  border-bottom: 1px solid var(--border-color);
   padding-bottom: 0.5rem;
   margin-top: 0;
 }
@@ -58,15 +366,16 @@
   border-radius: 4px;
   margin-bottom: 0.25rem;
   font-size: 0.9rem;
+  color: var(--text-color);
 }
 
 .clue-item:hover {
-  background-color: #3a3a3a;
+  background-color: var(--input-bg); /* Use input bg for hover/active */
 }
 
 .clue-item.selected {
-  background-color: #a7d8ff;
-  color: #000;
+  background-color: var(--primary-color);
+  color: #fff; /* Always white on primary */
   font-weight: bold;
 }
 
@@ -76,14 +385,31 @@
 }
 
 .grid-container {
-  display: inline-block;
-  border: 2px solid #333;
-  background-color: #333;
-  gap: 1px;
   display: flex;
   flex-direction: column;
+  border: 2px solid var(--border-color);
+  background-color: var(--border-color);
+  gap: 1px;
   margin-bottom: 20px;
-  align-items: center;
+  /* Never center inside the scroll container; it breaks horizontal scroll reach on mobile */
+  align-items: flex-start;
+  width: max-content;
+}
+
+.grid-outer {
+  display: flex;
+  justify-content: center;
+  max-width: 100%;
+  width: 100%;
+  min-width: 0;
+}
+
+.grid-scroll {
+  max-width: 100%;
+  width: 100%;
+  min-width: 0;
+  overflow: auto;
+  flex: 1 1 auto;
 }
 
 .grid-row {
@@ -93,8 +419,8 @@
 .grid-cell {
   width: 40px;
   height: 40px;
-  background-color: white;
-  border: 1px solid #333;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -103,27 +429,56 @@
   user-select: none;
   font-family: monospace;
   font-size: 1.2rem;
+  color: var(--text-color);
 }
 
 .grid-cell.black {
-  background-color: black;
+  background-color: black; /* Always black */
 }
 
 .grid-cell.white {
-  background-color: white;
+  background-color: var(--surface-color);
 }
 
 .grid-cell.selected {
-  background-color: #ffda00;
+  background-color: #ffda00; /* Standard crossword yellow, maybe adjust for dark mode readability */
+  color: black;
 }
 
 .grid-cell.active-word {
-  background-color: #a7d8ff;
+  background-color: var(--primary-color); /* Was light blue, now primary */
+  color: white;
+}
+
+/* Specific overrides for contrast in cells */
+[data-theme="dark"] .grid-cell.active-word {
+    background-color: rgba(77, 166, 255, 0.3); /* Transparent blue for better visibility? Or stick to solid */
+    color: var(--text-color);
+}
+
+/* Let's keep it simple for now: */
+.grid-cell.active-word {
+    background-color: #bbdefb; /* Light blue */
+    color: black;
+}
+[data-theme="dark"] .grid-cell.active-word {
+    background-color: #1e3a5f; /* Dark blue */
+    color: white;
+}
+
+.grid-cell.selected {
+    background-color: #ffeb3b;
+    color: black;
+}
+[data-theme="dark"] .grid-cell.selected {
+    background-color: #fdd835; /* Slightly darker yellow */
+    color: black;
 }
 
 .grid-cell.selected.active-word {
-  background-color: #ffda00;
+  background-color: #fbc02d; /* Darker yellow */
 }
+
 
 .cell-number {
   position: absolute;
@@ -131,7 +486,7 @@
   left: 2px;
   font-size: 13px;
   font-weight: bold;
-  color: #444;
+  color: var(--text-secondary);
   line-height: 1;
   pointer-events: none;
 }
@@ -141,8 +496,10 @@
   font-weight: bold;
   text-transform: uppercase;
   z-index: 1;
-  color: black;
+  color: var(--text-color);
 }
+
+/* Cell content colors are handled by inheritance via variables. */
 
 .mode-toggle, .create-button {
   padding: 10px 20px;
@@ -159,6 +516,9 @@ textarea {
   height: 300px;
   font-family: monospace;
   margin-top: 20px;
+  background-color: var(--input-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
 }
 
 /* Create Puzzle Form */
@@ -166,9 +526,10 @@ textarea {
   max-width: 1200px;
   margin: 0 auto;
   text-align: left;
-  background: #2a2a2a;
+  background: var(--surface-color);
   padding: 2rem;
   border-radius: 8px;
+  box-shadow: 0 4px 6px var(--shadow-color);
 }
 
 .create-puzzle-form h2 {
@@ -184,22 +545,23 @@ textarea {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: bold;
+  color: var(--text-color);
 }
 
 .image-upload-label {
   display: inline-block;
   padding: 8px 16px;
-  background: #4a4a4a;
-  color: white;
+  background: var(--surface-color);
+  color: var(--text-color);
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.9em;
-  border: 1px solid #666;
+  border: 1px solid var(--border-color);
   transition: background 0.2s;
 }
 
 .image-upload-label:hover {
-  background: #5a5a5a;
+  background: var(--input-bg);
 }
 
 .form-group input[type="text"],
@@ -208,9 +570,9 @@ textarea {
   width: 100%;
   padding: 0.5rem;
   border-radius: 4px;
-  border: 1px solid #666;
-  background: #1a1a1a;
-  color: white;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-color);
   font-family: monospace;
 }
 
@@ -226,10 +588,10 @@ textarea {
 }
 
 .error-message {
-  color: #ff6b6b;
+  color: var(--error-color);
   margin-bottom: 1rem;
   padding: 0.5rem;
-  background: rgba(255, 107, 107, 0.1);
+  background: rgba(244, 67, 54, 0.1);
   border-radius: 4px;
 }
 
@@ -252,9 +614,9 @@ textarea {
 }
 
 .preview-box {
-  border: 1px solid #444;
+  border: 1px solid var(--border-color);
   padding: 10px;
-  background: #1a1a1a;
+  background: var(--input-bg);
   min-width: 300px;
   min-height: 300px;
   display: flex;
@@ -262,7 +624,62 @@ textarea {
   justify-content: center;
 }
 
-.no-preview {
-  color: #666;
-  font-style: italic;
+
+/* Navbar Styles */
+.navbar {
+  background-color: var(--surface-color);
+  border-bottom: 1px solid var(--border-color);
+  padding: 1rem 0;
+  margin-bottom: 2rem;
+}
+
+.navbar-content {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.navbar-brand {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--text-color);
+  text-decoration: none;
+}
+
+.navbar-links {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.nav-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.nav-link:hover {
+  color: var(--primary-color);
+}
+
+
+/* Skeleton Loader */
+@keyframes skeleton-pulse {
+  0% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.5; }
+}
+
+.skeleton-loader {
+  background-color: var(--skeleton-color);
+  animation: skeleton-pulse 1.5s infinite ease-in-out;
+  border-radius: 4px;
+}
+
+.skeleton-card {
+  border: 1px solid var(--border-color);
 }

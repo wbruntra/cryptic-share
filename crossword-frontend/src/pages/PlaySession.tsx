@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import axios from 'axios'
 import type { CellType, Direction, Clue, PuzzleData } from '../types'
 import { ClueList } from '../ClueList'
 import { CrosswordGrid } from '../CrosswordGrid'
+import { saveLocalSession } from '../utils/sessionManager'
 
 interface SessionData extends PuzzleData {
     sessionState: string[][] // Array of rows
@@ -35,10 +36,18 @@ export function PlaySession() {
             setLoading(true)
             try {
                 const response = await axios.get<SessionData>(`/api/sessions/${sessionId}`)
-                const { title, grid: gridString, clues, sessionState } = response.data
+                const { title, grid: gridString, clues, sessionState, id: puzzleId } = response.data
                 
                 setTitle(title)
                 setClues(clues)
+
+                // Update local session timestamp
+                saveLocalSession({
+                    sessionId: sessionId,
+                    puzzleId: puzzleId,
+                    puzzleTitle: title,
+                    lastPlayed: Date.now()
+                })
 
                 // Parse Grid
                 const parsedGrid = gridString.split('\n').map(row => 
@@ -83,6 +92,22 @@ export function PlaySession() {
             await axios.put(`/api/sessions/${sessionId}`, {
                 state: answers
             })
+            
+            // Also update timestamp locally on save
+             // We need puzzleId, which we can get if we store it in state, 
+             // or we can just update the existing entry without puzzleId if we modify saveLocalSession,
+             // but simpler to just store puzzleId in state.
+             // Let's assume we can get it from the loaded data.
+             // Actually, I didn't save puzzleId in state.
+             // I'll skip adding it to state for now and rely on the load update, 
+             // but ideally "Resume" from home page updates it.
+             // Actually, saveLocalSession merges updates, so if we only update timestamp it might be enough if we had a way to just update timestamp by ID.
+             // But my saveLocalSession requires the full object or merges... 
+             // Let's look at saveLocalSession implementation.
+             // It merges: sessions[existingIndex] = { ...sessions[existingIndex], ...session, lastPlayed: Date.now() };
+             // So I can just pass sessionId and partial data if I wanted, but Typescript might complain.
+             // Let's just update the timestamp on load for now, that's sufficient for "Continue Playing" ordering.
+             
             // Optional: visual feedback
         } catch (error) {
             console.error("Failed to save session:", error)
@@ -258,16 +283,18 @@ export function PlaySession() {
     return (
         <div className="play-session">
             <header className="session-header">
-                <Link to="/" className="back-link">← Home</Link>
                 <h1>{title}</h1>
+            </header>
+
+            <div className="session-controls">
                 <button 
                     onClick={handleSave} 
                     disabled={saving}
-                    className="save-button"
+                    className="button button-primary save-button"
                 >
                     {saving ? 'Saving...' : 'Save Progress'}
                 </button>
-            </header>
+            </div>
 
             <div className="main-container">
                 {clues && (
@@ -285,7 +312,9 @@ export function PlaySession() {
                         mode="play"
                         onCellClick={handleCellClick}
                     />
-                    <p className="instructions">Click to select. Type to fill. Arrows to move. Tab to switch direction.</p>
+                    <div className="instructions">
+                        <small><strong>Shortcuts:</strong> Arrow keys to move, Tab to switch direction, Backspace to delete.</small>
+                    </div>
                 </div>
             </div>
         </div>

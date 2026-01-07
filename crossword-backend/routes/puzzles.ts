@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import knex from 'knex';
+import { requireAdmin } from '../middleware/auth';
 
 const router = Router();
 
@@ -41,7 +42,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create new puzzle
-router.post('/', async (req, res) => {
+router.post('/', requireAdmin, async (req, res) => {
   const { title, grid, clues } = req.body;
   
   if (!title || !grid || !clues) {
@@ -61,10 +62,10 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update puzzle grid and/or clues
-router.put('/:id', async (req, res) => {
+// Update puzzle grid, clues, or title
+router.put('/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { grid, clues } = req.body;
+  const { grid, clues, title } = req.body;
 
   try {
     const exists = await db('puzzles').where({ id }).first();
@@ -76,6 +77,7 @@ router.put('/:id', async (req, res) => {
     const updates: any = {};
     if (grid !== undefined) updates.grid = grid;
     if (clues !== undefined) updates.clues = JSON.stringify(clues);
+    if (title !== undefined) updates.title = title;
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
@@ -86,6 +88,24 @@ router.put('/:id', async (req, res) => {
   } catch (error) {
     console.error('Error updating puzzle:', error);
     res.status(500).json({ error: 'Failed to update puzzle' });
+  }
+});
+
+// Delete puzzle
+router.delete('/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const deleted = await db('puzzles').where({ id }).del();
+    
+    if (!deleted) {
+      return res.status(404).json({ error: 'Puzzle not found' });
+    }
+
+    res.json({ success: true, id });
+  } catch (error) {
+    console.error('Error deleting puzzle:', error);
+    res.status(500).json({ error: 'Failed to delete puzzle' });
   }
 });
 
