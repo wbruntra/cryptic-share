@@ -39,13 +39,17 @@ router.post('/sync', authenticateUser, async (req: AuthRequest, res) => {
 
 // Create a new session
 router.post('/', optionalAuthenticateUser, async (req: AuthRequest, res) => {
-  const { puzzleId } = req.body
+  const { puzzleId, anonymousId } = req.body
   if (!puzzleId) {
     return res.status(400).json({ error: 'Missing puzzleId' })
   }
 
   try {
-    const sessionId = await SessionService.createOrResetSession(req.user?.id || null, puzzleId)
+    const sessionId = await SessionService.createOrResetSession(
+      req.user?.id || null,
+      puzzleId,
+      anonymousId,
+    )
     res.status(201).json({ sessionId })
   } catch (error) {
     console.error('Error creating session:', error)

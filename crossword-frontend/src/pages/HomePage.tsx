@@ -4,7 +4,12 @@ import axios from 'axios'
 import type { PuzzleSummary, RemoteSession } from '../types'
 import { useAuth } from '../context/AuthContext'
 
-import { getLocalSessions, saveLocalSession, type LocalSession } from '../utils/sessionManager'
+import {
+  getLocalSessions,
+  saveLocalSession,
+  getAnonymousId,
+  type LocalSession,
+} from '../utils/sessionManager'
 
 export function HomePage() {
   const [puzzles, setPuzzles] = useState<PuzzleSummary[]>([])
@@ -61,7 +66,8 @@ export function HomePage() {
     }
 
     try {
-      const res = await axios.post('/api/sessions', { puzzleId })
+      const anonymousId = getAnonymousId()
+      const res = await axios.post('/api/sessions', { puzzleId, anonymousId })
       const { sessionId } = res.data
       // eslint-disable-next-line react-hooks/purity
       const now = Date.now()
@@ -127,7 +133,7 @@ export function HomePage() {
                           : 'bg-primary text-white hover:bg-primary-hover'
                       }`}
                     >
-                      {session ? 'Start New' : 'Play'}
+                      {session ? 'Restart' : 'Play'}
                     </button>
                   </div>
                 </div>

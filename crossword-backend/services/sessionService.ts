@@ -38,7 +38,11 @@ export class SessionService {
     return count
   }
 
-  static async createOrResetSession(userId: number | null, puzzleId: number): Promise<string> {
+  static async createOrResetSession(
+    userId: number | null,
+    puzzleId: number,
+    anonymousId?: string,
+  ): Promise<string> {
     const initialState = '[]'
 
     // If user is logged in, check for existing session
@@ -57,6 +61,24 @@ export class SessionService {
         })
         return existingSession.session_id
       }
+    } else if (anonymousId) {
+      // If user is anonymous, check for existing session with this anonymousId
+      // IMPORTANT: Only check for sessions that are NOT already claimed by a user (user_id IS NULL).
+      const existingSession = await db('puzzle_sessions')
+        .where({
+          puzzle_id: puzzleId,
+          anonymous_id: anonymousId,
+        })
+        .whereNull('user_id')
+        .first()
+
+      if (existingSession) {
+        // Reset the existing session
+        await db('puzzle_sessions').where({ session_id: existingSession.session_id }).update({
+          state: initialState,
+        })
+        return existingSession.session_id
+      }
     }
 
     // Create new session
@@ -66,6 +88,7 @@ export class SessionService {
       puzzle_id: puzzleId,
       state: initialState,
       user_id: userId,
+      anonymous_id: anonymousId || null,
     })
 
     return sessionId
