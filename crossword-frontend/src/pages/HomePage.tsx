@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import type { PuzzleSummary } from '../types'
-import { SkeletonPuzzleCard } from '../components/SkeletonLoader'
+
 import { getLocalSessions, saveLocalSession, type LocalSession } from '../utils/sessionManager'
 
 export function HomePage() {
@@ -43,72 +43,55 @@ export function HomePage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 pb-12">
-      {recentSessions.length > 0 && (
-        <section className="mb-12">
-          <h2 className="text-2xl font-bold mb-6 text-text border-l-4 border-primary pl-4">
-            Continue Playing
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {recentSessions.map((session) => (
-              <div
-                key={session.sessionId}
-                className="group bg-surface rounded-xl p-6 shadow-lg border border-border hover:border-primary transition-all duration-300 transform hover:-translate-y-1"
-              >
-                <h3 className="text-xl font-bold mb-2 text-text group-hover:text-primary transition-colors">
-                  {session.puzzleTitle}
-                </h3>
-                <p className="text-sm text-text-secondary mb-6 flex items-center gap-2">
-                  <span className="opacity-70">Last played:</span>
-                  <span className="font-medium text-text">
-                    {new Date(session.lastPlayed).toLocaleDateString()}
-                  </span>
-                </p>
-                <div className="flex gap-4">
-                  <Link
-                    to={`/play/${session.sessionId}`}
-                    className="flex-1 py-2 px-4 rounded-lg bg-primary text-white font-bold text-center no-underline hover:bg-primary-hover transition-all shadow-md active:scale-95"
-                  >
-                    Resume
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
       <section>
         <h2 className="text-2xl font-bold mb-6 text-text border-l-4 border-primary pl-4">
-          Available Puzzles
+          Puzzles
         </h2>
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {[1, 2, 3, 4].map((i) => (
-              <SkeletonPuzzleCard key={i} />
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-20 bg-surface rounded-xl animate-pulse" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {puzzles.map((puzzle) => (
-              <div
-                key={puzzle.id}
-                className="group bg-surface rounded-xl p-6 shadow-lg border border-border hover:border-primary transition-all duration-300 transform hover:-translate-y-1"
-              >
-                <h3 className="text-xl font-bold mb-4 text-text group-hover:text-primary transition-colors">
-                  {puzzle.title}
-                </h3>
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => handleStartSession(puzzle.id, puzzle.title)}
-                    className="flex-1 py-2 px-4 rounded-lg bg-primary text-white font-bold hover:bg-primary-hover transition-all shadow-md active:scale-95 border-none cursor-pointer"
-                  >
-                    Play
-                  </button>
+          <div className="space-y-4">
+            {puzzles.map((puzzle) => {
+              const session = recentSessions.find((s) => s.puzzleId === puzzle.id)
+
+              return (
+                <div
+                  key={puzzle.id}
+                  className="group bg-surface rounded-xl p-4 shadow-sm border border-border hover:border-primary hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                >
+                  <h3 className="text-lg font-bold text-text group-hover:text-primary transition-colors">
+                    {puzzle.title}
+                  </h3>
+
+                  <div className="flex gap-3 w-full sm:w-auto">
+                    {session && (
+                      <Link
+                        to={`/play/${session.sessionId}`}
+                        className="flex-1 sm:flex-none py-2 px-6 rounded-lg bg-primary/10 text-primary font-bold text-center no-underline hover:bg-primary/20 transition-colors border border-primary/20"
+                      >
+                        Resume
+                      </Link>
+                    )}
+                    <button
+                      onClick={() => handleStartSession(puzzle.id, puzzle.title)}
+                      className={`flex-1 sm:flex-none py-2 px-6 rounded-lg font-bold transition-all shadow-sm active:scale-95 border-none cursor-pointer ${
+                        session
+                          ? 'bg-surface-hover text-text-secondary hover:bg-border hover:text-text'
+                          : 'bg-primary text-white hover:bg-primary-hover'
+                      }`}
+                    >
+                      {session ? 'Start New' : 'Play'}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
             {puzzles.length === 0 && (
-              <div className="col-span-full py-12 text-center bg-surface rounded-xl border-2 border-dashed border-border">
+              <div className="py-12 text-center bg-surface rounded-xl border-2 border-dashed border-border">
                 <p className="text-text-secondary italic">No puzzles found. Create one!</p>
               </div>
             )}
