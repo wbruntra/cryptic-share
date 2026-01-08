@@ -8,12 +8,15 @@
     "dev": "bun --watch index.ts",
     "migrate:make": "knex migrate:make -x ts",
     "migrate:latest": "knex migrate:latest",
-    "migrate:rollback": "knex migrate:rollback"
+    "migrate:rollback": "knex migrate:rollback",
+    "create-user": "bun run create-user.ts"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/bun": "latest",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "knex": "^3.1.0",
     "ts-node": "^10.9.2"
   },
@@ -22,9 +25,12 @@
   },
   "dependencies": {
     "@types/cookie-session": "^2.0.49",
+    "axios": "^1.13.2",
+    "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.5.0",
     "cookie-session": "^2.1.1",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "openai": "^6.15.0",
     "socket.io": "^4.8.3",
     "sqlite3": "^5.1.7"

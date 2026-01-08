@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 import type { PuzzleSummary } from '../types'
@@ -11,11 +11,16 @@ export function AdminDashboard() {
   const [puzzles, setPuzzles] = useState<PuzzleSummary[]>([])
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    checkAuth()
+  const fetchPuzzles = useCallback(() => {
+    setLoading(true)
+    axios
+      .get('/api/puzzles')
+      .then((res) => setPuzzles(res.data))
+      .catch(console.error)
+      .finally(() => setLoading(false))
   }, [])
 
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     try {
       await axios.get('/api/check-auth')
       setIsAuthenticated(true)
@@ -23,16 +28,12 @@ export function AdminDashboard() {
     } catch {
       setIsAuthenticated(false)
     }
-  }
+  }, [fetchPuzzles])
 
-  const fetchPuzzles = () => {
-    setLoading(true)
-    axios
-      .get('/api/puzzles')
-      .then((res) => setPuzzles(res.data))
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    checkAuth()
+  }, [checkAuth])
 
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this puzzle? This action cannot be undone.'))

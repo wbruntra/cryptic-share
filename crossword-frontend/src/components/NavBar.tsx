@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { useAuth } from '../context/AuthContext'
 
 export function NavBar() {
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('theme') || 'dark'
   })
+  const { user, logout } = useAuth()
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -37,6 +39,24 @@ export function NavBar() {
           >
             Admin
           </Link>
+          {user ? (
+            <div className="flex items-center gap-4">
+              <span className="text-text-secondary">{user.username}</span>
+              <button
+                onClick={logout}
+                className="text-text-secondary hover:text-red-500 transition-colors"
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <Link
+              to="/auth"
+              className="text-text-secondary no-underline font-medium hover:text-primary transition-colors"
+            >
+              Login
+            </Link>
+          )}
           <button
             onClick={toggleTheme}
             className="p-2 rounded-lg bg-input-bg border border-border hover:border-primary flex items-center justify-center transition-all"

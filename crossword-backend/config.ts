@@ -9,5 +9,6 @@ try {
 }
 
 export const ADMIN_PASSWORD = secrets.authorizationCode
-export const COOKIE_SECRET = secrets.cookieSecret
+export const COOKIE_SECRET = secrets.cookieSecret || 'dev-cookie-secret'
+export const JWT_SECRET = secrets.jwtSecret || 'dev-jwt-secret'
 export const SESSION_TOKEN = 'admin-session-token' // Simple token to store in cookie

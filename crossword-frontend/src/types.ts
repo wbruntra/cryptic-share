@@ -29,3 +29,15 @@ export interface RenderedCell {
   isActiveWord: boolean
   answer: string
 }
+
+export interface User {
+  id: number;
+  username: string;
+}
+
+export interface RemoteSession {
+  session_id: string;
+  puzzle_id: number;
+  title: string;
+  state: string;
+}

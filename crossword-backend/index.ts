@@ -1,12 +1,13 @@
 import express from 'express'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
-import knex from 'knex'
 import cookieSession from 'cookie-session'
 import puzzlesRouter from './routes/puzzles'
 import sessionsRouter from './routes/sessions'
 import cluesRouter from './routes/clues'
+import authRouter from './routes/auth'
 import { ADMIN_PASSWORD, COOKIE_SECRET } from './config'
+import db from './db-knex'
 
 const app = express()
 const httpServer = createServer(app)
@@ -14,14 +15,6 @@ const io = new Server(httpServer, {
   cors: {
     origin: '*',
   },
-})
-
-const db = knex({
-  client: 'sqlite3',
-  connection: {
-    filename: './crossword.db',
-  },
-  useNullAsDefault: true,
 })
 
 const port = process.env.PORT || 8921
@@ -85,6 +78,7 @@ app.get('/api/check-auth', (req, res) => {
 })
 
 // Mount routes
+app.use('/api/auth', authRouter)
 app.use('/api/puzzles', puzzlesRouter)
 app.use('/api/sessions', sessionsRouter)
 app.use('/api/clues', cluesRouter)

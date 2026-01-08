@@ -4,6 +4,7 @@ import { PlaySession } from './pages/PlaySession'
 import { PuzzleCreator } from './pages/PuzzleCreator'
 import { EditPuzzle } from './pages/EditPuzzle'
 import { AdminDashboard } from './pages/AdminDashboard'
+import AuthPage from './pages/AuthPage'
 import { NavBar } from './components/NavBar'
 
 function App() {
@@ -12,6 +13,7 @@ function App() {
       <NavBar />
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/auth" element={<AuthPage />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/create" element={<PuzzleCreator />} />
         <Route path="/edit/:puzzleId" element={<EditPuzzle />} />

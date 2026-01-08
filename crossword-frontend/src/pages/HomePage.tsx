@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import type { PuzzleSummary } from '../types'
+import type { PuzzleSummary, RemoteSession } from '../types'
+import { useAuth } from '../context/AuthContext'
 
 import { getLocalSessions, saveLocalSession, type LocalSession } from '../utils/sessionManager'
 
@@ -10,6 +11,7 @@ export function HomePage() {
   const [recentSessions, setRecentSessions] = useState<LocalSession[]>([])
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const { user, refreshSessions } = useAuth()
 
   useEffect(() => {
     setLoading(true)
@@ -18,21 +20,62 @@ export function HomePage() {
       .then((res) => setPuzzles(res.data))
       .catch(console.error)
       .finally(() => setLoading(false))
-
-    setRecentSessions(getLocalSessions())
   }, [])
 
-  const handleStartSession = async (puzzleId: number, puzzleTitle: string) => {
+  useEffect(() => {
+    const loadSessions = async () => {
+      if (user) {
+        try {
+          const remoteSessions = await refreshSessions()
+          // Map to LocalSession format
+          const mappedSessions: LocalSession[] = remoteSessions.map((s: RemoteSession) => ({
+            sessionId: s.session_id,
+            puzzleId: s.puzzle_id,
+            puzzleTitle: s.title,
+            lastPlayed: 0, // Backend doesn't store this yet
+          }))
+          setRecentSessions(mappedSessions)
+        } catch (e) {
+          console.error('Failed to load user sessions', e)
+        }
+      } else {
+        setRecentSessions(getLocalSessions())
+      }
+    }
+    loadSessions()
+  }, [user, refreshSessions])
+
+  const handleStartSession = async (
+    puzzleId: number,
+    puzzleTitle: string,
+    hasExistingSession: boolean,
+  ) => {
+    if (hasExistingSession) {
+      if (
+        !window.confirm(
+          'Are you sure you want to restart this puzzle? Your previous progress will be lost.',
+        )
+      ) {
+        return
+      }
+    }
+
     try {
       const res = await axios.post('/api/sessions', { puzzleId })
       const { sessionId } = res.data
+      // eslint-disable-next-line react-hooks/purity
+      const now = Date.now()
 
       saveLocalSession({
         sessionId,
         puzzleId,
         puzzleTitle,
-        lastPlayed: Date.now(),
+        lastPlayed: now,
       })
+
+      // If logged in, the session is already created with user_id by the backend (thanks to interceptor)
+      // We just navigate.
+      // Note: We might want to refresh the list if we come back, but for now just navigating.
 
       navigate(`/play/${sessionId}`)
     } catch (error) {
@@ -77,7 +120,7 @@ export function HomePage() {
                       </Link>
                     )}
                     <button
-                      onClick={() => handleStartSession(puzzle.id, puzzle.title)}
+                      onClick={() => handleStartSession(puzzle.id, puzzle.title, !!session)}
                       className={`flex-1 sm:flex-none py-2 px-6 rounded-lg font-bold transition-all shadow-sm active:scale-95 border-none cursor-pointer ${
                         session
                           ? 'bg-surface-hover text-text-secondary hover:bg-border hover:text-text'

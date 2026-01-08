@@ -9,7 +9,7 @@ const isTouchDevice = () => {
   return (
     'ontouchstart' in window ||
     navigator.maxTouchPoints > 0 ||
-    // @ts-ignore - legacy IE support
+    // @ts-expect-error - legacy msMaxTouchPoints
     navigator.msMaxTouchPoints > 0
   )
 }

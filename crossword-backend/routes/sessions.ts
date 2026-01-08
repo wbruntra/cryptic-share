@@ -1,101 +1,97 @@
-import { Router } from 'express';
-import knex from 'knex';
+import { Router } from 'express'
+import { authenticateUser, optionalAuthenticateUser } from '../middleware/auth'
+import type { AuthRequest } from '../middleware/auth'
+import { SessionService } from '../services/sessionService'
 
-const router = Router();
+const router = Router()
 
-const db = knex({
-  client: 'sqlite3',
-  connection: {
-    filename: './crossword.db'
-  },
-  useNullAsDefault: true
-});
-
-// Helper to generate session ID
-function generateSessionId(length = 12) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+// Get all sessions for the authenticated user
+router.get('/', authenticateUser, async (req: AuthRequest, res) => {
+  try {
+    const sessions = await SessionService.getUserSessions(req.user!.id)
+    res.json(sessions)
+  } catch (error) {
+    console.error('Error fetching user sessions:', error)
+    res.status(500).json({ error: 'Failed to fetch sessions' })
   }
-  return result;
-}
+})
 
-// Create a new session
-router.post('/', async (req, res) => {
-  const { puzzleId } = req.body;
-  if (!puzzleId) {
-    return res.status(400).json({ error: 'Missing puzzleId' });
+// Sync/Claim sessions (migrate local sessions to user)
+router.post('/sync', authenticateUser, async (req: AuthRequest, res) => {
+  const { sessionIds } = req.body
+
+  if (!Array.isArray(sessionIds)) {
+    return res.status(400).json({ error: 'sessionIds must be an array' })
   }
 
-  const sessionId = generateSessionId();
-  const initialState = '[]'; 
+  if (sessionIds.length === 0) {
+    return res.json({ success: true, count: 0 })
+  }
 
   try {
-    await db('puzzle_sessions').insert({
-      session_id: sessionId,
-      puzzle_id: puzzleId,
-      state: initialState
-    });
-    res.status(201).json({ sessionId });
+    const count = await SessionService.syncSessions(req.user!.id, sessionIds)
+    res.json({ success: true, count })
   } catch (error) {
-    console.error('Error creating session:', error);
-    res.status(500).json({ error: 'Failed to create session' });
+    console.error('Error syncing sessions:', error)
+    res.status(500).json({ error: 'Failed to sync sessions' })
   }
-});
+})
+
+// Create a new session
+router.post('/', optionalAuthenticateUser, async (req: AuthRequest, res) => {
+  const { puzzleId } = req.body
+  if (!puzzleId) {
+    return res.status(400).json({ error: 'Missing puzzleId' })
+  }
+
+  try {
+    const sessionId = await SessionService.createOrResetSession(req.user?.id || null, puzzleId)
+    res.status(201).json({ sessionId })
+  } catch (error) {
+    console.error('Error creating session:', error)
+    res.status(500).json({ error: 'Failed to create session' })
+  }
+})
 
 // Get session details (puzzle + state)
 router.get('/:sessionId', async (req, res) => {
-  const { sessionId } = req.params;
+  const { sessionId } = req.params
 
   try {
-    const session: any = await db('puzzle_sessions').where({ session_id: sessionId }).first();
+    const result = await SessionService.getSessionWithPuzzle(sessionId)
 
-    if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
+    if (!result) {
+      return res.status(404).json({ error: 'Session or puzzle not found' })
     }
 
-    const puzzle: any = await db('puzzles').where({ id: session.puzzle_id }).first();
-
-    if (!puzzle) {
-      return res.status(404).json({ error: 'Puzzle not found' });
-    }
-
-    puzzle.clues = JSON.parse(puzzle.clues);
-    
-    res.json({
-      ...puzzle,
-      sessionState: JSON.parse(session.state)
-    });
+    res.json(result)
   } catch (error) {
-    console.error('Error fetching session:', error);
-    res.status(500).json({ error: 'Failed to fetch session' });
+    console.error('Error fetching session:', error)
+    res.status(500).json({ error: 'Failed to fetch session' })
   }
-});
+})
 
 // Update session state
 router.put('/:sessionId', async (req, res) => {
-  const { sessionId } = req.params;
-  const { state } = req.body;
+  const { sessionId } = req.params
+  const { state } = req.body
 
   if (state === undefined) {
-    return res.status(400).json({ error: 'Missing state' });
+    return res.status(400).json({ error: 'Missing state' })
   }
 
   try {
-    const updated = await db('puzzle_sessions')
-      .where({ session_id: sessionId })
-      .update({ state: JSON.stringify(state) });
+    const updated = await SessionService.updateSessionState(sessionId, state)
 
-    if (updated === 0) {
-      return res.status(404).json({ error: 'Session not found' });
+    if (!updated) {
+      return res.status(404).json({ error: 'Session not found' })
     }
 
-    res.json({ success: true });
+    res.json({ success: true })
   } catch (error) {
-    console.error('Error updating session:', error);
-    res.status(500).json({ error: 'Failed to update session' });
+    console.error('Error updating session:', error)
+    res.status(500).json({ error: 'Failed to update session' })
   }
-});
+})
 
-export default router;
+export default router
