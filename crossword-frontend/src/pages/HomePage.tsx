@@ -133,7 +133,7 @@ export function HomePage() {
                           : 'bg-primary text-white hover:bg-primary-hover'
                       }`}
                     >
-                      {session ? 'Restart' : 'Play'}
+                      {session ? 'Reset' : 'Start'}
                     </button>
                   </div>
                 </div>

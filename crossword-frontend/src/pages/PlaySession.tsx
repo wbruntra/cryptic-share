@@ -23,7 +23,6 @@ export function PlaySession() {
 
   // --- State ---
   const [loading, setLoading] = useState(true)
-  const isFirstRun = useRef(true)
   const [title, setTitle] = useState('')
 
   // Socket
@@ -56,6 +55,19 @@ export function PlaySession() {
     socketRef.current.on('puzzle_updated', (newState: string[][]) => {
       setAnswers(newState)
     })
+
+    socketRef.current.on(
+      'cell_updated',
+      ({ r, c, value }: { r: number; c: number; value: string }) => {
+        setAnswers((prev) => {
+          const newAnswers = prev.map((row) => [...row])
+          if (newAnswers[r]) {
+            newAnswers[r][c] = value
+          }
+          return newAnswers
+        })
+      },
+    )
 
     const fetchSession = async () => {
       setLoading(true)
@@ -116,25 +128,7 @@ export function PlaySession() {
 
   // --- Actions ---
   // --- Auto-save Logic (via Socket) ---
-  useEffect(() => {
-    if (loading || !sessionId) return
-
-    if (isFirstRun.current) {
-      isFirstRun.current = false
-      return
-    }
-
-    const timer = setTimeout(() => {
-      if (socketRef.current) {
-        socketRef.current.emit('update_puzzle', {
-          sessionId,
-          state: answers,
-        })
-      }
-    }, 3000) // Debounce increased to 3 seconds
-
-    return () => clearTimeout(timer)
-  }, [answers, loading, sessionId])
+  // REMOVED: Debounced auto-save is replaced by granular updates.
 
   // --- Interaction Logic ---
   const handleCellClick = (r: number, c: number) => {
@@ -200,15 +194,27 @@ export function PlaySession() {
       const { r, c, direction } = cursor
 
       if (e.key.match(/^[a-zA-Z]$/)) {
+        const char = e.key.toUpperCase()
         const newAnswers = answers.map((row) => [...row])
-        newAnswers[r][c] = e.key.toUpperCase()
+        newAnswers[r][c] = char
         setAnswers(newAnswers)
+
+        // Emit granular update
+        if (socketRef.current) {
+          socketRef.current.emit('update_cell', { sessionId, r, c, value: char })
+        }
+
         moveCursor(r, c, direction, 1)
       } else if (e.key === 'Backspace') {
         const currentVal = answers[r][c]
         const newAnswers = answers.map((row) => [...row])
         newAnswers[r][c] = ''
         setAnswers(newAnswers)
+
+        // Emit granular update
+        if (socketRef.current) {
+          socketRef.current.emit('update_cell', { sessionId, r, c, value: '' })
+        }
 
         if (currentVal === '') {
           moveCursor(r, c, direction, -1)
@@ -231,7 +237,7 @@ export function PlaySession() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [cursor, answers, grid, moveCursor])
+  }, [cursor, answers, grid, moveCursor, sessionId])
 
   const handleVirtualKeyPress = (key: string) => {
     if (!cursor) return
@@ -239,6 +245,12 @@ export function PlaySession() {
     const newAnswers = answers.map((row) => [...row])
     newAnswers[r][c] = key
     setAnswers(newAnswers)
+
+    // Emit granular update
+    if (socketRef.current) {
+      socketRef.current.emit('update_cell', { sessionId, r, c, value: key })
+    }
+
     moveCursor(r, c, direction, 1)
   }
 
@@ -249,6 +261,11 @@ export function PlaySession() {
     const newAnswers = answers.map((row) => [...row])
     newAnswers[r][c] = ''
     setAnswers(newAnswers)
+
+    // Emit granular update
+    if (socketRef.current) {
+      socketRef.current.emit('update_cell', { sessionId, r, c, value: '' })
+    }
 
     if (currentVal === '') {
       moveCursor(r, c, direction, -1)
