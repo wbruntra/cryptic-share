@@ -6,7 +6,7 @@ import cookieSession from 'cookie-session'
 import puzzlesRouter from './routes/puzzles'
 import sessionsRouter from './routes/sessions'
 import cluesRouter from './routes/clues'
-import { ADMIN_PASSWORD, COOKIE_SECRET } from './config'
+import { COOKIE_SECRET } from './config'
 
 const app = express()
 const httpServer = createServer(app)
@@ -26,12 +26,14 @@ const db = knex({
 
 const port = process.env.PORT || 8921
 
+const cookieSecret = process.env.COOKIE_SECRET || 'default_secret'
+
 // Middleware
 app.use(express.json({ limit: '50mb' }))
 app.use(
   cookieSession({
     name: 'session',
-    keys: [COOKIE_SECRET],
+    keys: [cookieSecret],
     maxAge: 24 * 60 * 60 * 1000, // 1 day
   }),
 )
@@ -67,7 +69,7 @@ io.on('connection', (socket) => {
 // Login Route
 app.post('/api/login', (req, res) => {
   const { password } = req.body
-  if (password === ADMIN_PASSWORD) {
+  if (password === process.env.ADMIN_PASSWORD) {
     req.session = { isAdmin: true }
     res.json({ success: true })
   } else {
