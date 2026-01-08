@@ -7,7 +7,12 @@ import { ClueList } from '../ClueList'
 import { CrosswordGrid } from '../CrosswordGrid'
 import { saveLocalSession } from '../utils/sessionManager'
 import { useIsMobile } from '../utils/useIsMobile'
-import { BottomSheet, FloatingClueBar, MobileClueList, VirtualKeyboard } from '../components/mobile'
+import {
+  BottomSheet,
+  FloatingClueBar,
+  MobileClueList,
+  VirtualKeyboard,
+} from '../components/mobile'
 
 interface SessionData extends PuzzleData {
   sessionState: string[][] // Array of rows
@@ -38,6 +43,7 @@ export function PlaySession() {
   const isMobile = useIsMobile()
   const [isClueSheetOpen, setIsClueSheetOpen] = useState(false)
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
+  const [isClueBarHidden, setIsClueBarHidden] = useState(false)
 
   // --- Data Loading & Socket Setup ---
   useEffect(() => {
@@ -154,7 +160,7 @@ export function PlaySession() {
 
       return { r, c, direction: newDirection }
     })
-    
+
     if (isMobile) {
       setIsKeyboardOpen(true)
     }
@@ -334,6 +340,10 @@ export function PlaySession() {
     return clueList.find((c) => c.number === currentClueNumber) || null
   }, [clues, currentClueNumber, cursor?.direction])
 
+  useEffect(() => {
+    setIsClueBarHidden(false)
+  }, [currentClue])
+
   if (loading)
     return (
       <div className="flex items-center justify-center min-h-[50vh] text-text-secondary animate-pulse gap-2">
@@ -352,19 +362,17 @@ export function PlaySession() {
   // Mobile Layout
   if (isMobile) {
     return (
-      <div className="play-session-mobile min-h-screen bg-bg">
+      <div className="play-session-mobile min-h-screen bg-bg -mt-8">
         {/* Floating clue bar - only when a clue is active */}
         <FloatingClueBar
-          clue={currentClue}
+          clue={isClueBarHidden ? null : currentClue}
           direction={cursor?.direction}
           onTap={() => setIsClueSheetOpen(true)}
+          onDismiss={() => setIsClueBarHidden(true)}
         />
 
         {/* Main content area */}
-        <div
-          className="px-2"
-          style={{ paddingBottom: isKeyboardOpen ? '280px' : '80px' }}
-        >
+        <div className="px-2" style={{ paddingBottom: isKeyboardOpen ? '280px' : '80px' }}>
           {/* Compact header */}
           <div className="flex items-center justify-between py-3 px-2">
             <h1 className="text-xl font-bold text-text m-0 truncate flex-1">{title}</h1>
@@ -388,7 +396,7 @@ export function PlaySession() {
         )}
 
         {/* FAB to open clues (when no clue selected) */}
-        {!currentClue && (
+        {(!currentClue || isClueBarHidden) && (
           <button
             onClick={() => setIsClueSheetOpen(true)}
             className="fixed bottom-6 right-6 z-20 w-14 h-14 rounded-full bg-primary text-white flex items-center justify-center shadow-2xl text-2xl border-none cursor-pointer active:scale-95 transition-transform"
@@ -398,7 +406,7 @@ export function PlaySession() {
           </button>
         )}
 
-          {/* Bottom sheet with clues */}
+        {/* Bottom sheet with clues */}
         <BottomSheet
           isOpen={isClueSheetOpen}
           onClose={() => setIsClueSheetOpen(false)}
