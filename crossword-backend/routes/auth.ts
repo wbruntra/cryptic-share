@@ -27,7 +27,7 @@ router.post('/register', async (req, res) => {
       password_hash: hashedPassword,
     })
 
-    const token = jwt.sign({ id, username }, JWT_SECRET, { expiresIn: '7d' })
+    const token = jwt.sign({ id, username }, JWT_SECRET, { expiresIn: '30d' })
     res.status(201).json({ token, user: { id, username } })
   } catch (error) {
     console.error('Registration error:', error)
@@ -54,7 +54,7 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, {
-      expiresIn: '7d',
+      expiresIn: '30d',
     })
     res.json({ token, user: { id: user.id, username: user.username } })
   } catch (error) {
