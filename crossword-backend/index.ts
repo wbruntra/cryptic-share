@@ -8,6 +8,7 @@ import sessionsRouter from './routes/sessions'
 import cluesRouter from './routes/clues'
 import authRouter from './routes/auth'
 import db from './db-knex'
+import { SessionService } from './services/sessionService'
 
 const app = express()
 const httpServer = createServer(app)
@@ -45,11 +46,9 @@ io.on('connection', (socket) => {
     // Broadcast to others in the room
     socket.to(sessionId).emit('puzzle_updated', state)
 
-    // Persist to DB
+    // Persist via Service (cached)
     try {
-      await db('puzzle_sessions')
-        .where({ session_id: sessionId })
-        .update({ state: JSON.stringify(state) })
+      await SessionService.updateSessionState(sessionId, state)
     } catch (error) {
       console.error('Error saving session state via socket:', error)
     }
@@ -60,66 +59,8 @@ io.on('connection', (socket) => {
     socket.to(sessionId).emit('cell_updated', { r, c, value })
 
     try {
-      // 1. Get current state from DB to ensure we don't overwrite other changes
-      const session = await db('puzzle_sessions')
-        .where({ session_id: sessionId })
-        .select('state')
-        .first()
-
-      if (session) {
-        let currentState = JSON.parse(session.state)
-
-        // Validate state structure
-        if (!Array.isArray(currentState)) {
-          console.error(`Invalid state for session ${sessionId}`)
-          return
-        }
-
-        // Ensure row exists
-        if (!currentState[r]) {
-          // If state is empty or partial, we need to initialize it.
-          // See needsInit block below.
-        }
-
-        // We'll require a join if it looks empty or invalid.
-        // Let's try to just update if it exists, otherwise fall back to a heavier load.
-
-        let needsInit = false
-        if (Array.isArray(currentState) && currentState.length === 0) {
-          needsInit = true
-        } else if (!currentState[r]) {
-          // Maybe it's partial?
-          // Safest is to re-init if we can't write.
-          needsInit = true
-        }
-
-        if (needsInit) {
-          const puzzle = await db('puzzle_sessions')
-            .join('puzzles', 'puzzle_sessions.puzzle_id', 'puzzles.id')
-            .where('puzzle_sessions.session_id', sessionId)
-            .select('puzzles.grid')
-            .first()
-
-          if (puzzle && puzzle.grid) {
-            // Initialize blank state based on grid
-            const rows = puzzle.grid.split('\n').map((row: string) => row.trim().split(' '))
-            const height = rows.length
-            const width = rows[0].length
-            currentState = Array(height)
-              .fill(null)
-              .map(() => Array(width).fill(''))
-          }
-        }
-
-        // helper to safely write
-        if (currentState[r] && Array.isArray(currentState[r])) {
-          currentState[r][c] = value
-
-          await db('puzzle_sessions')
-            .where({ session_id: sessionId })
-            .update({ state: JSON.stringify(currentState) })
-        }
-      }
+      // Use Service to update cache and schedule DB save
+      await SessionService.updateCell(sessionId, r, c, value)
     } catch (error) {
       console.error('Error saving session cell state via socket:', error)
     }

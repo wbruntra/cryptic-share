@@ -14,8 +14,8 @@ describe('SessionService', () => {
     await db('puzzles').insert({
       id: 1,
       title: 'Test Puzzle',
-      grid: '[]',
-      clues: '[]',
+      grid: 'A B\nC D',
+      clues: JSON.stringify({ across: [], down: [] }),
     })
   })
 
@@ -80,5 +80,56 @@ describe('SessionService', () => {
 
     const session = await db('puzzle_sessions').where({ session_id: sessionId1 }).first()
     expect(session.state).toBe('[]') // Should be reset
+  })
+  it('should cache updates and debounce database writes', async () => {
+    const sessionId = await SessionService.createOrResetSession(null, 1) // Anon session
+
+    // 1. Update cell in memory
+    await SessionService.updateCell(sessionId, 0, 0, 'X')
+
+    // 2. Immediate read from Service (should hit cache)
+    const result = await SessionService.getSessionWithPuzzle(sessionId)
+    expect(result.sessionState[0][0]).toBe('X')
+
+    // 3. Immediate read from DB (should NOT be updated yet due to debounce)
+    // Note: createOrResetSession sets state to '[]'.
+    // updateCell initializes it in memory but DB save is delayed.
+    const dbSessionBefore = await db('puzzle_sessions').where({ session_id: sessionId }).first()
+    const stateBefore = JSON.parse(dbSessionBefore.state)
+    // It should either be '[]' or if it initialized, it might be the empty grid depending on logic order.
+    // Our logic: updateCell loads->inits->updates cache->marks dirty->schedules save.
+    // So DB remains '[]' until save.
+    expect(stateBefore).toHaveLength(0)
+
+    // 4. Wait for debounce (1s defined in code)
+    await new Promise((resolve) => setTimeout(resolve, 1100))
+
+    // 5. Read from DB after wait
+    const dbSessionAfter = await db('puzzle_sessions').where({ session_id: sessionId }).first()
+    const stateAfter = JSON.parse(dbSessionAfter.state)
+
+    // Check it initialized 2x2 grid and set (0,0) to X
+    expect(stateAfter).toHaveLength(2)
+    expect(stateAfter[0]).toBeTypeOf('string') // Verify format change
+    expect(stateAfter[0][0]).toBe('X')
+  })
+
+  it('should migrate legacy string[][] state to string[]', async () => {
+    const sessionId = await SessionService.createOrResetSession(null, 1)
+
+    // manually insert legacy state
+    const legacyState = JSON.stringify([
+      ['A', 'B'],
+      ['C', 'D'],
+    ])
+    await db('puzzle_sessions').where({ session_id: sessionId }).update({ state: legacyState })
+
+    // Read via service - should trigger migration
+    const result = await SessionService.getSessionWithPuzzle(sessionId)
+
+    expect(result.sessionState).toBeDefined()
+    expect(result.sessionState).toHaveLength(2)
+    expect(result.sessionState[0]).toBe('AB')
+    expect(result.sessionState[1]).toBe('CD')
   })
 })

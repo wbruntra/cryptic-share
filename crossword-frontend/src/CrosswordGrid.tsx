@@ -4,9 +4,10 @@ interface CrosswordGridProps {
   grid: RenderedCell[][]
   mode: Mode
   onCellClick: (r: number, c: number) => void
+  changedCells?: Set<string>
 }
 
-export function CrosswordGrid({ grid, mode, onCellClick }: CrosswordGridProps) {
+export function CrosswordGrid({ grid, mode, onCellClick, changedCells }: CrosswordGridProps) {
   return (
     <div className="flex justify-center max-w-full w-full overflow-hidden">
       <div
@@ -19,12 +20,15 @@ export function CrosswordGrid({ grid, mode, onCellClick }: CrosswordGridProps) {
             <div key={rIndex} className="flex gap-[1px] bg-border" role="row">
               {row.map((cell, cIndex) => {
                 const isBlack = cell.type === 'B'
+                const isChanged = changedCells?.has(`${rIndex}-${cIndex}`)
                 let bgClass = 'bg-surface'
 
                 if (isBlack) {
                   bgClass = 'bg-black'
                 } else if (cell.isSelected) {
                   bgClass = 'bg-selection'
+                } else if (isChanged) {
+                  bgClass = 'bg-changed-cell'
                 } else if (cell.isActiveWord) {
                   bgClass = 'bg-active-word'
                 }
@@ -36,7 +40,8 @@ export function CrosswordGrid({ grid, mode, onCellClick }: CrosswordGridProps) {
                         w-10 h-10 md:w-11 md:h-11 flex items-center justify-center relative select-none font-mono cursor-pointer transition-colors duration-100
                         ${bgClass}
                         ${cell.isSelected ? '!text-black z-10' : ''}
-                        ${!isBlack && !cell.isSelected ? 'text-text' : ''}
+                        ${!isBlack && !cell.isSelected && !isChanged ? 'text-text' : ''}
+                        ${!isBlack && !cell.isSelected && isChanged ? 'text-text-changed' : ''}
                         ${
                           !isBlack && !cell.isSelected && !cell.isActiveWord
                             ? 'hover:bg-input-bg'

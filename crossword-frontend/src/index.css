@@ -1,73 +1,114 @@
 @import 'tailwindcss';
 
+/* Define custom theme colors using Tailwind v4 @theme directive */
 @theme {
-  --color-surface: var(--surface-color);
-  --color-surface-hover: var(--surface-hover-color);
-  --color-bg: var(--bg-color);
-  --color-primary: var(--primary-color);
-  --color-primary-hover: var(--primary-hover);
-  --color-border: var(--border-color);
-  --color-text: var(--text-color);
-  --color-text-secondary: var(--text-secondary);
-  --color-input-bg: var(--input-bg);
-  --color-error: var(--error-color);
-  --color-success: var(--success-color);
-  --color-selection: var(--selection-color);
-  --color-active-word: var(--active-word-color);
+  /* Light mode base colors */
+  --color-bg: #f8f9fa;
+  --color-surface: #ffffff;
+  --color-text: #1a1a1a;
+  --color-text-secondary: #64748b;
+  --color-border: #e2e8f0;
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-active-word: #e0f2fe;
+  --color-selection: #fef08a;
+  --color-input-bg: #f1f5f9;
+  --color-changed-cell: #ffe0e8;
+  --color-text-changed: #831843; /* pink-900 */
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 :root {
-  --bg-color: #121212;
-  --surface-color: #1e1e1e;
-  --surface-hover-color: #2c2c2c;
-  --text-color: #e0e0e0;
-  --text-secondary: #aaaaaa;
-  --primary-color: #4da6ff;
-  --primary-hover: #70baff;
-  --border-color: #333;
-  --input-bg: #2a2a2a;
-  --error-color: #f44336;
-  --success-color: #4caf50;
-  --selection-color: #fdd835;
-  --active-word-color: #1e3a5f;
-  --shadow-color: rgba(0, 0, 0, 0.3);
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-[data-theme='light'] {
-  --bg-color: #f0f2f5;
-  --surface-color: #ffffff;
-  --surface-hover-color: #f8f9fa;
-  --text-color: #213547;
-  --text-secondary: #666666;
-  --primary-color: #0066cc;
-  --primary-hover: #0052a3;
-  --border-color: #ccc;
-  --input-bg: #ffffff;
-  --selection-color: #ffeb3b;
-  --active-word-color: #bbdefb;
-  --shadow-color: rgba(0, 0, 0, 0.1);
+/* Dark mode overrides using media query (for system preference) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-bg: #0f172a;
+    --color-surface: #1e293b;
+    --color-text: #f1f5f9;
+    --color-text-secondary: #94a3b8;
+    --color-border: #334155;
+    --color-primary: #3b82f6;
+    --color-primary-hover: #60a5fa;
+    --color-active-word: #1e3a8a;
+    --color-selection: #854d0e;
+    --color-input-bg: #334155;
+    --color-changed-cell: rgba(190, 18, 60, 0.2);
+    --color-text-changed: #fce7f3; /* pink-100 */
+  }
 }
 
-@layer base {
-  body {
-    @apply bg-bg text-text antialiased transition-colors duration-300;
-    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-    margin: 0;
-    min-width: 320px;
-    min-height: 100vh;
-  }
+/* Manual dark theme override (takes precedence) */
+:root[data-theme='dark'] {
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-text: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-border: #334155;
+  --color-primary: #3b82f6;
+  --color-primary-hover: #60a5fa;
+  --color-active-word: #1e3a8a;
+  --color-selection: #854d0e;
+  --color-input-bg: #334155;
+  --color-changed-cell: rgba(190, 18, 60, 0.2);
+  --color-text-changed: #fce7f3; /* pink-100 */
+}
 
-  h1 {
-    @apply text-4xl font-bold;
-  }
-  h2 {
-    @apply text-2xl font-bold;
-  }
-  h3 {
-    @apply text-xl font-bold;
-  }
+/* Manual light theme override (takes precedence) */
+:root[data-theme='light'] {
+  --color-bg: #f8f9fa;
+  --color-surface: #ffffff;
+  --color-text: #1a1a1a;
+  --color-text-secondary: #64748b;
+  --color-border: #e2e8f0;
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-active-word: #e0f2fe;
+  --color-selection: #fef08a;
+  --color-input-bg: #f1f5f9;
+  --color-changed-cell: #ffe0e8;
+  --color-text-changed: #831843; /* pink-900 */
+}
 
-  button {
-    @apply cursor-pointer transition-all duration-200 outline-none;
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* Slide-down animation for notification */
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
   }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.animate-slide-down {
+  animation: slide-down 0.2s ease-out;
 }

@@ -3,6 +3,7 @@ export interface LocalSession {
   puzzleId: number
   puzzleTitle: string
   lastPlayed: number
+  lastKnownState?: string[]
 }
 
 const STORAGE_KEY = 'cryptic_share_sessions'
@@ -18,6 +19,10 @@ export const getLocalSessions = (): LocalSession[] => {
     console.error('Failed to parse local sessions', e)
     return []
   }
+}
+
+export const getLocalSessionById = (sessionId: string): LocalSession | undefined => {
+  return getLocalSessions().find((s) => s.sessionId === sessionId)
 }
 
 export const saveLocalSession = (session: LocalSession) => {

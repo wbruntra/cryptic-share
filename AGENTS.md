@@ -42,10 +42,18 @@ npm run migrate:rollback
 
 ## Testing Commands
 
-Currently no test framework is configured. When adding tests:
-- Use Jest/Vitest for unit tests
-- Use React Testing Library for component tests
-- Add test scripts to package.json in both frontend and backend
+The backend uses **Bun's built-in test runner**. Tests are located in `crossword-backend/tests/`.
+
+```bash
+# Run all tests
+cd crossword-backend && bun test
+
+# Run a single test file
+bun test tests/sessionService.test.ts
+
+# Run a single test by name (partial match)
+bun test "should create a new session"
+```
 
 ## Code Style Guidelines
 
@@ -117,6 +125,7 @@ router.get('/:id', async (req, res) => {
 - Use **Knex migrations** for schema changes
 - Store JSON data as **stringified JSON** in SQLite
 - Use **parameterized queries** (Knex handles this)
+- Tests use `beforeEach`/`afterEach` with migrations for isolation
 
 ### Error Handling
 - **Frontend**: Use error boundaries and try/catch for async operations
@@ -149,7 +158,8 @@ crossword-frontend/src/
 crossword-backend/
 ├── routes/             # API route handlers
 ├── middleware/         # Express middleware
-├── utils/              # Utility functions
+├── services/           # Business logic
+├── tests/              # Test files (*.test.ts)
 ├── migrations/         # Database migrations
 ├── config.ts           # Configuration
 └── index.ts            # Server entry point
@@ -162,14 +172,9 @@ crossword-backend/
 - Use **parameterized queries** (Knex prevents SQL injection)
 
 ## Environment Setup
-- **Node.js**: Latest LTS
-- **Runtime**: Bun for backend (specified in package.json)
+- **Runtime**: Bun for backend and tests
 - **Database**: SQLite (file: ./crossword.db)
 - **Frontend proxy**: API calls proxied to localhost:3000
 
-## Code Quality Tools
-- **ESLint**: Configured with TypeScript and React rules
-- **TypeScript**: Strict mode enabled
-- **Build**: Vite for frontend, Bun for backend
-
+## Code Quality
 Run `npm run lint` in the frontend directory before committing changes.

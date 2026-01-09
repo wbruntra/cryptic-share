@@ -5,8 +5,9 @@ import { io, Socket } from 'socket.io-client'
 import type { CellType, Direction, Clue, PuzzleData } from '../types'
 import { ClueList } from '../ClueList'
 import { CrosswordGrid } from '../CrosswordGrid'
-import { saveLocalSession } from '../utils/sessionManager'
+import { saveLocalSession, getLocalSessionById } from '../utils/sessionManager'
 import { useIsMobile } from '../utils/useIsMobile'
+import { ChangeNotification } from '../components/ChangeNotification'
 import {
   BottomSheet,
   FloatingClueBar,
@@ -15,7 +16,7 @@ import {
 } from '../components/mobile'
 
 interface SessionData extends PuzzleData {
-  sessionState: string[][] // Array of rows
+  sessionState: string[] // Array of rows (strings)
 }
 
 export function PlaySession() {
@@ -33,10 +34,14 @@ export function PlaySession() {
   const [clues, setClues] = useState<{ across: Clue[]; down: Clue[] } | null>(null)
 
   // User answers (dynamic)
-  const [answers, setAnswers] = useState<string[][]>([])
+  const [answers, setAnswers] = useState<string[]>([])
 
   // Cursor
   const [cursor, setCursor] = useState<{ r: number; c: number; direction: Direction } | null>(null)
+
+  // Collaboration changes
+  const [changedCells, setChangedCells] = useState<Set<string>>(new Set())
+  const [showChangeNotification, setShowChangeNotification] = useState(false)
 
   // Mobile UI state
   const isMobile = useIsMobile()
@@ -52,7 +57,7 @@ export function PlaySession() {
     socketRef.current = io()
     socketRef.current.emit('join_session', sessionId)
 
-    socketRef.current.on('puzzle_updated', (newState: string[][]) => {
+    socketRef.current.on('puzzle_updated', (newState: string[]) => {
       setAnswers(newState)
     })
 
@@ -60,12 +65,22 @@ export function PlaySession() {
       'cell_updated',
       ({ r, c, value }: { r: number; c: number; value: string }) => {
         setAnswers((prev) => {
-          const newAnswers = prev.map((row) => [...row])
+          const newAnswers = [...prev]
           if (newAnswers[r]) {
-            newAnswers[r][c] = value
+            // String manipulation
+            const row = newAnswers[r]
+            newAnswers[r] = row.substring(0, c) + (value || ' ') + row.substring(c + 1)
           }
           return newAnswers
         })
+
+        // Track changes from collaborators
+        setChangedCells((prev) => {
+          const newSet = new Set(prev)
+          newSet.add(`${r}-${c}`)
+          return newSet
+        })
+        setShowChangeNotification(true)
       },
     )
 
@@ -79,12 +94,7 @@ export function PlaySession() {
         setClues(clues)
 
         // Update local session timestamp
-        saveLocalSession({
-          sessionId: sessionId,
-          puzzleId: puzzleId,
-          puzzleTitle: title,
-          lastPlayed: Date.now(),
-        })
+        // MOVED: logic to below to handle conditional lastKnownState update
 
         // Parse Grid
         const parsedGrid = gridString.split('\n').map((row) => row.trim().split(' ') as CellType[])
@@ -95,15 +105,57 @@ export function PlaySession() {
         const cols = parsedGrid[0].length
 
         // If sessionState exists and matches dimensions, use it. Otherwise empty.
+        // If sessionState exists and matches dimensions, use it. Otherwise empty.
         if (sessionState && sessionState.length === rows && sessionState[0].length === cols) {
           setAnswers(sessionState)
+
+          // Check for changes since last visit
+          const storedSession = getLocalSessionById(sessionId as string)
+          if (storedSession?.lastKnownState) {
+            const lastState = storedSession.lastKnownState
+            const newChangedCells = new Set<string>()
+
+            // Compare states
+            for (let r = 0; r < rows; r++) {
+              // Only iterate up to the shorter length to avoid errors if dimensions mismatch (though we checked dimensions above)
+              if (!lastState[r]) continue
+
+              for (let c = 0; c < cols; c++) {
+                const oldVal = lastState[r][c] || ' '
+                const newVal = sessionState[r][c] || ' '
+                if (oldVal !== newVal) {
+                  newChangedCells.add(`${r}-${c}`)
+                }
+              }
+            }
+
+            if (newChangedCells.size > 0) {
+              setChangedCells(newChangedCells)
+              setShowChangeNotification(true)
+            }
+          }
         } else {
-          setAnswers(
-            Array(rows)
-              .fill(null)
-              .map(() => Array(cols).fill('')),
-          )
+          setAnswers(Array(rows).fill(' '.repeat(cols)))
         }
+
+        // Update local session (including current answers as confirmed state for FUTURE visits)
+        // If we found changes, we DON'T update lastKnownState yet, so the user has to acknowledge them.
+        // If we didn't find changes, we update it.
+        const shouldUpdateKnownState =
+          !sessionState ||
+          (sessionState && !getLocalSessionById(sessionId as string)?.lastKnownState)
+
+        const sessId = sessionId as string
+        saveLocalSession({
+          sessionId: sessId,
+          puzzleId: puzzleId,
+          puzzleTitle: title,
+          lastPlayed: Date.now(),
+          // Only set lastKnownState if it's new or empty, otherwise wait for dismiss
+          ...(shouldUpdateKnownState
+            ? { lastKnownState: sessionState || Array(rows).fill(' '.repeat(cols)) }
+            : {}),
+        })
       } catch (error) {
         console.error('Failed to fetch session:', error)
         alert('Failed to load session.')
@@ -195,8 +247,9 @@ export function PlaySession() {
 
       if (e.key.match(/^[a-zA-Z]$/)) {
         const char = e.key.toUpperCase()
-        const newAnswers = answers.map((row) => [...row])
-        newAnswers[r][c] = char
+        const newAnswers = [...answers]
+        const row = newAnswers[r] || ' '
+        newAnswers[r] = row.substring(0, c) + char + row.substring(c + 1)
         setAnswers(newAnswers)
 
         // Emit granular update
@@ -207,8 +260,9 @@ export function PlaySession() {
         moveCursor(r, c, direction, 1)
       } else if (e.key === 'Backspace') {
         const currentVal = answers[r][c]
-        const newAnswers = answers.map((row) => [...row])
-        newAnswers[r][c] = ''
+        const newAnswers = [...answers]
+        const row = newAnswers[r] || ' '
+        newAnswers[r] = row.substring(0, c) + ' ' + row.substring(c + 1)
         setAnswers(newAnswers)
 
         // Emit granular update
@@ -242,8 +296,9 @@ export function PlaySession() {
   const handleVirtualKeyPress = (key: string) => {
     if (!cursor) return
     const { r, c, direction } = cursor
-    const newAnswers = answers.map((row) => [...row])
-    newAnswers[r][c] = key
+    const newAnswers = [...answers]
+    const row = newAnswers[r] || ' '
+    newAnswers[r] = row.substring(0, c) + key + row.substring(c + 1)
     setAnswers(newAnswers)
 
     // Emit granular update
@@ -258,8 +313,9 @@ export function PlaySession() {
     if (!cursor) return
     const { r, c, direction } = cursor
     const currentVal = answers[r][c]
-    const newAnswers = answers.map((row) => [...row])
-    newAnswers[r][c] = ''
+    const newAnswers = [...answers]
+    const row = newAnswers[r] || ' '
+    newAnswers[r] = row.substring(0, c) + ' ' + row.substring(c + 1)
     setAnswers(newAnswers)
 
     // Emit granular update
@@ -270,6 +326,20 @@ export function PlaySession() {
     if (currentVal === '') {
       moveCursor(r, c, direction, -1)
     }
+  }
+
+  const handleDismissChanges = () => {
+    setShowChangeNotification(false)
+    setChangedCells(new Set())
+
+    // Update last known state to current answers
+    saveLocalSession({
+      sessionId: sessionId as string,
+      puzzleId: 0, // Id/Title not strictly needed for update if not changing
+      puzzleTitle: title,
+      lastPlayed: Date.now(),
+      lastKnownState: answers,
+    })
   }
 
   // --- Render Preparation ---
@@ -380,6 +450,7 @@ export function PlaySession() {
   if (isMobile) {
     return (
       <div className="play-session-mobile min-h-screen bg-bg -mt-8">
+        <ChangeNotification show={showChangeNotification} onDismiss={handleDismissChanges} />
         {/* Floating clue bar - only when a clue is active */}
         <FloatingClueBar
           clue={isClueBarHidden ? null : currentClue}
@@ -397,7 +468,12 @@ export function PlaySession() {
 
           {/* Grid - full width */}
           <div className="bg-surface rounded-xl p-2 shadow-lg border border-border">
-            <CrosswordGrid grid={renderedGrid} mode="play" onCellClick={handleCellClick} />
+            <CrosswordGrid
+              grid={renderedGrid}
+              mode="play"
+              onCellClick={handleCellClick}
+              changedCells={changedCells}
+            />
           </div>
         </div>
 
@@ -453,6 +529,7 @@ export function PlaySession() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 pb-12">
+      <ChangeNotification show={showChangeNotification} onDismiss={handleDismissChanges} />
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 bg-surface p-6 rounded-2xl shadow-lg border border-border">
         <div>
           <h1 className="text-3xl font-bold text-text mb-1 italic tracking-tight">{title}</h1>
@@ -475,7 +552,12 @@ export function PlaySession() {
 
         <div className="flex-1 w-full bg-surface p-6 md:p-8 rounded-2xl shadow-xl border border-border relative overflow-hidden group">
           <div className="absolute top-0 left-0 w-2 h-full bg-primary opacity-20"></div>
-          <CrosswordGrid grid={renderedGrid} mode="play" onCellClick={handleCellClick} />
+          <CrosswordGrid
+            grid={renderedGrid}
+            mode="play"
+            onCellClick={handleCellClick}
+            changedCells={changedCells}
+          />
 
           <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
             <div className="flex items-center gap-4 text-xs text-text-secondary font-medium">
