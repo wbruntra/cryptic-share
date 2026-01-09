@@ -51,7 +51,7 @@ export function BottomSheet({ isOpen, onClose, children, title }: BottomSheetPro
         ref={sheetRef}
         className={`
                     fixed inset-x-0 bottom-0 z-50
-                    bg-[var(--surface-color)] rounded-t-2xl
+                    bg-surface rounded-t-2xl
                     shadow-[0_-4px_20px_rgba(0,0,0,0.3)]
                     transition-transform duration-300 ease-out
                     ${isOpen ? 'translate-y-0' : 'translate-y-full'}
@@ -63,16 +63,13 @@ export function BottomSheet({ isOpen, onClose, children, title }: BottomSheetPro
       >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-2">
-          <div
-            className="w-10 h-1 bg-[var(--text-secondary)] rounded-full opacity-50"
-            aria-hidden="true"
-          />
+          <div className="w-10 h-1 bg-text-secondary rounded-full opacity-50" aria-hidden="true" />
         </div>
 
         {/* Header */}
         {title && (
-          <div className="px-4 pb-3 border-b border-[var(--border-color)]">
-            <h2 className="text-lg font-semibold text-[var(--text-color)] m-0">{title}</h2>
+          <div className="px-4 pb-3 border-b border-border">
+            <h2 className="text-lg font-semibold text-text m-0">{title}</h2>
           </div>
         )}
 

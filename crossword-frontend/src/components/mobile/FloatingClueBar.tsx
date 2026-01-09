@@ -17,7 +17,7 @@ export function FloatingClueBar({ clue, direction, onTap, onDismiss }: FloatingC
     <div
       className="
                 fixed top-0 left-0 right-0 z-50
-                bg-[var(--primary-color)] text-white
+                bg-primary text-white
                 shadow-md
                 flex items-stretch
             "
@@ -29,7 +29,7 @@ export function FloatingClueBar({ clue, direction, onTap, onDismiss }: FloatingC
                 px-4 py-3
                 flex items-center gap-2
                 text-left
-                active:bg-[var(--primary-hover)]
+                active:bg-primary-hover
                 transition-colors
                 border-none cursor-pointer
                 font-inherit
@@ -74,7 +74,7 @@ export function FloatingClueBar({ clue, direction, onTap, onDismiss }: FloatingC
         className="
                 px-4
                 flex items-center justify-center
-                active:bg-[var(--primary-hover)]
+                active:bg-primary-hover
                 transition-colors
                 border-none cursor-pointer
                 bg-transparent

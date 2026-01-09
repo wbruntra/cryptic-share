@@ -22,21 +22,21 @@ export function MobileClueList({
         onClick={() => onClueSelect(clue.number, dir)}
         className={`
                     w-full text-left px-4 py-3
-                    border-none bg-transparent
+                    border-none
                     flex items-start gap-3
                     transition-colors
                     cursor-pointer
                     ${
                       isSelected
-                        ? 'bg-[var(--primary-color)] text-white'
-                        : 'text-[var(--text-color)] active:bg-[var(--input-bg)]'
+                        ? 'bg-primary text-white'
+                        : 'bg-transparent text-text active:bg-input-bg'
                     }
                 `}
       >
         <span
           className={`
                     font-bold shrink-0 w-8
-                    ${isSelected ? 'text-white' : 'text-[var(--text-secondary)]'}
+                    ${isSelected ? 'text-white' : 'text-text-secondary'}
                 `}
         >
           {clue.number}
@@ -54,16 +54,16 @@ export function MobileClueList({
           className="
                     px-4 py-2 
                     text-sm font-bold uppercase tracking-wide
-                    text-[var(--text-secondary)]
-                    bg-[var(--bg-color)]
+                    text-text-secondary
+                    bg-surface
                     sticky top-0
-                    border-b border-[var(--border-color)]
+                    border-b border-border
                     m-0
                 "
         >
           Across
         </h3>
-        <div className="divide-y divide-[var(--border-color)]">
+        <div className="divide-y divide-border">
           {clues.across.map((clue) => renderClue(clue, 'across'))}
         </div>
       </div>
@@ -74,16 +74,16 @@ export function MobileClueList({
           className="
                     px-4 py-2 
                     text-sm font-bold uppercase tracking-wide
-                    text-[var(--text-secondary)]
-                    bg-[var(--bg-color)]
+                    text-text-secondary
+                    bg-surface
                     sticky top-0
-                    border-b border-[var(--border-color)]
+                    border-b border-border
                     m-0
                 "
         >
           Down
         </h3>
-        <div className="divide-y divide-[var(--border-color)]">
+        <div className="divide-y divide-border">
           {clues.down.map((clue) => renderClue(clue, 'down'))}
         </div>
       </div>
