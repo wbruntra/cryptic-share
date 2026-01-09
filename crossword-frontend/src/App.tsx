@@ -6,8 +6,11 @@ import { EditPuzzle } from './pages/EditPuzzle'
 import { AdminDashboard } from './pages/AdminDashboard'
 import AuthPage from './pages/AuthPage'
 import { NavBar } from './components/NavBar'
+import { useViewportCssVars } from './utils/useViewportCssVars'
 
 function App() {
+  useViewportCssVars()
+
   return (
     <BrowserRouter>
       <NavBar />

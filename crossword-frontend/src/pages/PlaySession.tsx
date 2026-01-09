@@ -449,7 +449,7 @@ export function PlaySession() {
   // Mobile Layout
   if (isMobile) {
     return (
-      <div className="play-session-mobile min-h-screen bg-bg -mt-8">
+      <div className="play-session-mobile bg-bg -mt-8 overflow-x-hidden" style={{ minHeight: 'var(--app-height)' }}>
         <ChangeNotification show={showChangeNotification} onDismiss={handleDismissChanges} />
         {/* Floating clue bar - only when a clue is active */}
         <FloatingClueBar
@@ -460,7 +460,14 @@ export function PlaySession() {
         />
 
         {/* Main content area */}
-        <div className="px-2" style={{ paddingBottom: isKeyboardOpen ? '280px' : '80px' }}>
+        <div
+          className="px-2"
+          style={{
+            paddingBottom: isKeyboardOpen
+              ? 'calc(var(--virtual-keyboard-height, 280px) + env(safe-area-inset-bottom))'
+              : 'calc(80px + env(safe-area-inset-bottom))',
+          }}
+        >
           {/* Compact header */}
           <div className="flex items-center justify-between py-3 px-2">
             <h1 className="text-xl font-bold text-text m-0 truncate flex-1">{title}</h1>
@@ -481,7 +488,8 @@ export function PlaySession() {
         {!isKeyboardOpen && (
           <button
             onClick={() => setIsKeyboardOpen(true)}
-            className="fixed bottom-24 right-6 z-20 w-14 h-14 rounded-full bg-surface border border-border text-text flex items-center justify-center shadow-lg text-2xl cursor-pointer active:scale-95 transition-transform"
+            className="fixed right-6 z-20 w-14 h-14 rounded-full bg-surface border border-border text-text flex items-center justify-center shadow-lg text-2xl cursor-pointer active:scale-95 transition-transform"
+            style={{ bottom: 'calc(6rem + env(safe-area-inset-bottom))' }}
             aria-label="Open keyboard"
           >
             ⌨️
@@ -492,7 +500,8 @@ export function PlaySession() {
         {(!currentClue || isClueBarHidden) && (
           <button
             onClick={() => setIsClueSheetOpen(true)}
-            className="fixed bottom-6 right-6 z-20 w-14 h-14 rounded-full bg-primary text-white flex items-center justify-center shadow-2xl text-2xl border-none cursor-pointer active:scale-95 transition-transform"
+            className="fixed right-6 z-20 w-14 h-14 rounded-full bg-primary text-white flex items-center justify-center shadow-2xl text-2xl border-none cursor-pointer active:scale-95 transition-transform"
+            style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
             aria-label="Open clues"
           >
             📝

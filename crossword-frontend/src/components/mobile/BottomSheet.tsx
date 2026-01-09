@@ -56,7 +56,7 @@ export function BottomSheet({ isOpen, onClose, children, title }: BottomSheetPro
                     transition-transform duration-300 ease-out
                     ${isOpen ? 'translate-y-0' : 'translate-y-full'}
                 `}
-        style={{ height: '70vh', maxHeight: '70vh' }}
+                  style={{ height: '70dvh', maxHeight: '70dvh' }}
         role="dialog"
         aria-modal="true"
         aria-label={title || 'Bottom sheet'}
@@ -74,7 +74,9 @@ export function BottomSheet({ isOpen, onClose, children, title }: BottomSheetPro
         )}
 
         {/* Content */}
-        <div className="overflow-y-auto h-full pb-8">{children}</div>
+        <div className="overflow-y-auto h-full" style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}>
+          {children}
+        </div>
       </div>
     </>
   )

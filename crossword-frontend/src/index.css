@@ -36,6 +36,10 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* JS-updated viewport vars (see useViewportCssVars) */
+  --app-height: 100vh;
+  --app-width: 100vw;
 }
 
 /* Dark mode overrides using media query (for system preference) */
@@ -91,10 +95,20 @@
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
+  min-height: var(--app-height);
   background-color: var(--color-bg);
   color: var(--color-text);
   transition: background-color 0.3s, color 0.3s;
+  overflow-x: hidden;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: var(--app-height);
+  overflow-x: hidden;
 }
 
 /* Slide-down animation for notification */

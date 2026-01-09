@@ -4,6 +4,12 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './context/AuthContext'
 
+import { registerSW } from 'virtual:pwa-register'
+
+registerSW({
+  immediate: true,
+})
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>

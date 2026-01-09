@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 
 interface VirtualKeyboardProps {
   onKeyPress: (key: string) => void
@@ -7,16 +8,44 @@ interface VirtualKeyboardProps {
 }
 
 export function VirtualKeyboard({ onKeyPress, onDelete, onClose, isOpen }: VirtualKeyboardProps) {
+  const keyboardRef = useRef<HTMLDivElement | null>(null)
+
   const rows = [
     ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
     ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
     ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
   ]
 
+  useEffect(() => {
+    const root = document.documentElement
+
+    const update = () => {
+      const height = keyboardRef.current?.offsetHeight
+      if (height && height > 0) {
+        root.style.setProperty('--virtual-keyboard-height', `${height}px`)
+      }
+    }
+
+    if (isOpen) {
+      update()
+      window.addEventListener('resize', update)
+      window.visualViewport?.addEventListener('resize', update)
+    }
+
+    return () => {
+      window.removeEventListener('resize', update)
+      window.visualViewport?.removeEventListener('resize', update)
+    }
+  }, [isOpen])
+
   if (!isOpen) return null
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-gray-200 p-2 pb-6 z-50 shadow-lg border-t border-gray-300">
+    <div
+      ref={keyboardRef}
+      className="fixed bottom-0 left-0 right-0 bg-gray-200 p-2 z-50 shadow-lg border-t border-gray-300"
+      style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+    >
       {/* Header / Close Button */}
       <div className="flex justify-center mb-2">
         <button
