@@ -8,6 +8,7 @@
   --color-text: #1a1a1a;
   --color-text-secondary: #64748b;
   --color-border: #e2e8f0;
+  --color-grid-border: #cbd5e1;
   --color-primary: #3b82f6;
   --color-primary-hover: #2563eb;
   --color-active-word: #e0f2fe;
@@ -57,6 +58,7 @@
     --color-input-bg: #334155;
     --color-changed-cell: rgba(190, 18, 60, 0.2);
     --color-text-changed: #fce7f3; /* pink-100 */
+    --color-grid-border: #64748b;
   }
 }
 
@@ -74,6 +76,7 @@
   --color-input-bg: #334155;
   --color-changed-cell: rgba(190, 18, 60, 0.2);
   --color-text-changed: #fce7f3; /* pink-100 */
+  --color-grid-border: #64748b;
 }
 
 /* Manual light theme override (takes precedence) */
@@ -83,6 +86,7 @@
   --color-text: #1a1a1a;
   --color-text-secondary: #64748b;
   --color-border: #e2e8f0;
+  --color-grid-border: #cbd5e1;
   --color-primary: #3b82f6;
   --color-primary-hover: #2563eb;
   --color-active-word: #e0f2fe;

@@ -15,9 +15,9 @@ export function CrosswordGrid({ grid, mode, onCellClick, changedCells }: Crosswo
         role="grid"
         aria-label="Crossword Grid"
       >
-        <div className="flex flex-col border-[2px] border-border bg-border gap-[1px] w-max mx-auto">
+        <div className="flex flex-col border-[2px] border-border bg-grid-border gap-[1px] w-max mx-auto">
           {grid.map((row, rIndex) => (
-            <div key={rIndex} className="flex gap-[1px] bg-border" role="row">
+            <div key={rIndex} className="flex gap-[1px] bg-grid-border" role="row">
               {row.map((cell, cIndex) => {
                 const isBlack = cell.type === 'B'
                 const isChanged = changedCells?.has(`${rIndex}-${cIndex}`)
