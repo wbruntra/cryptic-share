@@ -1,14 +1,14 @@
 import { Router } from 'express'
 import { authenticateUser, optionalAuthenticateUser } from '../middleware/auth'
-import type { AuthRequest } from '../middleware/auth'
+
 import { SessionService } from '../services/sessionService'
 
 const router = Router()
 
 // Get all sessions for the authenticated user
-router.get('/', authenticateUser, async (req: AuthRequest, res) => {
+router.get('/', authenticateUser, async (req, res) => {
   try {
-    const sessions = await SessionService.getUserSessions(req.user!.id)
+    const sessions = await SessionService.getUserSessions(res.locals.user.id)
     res.json(sessions)
   } catch (error) {
     console.error('Error fetching user sessions:', error)
@@ -17,7 +17,7 @@ router.get('/', authenticateUser, async (req: AuthRequest, res) => {
 })
 
 // Sync/Claim sessions (migrate local sessions to user)
-router.post('/sync', authenticateUser, async (req: AuthRequest, res) => {
+router.post('/sync', authenticateUser, async (req, res) => {
   const { sessionIds } = req.body
 
   if (!Array.isArray(sessionIds)) {
@@ -29,7 +29,7 @@ router.post('/sync', authenticateUser, async (req: AuthRequest, res) => {
   }
 
   try {
-    const count = await SessionService.syncSessions(req.user!.id, sessionIds)
+    const count = await SessionService.syncSessions(res.locals.user.id, sessionIds)
     res.json({ success: true, count })
   } catch (error) {
     console.error('Error syncing sessions:', error)
@@ -38,7 +38,7 @@ router.post('/sync', authenticateUser, async (req: AuthRequest, res) => {
 })
 
 // Create a new session
-router.post('/', optionalAuthenticateUser, async (req: AuthRequest, res) => {
+router.post('/', optionalAuthenticateUser, async (req, res) => {
   const { puzzleId, anonymousId } = req.body
   if (!puzzleId) {
     return res.status(400).json({ error: 'Missing puzzleId' })
@@ -46,7 +46,7 @@ router.post('/', optionalAuthenticateUser, async (req: AuthRequest, res) => {
 
   try {
     const sessionId = await SessionService.createOrResetSession(
-      req.user?.id || null,
+      res.locals.user?.id || null,
       puzzleId,
       anonymousId,
     )

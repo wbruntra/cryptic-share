@@ -2,13 +2,6 @@ import type { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 import { COOKIE_SECRET, JWT_SECRET } from '../config'
 
-export interface AuthRequest extends Request {
-  user?: {
-    id: number;
-    username: string;
-  }
-}
-
 export const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
   // Check for session-based auth
   if (req.session && req.session.isAdmin) {
@@ -18,7 +11,7 @@ export const requireAdmin = (req: Request, res: Response, next: NextFunction) =>
   }
 }
 
-export const authenticateUser = (req: AuthRequest, res: Response, next: NextFunction) => {
+export const authenticateUser = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers['authorization']
   const token = authHeader && authHeader.split(' ')[1]
 
@@ -26,12 +19,12 @@ export const authenticateUser = (req: AuthRequest, res: Response, next: NextFunc
 
   jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
     if (err) return res.status(403).json({ error: 'Invalid token' })
-    req.user = user
+    res.locals.user = user
     next()
   })
 }
 
-export const optionalAuthenticateUser = (req: AuthRequest, res: Response, next: NextFunction) => {
+export const optionalAuthenticateUser = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers['authorization']
   const token = authHeader && authHeader.split(' ')[1]
 
@@ -41,7 +34,7 @@ export const optionalAuthenticateUser = (req: AuthRequest, res: Response, next: 
 
   jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
     if (!err) {
-      req.user = user
+      res.locals.user = user
     }
     next()
   })

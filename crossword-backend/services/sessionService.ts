@@ -230,4 +230,36 @@ export class SessionService {
     this.scheduleSave(sessionId)
     return true
   }
+
+  // Admin methods
+  static async getAllSessionsWithDetails() {
+    const sessions = await db('puzzle_sessions')
+      .leftJoin('users', 'puzzle_sessions.user_id', 'users.id')
+      .leftJoin('puzzles', 'puzzle_sessions.puzzle_id', 'puzzles.id')
+      .select(
+        'puzzle_sessions.session_id',
+        'puzzle_sessions.user_id',
+        'puzzle_sessions.anonymous_id',
+        'puzzle_sessions.puzzle_id',
+        'users.username',
+        'puzzles.title as puzzle_title',
+      )
+      .orderBy('puzzle_sessions.session_id', 'desc')
+
+    return sessions
+  }
+
+  static async deleteSession(sessionId: string): Promise<boolean> {
+    // Remove from cache if present
+    this.cache.delete(sessionId)
+    const saveTimer = this.saveTimers.get(sessionId)
+    if (saveTimer) {
+      clearTimeout(saveTimer)
+      this.saveTimers.delete(sessionId)
+    }
+
+    // Delete from database
+    const count = await db('puzzle_sessions').where({ session_id: sessionId }).del()
+    return count > 0
+  }
 }

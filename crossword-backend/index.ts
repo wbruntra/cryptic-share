@@ -7,6 +7,7 @@ import puzzlesRouter from './routes/puzzles'
 import sessionsRouter from './routes/sessions'
 import cluesRouter from './routes/clues'
 import authRouter from './routes/auth'
+import adminSessionsRouter from './routes/admin-sessions'
 import db from './db-knex'
 import { SessionService } from './services/sessionService'
 
@@ -96,6 +97,7 @@ app.use('/api/auth', authRouter)
 app.use('/api/puzzles', puzzlesRouter)
 app.use('/api/sessions', sessionsRouter)
 app.use('/api/clues', cluesRouter)
+app.use('/api/admin/sessions', adminSessionsRouter)
 
 httpServer.listen(port, () => {
   console.log(`Backend server running at http://localhost:${port}`)

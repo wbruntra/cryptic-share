@@ -59,7 +59,7 @@ export const generateGrid = async (file) => {
 
 const test = async () => {
   // 1. Get arguments
-  const imagePath = path.join(__dirname, 'images', 'grid_18.jpg')
+  const imagePath = path.join(__dirname, 'images', 'grid_21.jpg')
   const file = Bun.file(resolve(imagePath))
 
   const gridData = await generateGrid(file)
