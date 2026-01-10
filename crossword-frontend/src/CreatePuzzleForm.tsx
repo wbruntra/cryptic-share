@@ -28,6 +28,7 @@ export function CreatePuzzleForm({
   const [error, setError] = useState<string | null>(null)
   const [puzzles, setPuzzles] = useState<PuzzleSummary[]>([])
   const [transcribing, setTranscribing] = useState(false)
+  const [transcribingGrid, setTranscribingGrid] = useState(false)
 
   useEffect(() => {
     axios
@@ -85,6 +86,59 @@ export function CreatePuzzleForm({
       console.error(err)
       setError('Failed to process image')
       setTranscribing(false)
+    }
+  }
+
+  const handleGridImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please upload an image file')
+      return
+    }
+
+    setTranscribingGrid(true)
+    setError(null)
+
+    try {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = async () => {
+        try {
+          const base64Image = reader.result as string
+          const response = await axios.post('/api/puzzles/generate-grid', {
+            image: base64Image,
+          })
+
+          const gridData = response.data
+          // Handle both array of strings (gemini return) or { rows: [] } object
+          let rows = gridData
+          if (gridData.rows && Array.isArray(gridData.rows)) {
+            rows = gridData.rows
+          }
+
+          if (Array.isArray(rows)) {
+            setGrid(JSON.stringify(rows, null, 2))
+          } else {
+            setGrid(typeof gridData === 'string' ? gridData : JSON.stringify(gridData, null, 2))
+          }
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : 'Failed to generate grid'
+          console.error('Grid generation error:', err)
+          setError('Grid generation failed: ' + message)
+        } finally {
+          setTranscribingGrid(false)
+        }
+      }
+      reader.onerror = () => {
+        setError('Failed to read file')
+        setTranscribingGrid(false)
+      }
+    } catch (err) {
+      console.error(err)
+      setError('Failed to process image')
+      setTranscribingGrid(false)
     }
   }
 
@@ -242,6 +296,27 @@ export function CreatePuzzleForm({
             <label htmlFor="grid" className={labelClasses}>
               Grid Representation (JSON Array or Newlines)
             </label>
+            <div className="flex justify-between items-center mb-2">
+              <label className="text-xs font-bold text-primary cursor-pointer hover:text-primary-hover flex items-center gap-1 group">
+                {transcribingGrid ? (
+                  <>
+                    <div className="w-3 h-3 border border-primary border-t-transparent rounded-full animate-spin"></div>{' '}
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <span>✨</span> Auto-fill from Image
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleGridImageUpload}
+                  disabled={transcribingGrid}
+                  className="hidden"
+                />
+              </label>
+            </div>
             <textarea
               id="grid"
               value={grid}

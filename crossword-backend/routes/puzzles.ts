@@ -1,8 +1,36 @@
 import { Router } from 'express'
 import { requireAdmin } from '../middleware/auth'
 import { PuzzleService } from '../services/puzzleService'
+import { generateGrid } from '../utils/gemini.js'
 
 const router = Router()
+
+// Generate grid from image
+router.post('/generate-grid', requireAdmin, async (req, res) => {
+  const { image } = req.body
+
+  if (!image) {
+    return res.status(400).json({ error: 'Missing image data' })
+  }
+
+  try {
+    // Extract base64 data and mime type
+    const matches = image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/)
+
+    if (!matches || matches.length !== 3) {
+      return res.status(400).json({ error: 'Invalid image data format' })
+    }
+
+    const mimeType = matches[1]
+    const base64 = matches[2]
+
+    const gridData = await generateGrid({ base64, mimeType })
+    res.json(gridData)
+  } catch (error: any) {
+    console.error('Error generating grid:', error)
+    res.status(500).json({ error: 'Failed to generate grid', details: error.message })
+  }
+})
 
 // Get all puzzles (metadata only)
 router.get('/', async (req, res) => {

@@ -1,15 +1,27 @@
 import { GoogleGenAI } from '@google/genai'
 import { resolve } from 'path'
 import path from 'path'
-import secrets from './secrets.js'
 
-export const generateGrid = async (file) => {
+export const generateGrid = async (input) => {
   // 2. Initialize Gemini Client
-  const client = new GoogleGenAI({ apiKey: secrets.GEMINI_API_KEY })
+  const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
 
-  // 3. Prepare the image using Bun's native file API
-  const arrayBuffer = await file.arrayBuffer()
-  const base64Data = Buffer.from(arrayBuffer).toString('base64')
+  // 3. Prepare the image data
+  let base64Data
+  let mimeType
+
+  if (input.base64 && input.mimeType) {
+    // Handle direct base64 input (from API)
+    base64Data = input.base64
+    mimeType = input.mimeType
+  } else if (input.arrayBuffer && input.type) {
+    // Handle File-like object (from local test/Bun)
+    const arrayBuffer = await input.arrayBuffer()
+    base64Data = Buffer.from(arrayBuffer).toString('base64')
+    mimeType = input.type
+  } else {
+    throw new Error('Invalid input format. Expected File object or { base64, mimeType }')
+  }
 
   // 4. Define the specific prompt to enforce the W/B/N format
   const promptText = `
@@ -37,7 +49,7 @@ export const generateGrid = async (file) => {
             { text: promptText },
             {
               inlineData: {
-                mimeType: file.type || 'image/jpeg',
+                mimeType: mimeType || 'image/jpeg',
                 data: base64Data,
               },
             },
@@ -54,6 +66,10 @@ export const generateGrid = async (file) => {
     return JSON.parse(jsonOutput)
   } catch (error) {
     console.error('Error parsing grid:', error)
+    if (error.response) {
+      console.error('Gemini API Error details:', await error.response.text())
+    }
+    throw error
   }
 }
 
