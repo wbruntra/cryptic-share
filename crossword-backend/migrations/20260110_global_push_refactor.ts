@@ -37,20 +37,36 @@ export async function up(knex: Knex): Promise<void> {
 
   // We will recreate the push_subscriptions table without the session_id column.
 
-  // 1. Rename old table
+  // 1. Drop existing unique index to avoid conflict on rename/recreate
+  // Note: Standard knex .dropIndex might fail if we don't know the exact name,
+  // but usually it's `tablename_columnname_unique`.
+  // Or we can just rename it differently if we can.
+  // Safest: When we rename the table, the index moves with it.
+  // When we create the NEW table, we should give the unique index a specific name OR
+  // trust that the old index is effectively renamed too?
+  // The error `SQLITE_ERROR: index push_subscriptions_endpoint_unique already exists` implies
+  // the index name persisted unchanged or conflicted.
+
+  // Let's drop the index from the OLD table (which is currently 'push_subscriptions') before renaming?
+  // Or just specify a custom index name for the new table.
+
+  // Strategy: Rename table. Then if index conflicts, it means the old index name is still declared as "push_subscriptions_endpoint_unique".
+  // Let's rename the table, then DROP the index from the renamed table just to be clean,
+  // OR just give the NEW table's index a new name.
+
   await knex.schema.renameTable('push_subscriptions', 'push_subscriptions_old')
 
-  // 2. Create new table (without session_id, and with 'notified' default false logic if we still want it,
-  //    though 'notified' logic is now moved to session_subscriptions mostly.
-  //    Actually, we assume 'notified' on the global sub is irrelevant or always false. Use existing schema minus session_id)
+  // create new table
   await knex.schema.createTable('push_subscriptions', (table) => {
     table.increments('id').primary()
-    // table.string('session_id') // REMOVED
-    table.text('endpoint').notNullable().unique()
+    table.text('endpoint').notNullable()
     table.text('p256dh').notNullable()
     table.text('auth').notNullable()
-    table.boolean('notified').defaultTo(false) // Keep for backward compat or just in case
+    table.boolean('notified').defaultTo(false)
     table.timestamp('created_at').defaultTo(knex.fn.now())
+
+    // Create unique constraint with specific name to avoid conflict with old one
+    table.unique(['endpoint'], { indexName: 'push_subscriptions_endpoint_unique_v2' })
   })
 
   // 3. Copy data back
@@ -75,8 +91,9 @@ export async function up(knex: Knex): Promise<void> {
   // Migrate existing data?
   // We want to copy existing subscriptions to the new session_subscriptions table
   // so users don't lose their notifications.
-  const existing = await knex('push_subscriptions_old').select('*') // Use old table for data migration
-  for (const sub of existing) {
+  // We want to copy existing subscriptions to the new session_subscriptions table
+  // so users don't lose their notifications. (oldData already contains our rows)
+  for (const sub of oldData) {
     if (sub.session_id) {
       // Only migrate session-specific subscriptions
       await knex('session_subscriptions')
