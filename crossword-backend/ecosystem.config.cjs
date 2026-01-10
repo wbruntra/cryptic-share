@@ -10,6 +10,7 @@ module.exports = {
         NODE_ENV: 'development',
         PORT: 8921,
       },
+      restart_delay: 5000,
     },
   ],
 }
