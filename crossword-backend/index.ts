@@ -66,6 +66,18 @@ io.on('connection', (socket) => {
     console.log(`User ${socket.id} joined session ${sessionId}`)
   })
 
+  // Allow linking a session after the user has subscribed (useful when they subscribe AFTER join_session)
+  socket.on(
+    'link_push_session',
+    async ({ sessionId, endpoint }: { sessionId: string; endpoint: string }) => {
+      if (sessionId && endpoint) {
+        await PushService.linkSession(sessionId, endpoint)
+        await PushService.clearNotifiedFlag(sessionId, endpoint)
+        console.log(`[Push] Late-linked ${endpoint.slice(0, 20)}... to session ${sessionId}`)
+      }
+    },
+  )
+
   socket.on('update_puzzle', async ({ sessionId, state }) => {
     // Broadcast to others in the room
     socket.to(sessionId).emit('puzzle_updated', state)
