@@ -85,7 +85,31 @@ io.on('connection', (socket) => {
       // Get puzzle title for notification
       const session = await SessionService.getSessionWithPuzzle(sessionId)
       if (session) {
-        // Trigger push notification to disconnected participants
+        // Get all socket IDs currently connected to this session
+        const connectedSessionSockets = connectedSockets.get(sessionId) || new Set()
+
+        // We can't mapping socket IDs to push endpoints directly here easily without more complex tracking.
+        // Instead, let's just rely on the 'notified' flag logic which is robust enough:
+        // 1. User A (connected) makes change -> update_cell
+        // 2. User B (disconnected) -> gets push -> notified=true
+        // 3. User C (connected) -> receives socket event -> NO push needed
+
+        // WAIT: The PushService.notifySessionParticipants() method excludes endpoints if passed.
+        // But we don't know the endpoint for a socket ID unless we tracked it on join.
+        // The current implementation of notifySessionParticipants filters by `notified: false`.
+        // Users who are connected will have cleared their notified flag on join.
+        // However, if they are connected, we DON'T want to send them a push now even if notified=false.
+
+        // FIX: We need to know which endpoints are currently connected to exclude them.
+        // Let's rely on the client to send their push endpoint on join (which we added).
+        // We need to store that mapping.
+
+        // For now, let's debug why it's not sending AT ALL.
+        // If the user on iPad is disconnected (app closed), they are NOT in connectedSockets.
+        // So the exclude list doesn't matter for them.
+
+        // Let's add logging to see what's happening.
+        console.log(`[Push] Checking push for session ${sessionId}`)
         await PushService.notifySessionParticipants(sessionId, session.title)
       }
     } catch (error) {

@@ -42,6 +42,9 @@ export class PushService {
         auth: keys.auth,
         notified: false,
       })
+      console.log(
+        `[Push] Updated subscription for user ${endpoint.slice(0, 20)}... session: ${sessionId}`,
+      )
     } else {
       await db('push_subscriptions').insert({
         session_id: sessionId,
@@ -50,6 +53,12 @@ export class PushService {
         auth: keys.auth,
         notified: false,
       })
+      console.log(
+        `[Push] Created NEW subscription for user ${endpoint.slice(
+          0,
+          20,
+        )}... session: ${sessionId}`,
+      )
     }
   }
 
@@ -81,14 +90,20 @@ export class PushService {
     excludeEndpoints: string[] = [],
   ): Promise<void> {
     if (!vapidPublicKey || !vapidPrivateKey) {
-      console.warn('Push notifications not configured (missing VAPID keys)')
+      console.warn('[Push] Push notifications not configured (missing VAPID keys)')
       return
     }
+
+    console.log(
+      `[Push] Looking for subscriptions for session ${sessionId}, excluding [${excludeEndpoints.length}] endpoints`,
+    )
 
     // Get all subscriptions for this session that haven't been notified
     const subscriptions = await db('push_subscriptions')
       .where({ session_id: sessionId, notified: false })
       .whereNotIn('endpoint', excludeEndpoints)
+
+    console.log(`[Push] Found ${subscriptions.length} eligible subscriptions`)
 
     if (subscriptions.length === 0) {
       return
