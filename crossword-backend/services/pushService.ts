@@ -63,24 +63,17 @@ export class PushService {
     }
 
     // Upsert session link
-    // We use ON CONFLICT DO UPDATE (or ignore) logic via application code for broad compatibility
-    const existingLink = await db('session_subscriptions')
-      .where({ session_id: sessionId, endpoint })
-      .first()
-
-    if (!existingLink) {
-      await db('session_subscriptions').insert({
+    // Use onConflict to handle race conditions where multiple events try to link simultaneously
+    await db('session_subscriptions')
+      .insert({
         session_id: sessionId,
         endpoint,
         notified: false,
       })
-      console.log(`[Push] Linked endpoint to session ${sessionId}`)
-    } else {
-      // Ensure notified is false so they get updates again if they re-join
-      await db('session_subscriptions')
-        .where({ session_id: sessionId, endpoint })
-        .update({ notified: false })
-    }
+      .onConflict(['session_id', 'endpoint'])
+      .merge({ notified: false }) // Reset notified flag if it exists
+
+    console.log(`[Push] Linked endpoint to session ${sessionId}`)
   }
 
   /**
@@ -133,11 +126,11 @@ export class PushService {
         'push_subscriptions.auth',
       )
 
-    console.log(
-      `[Push] Found ${subscriptions.length} eligible subscriptions for session ${sessionId}`,
-    )
-
-    if (subscriptions.length === 0) {
+    if (subscriptions.length > 0) {
+      console.log(
+        `[Push] Found ${subscriptions.length} eligible subscriptions for session ${sessionId}`,
+      )
+    } else {
       return
     }
 
