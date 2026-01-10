@@ -2,15 +2,22 @@ import db from './db-knex'
 import fs from 'fs/promises'
 
 const run = async () => {
-  const sessions = await db('puzzle_sessions as ps').join('puzzles as p').where({user_id: 1, puzzle_id: 1}).select(['ps.*', 'p.title', 'p.id as puzzle_id'])
+  const sessions = await db('puzzle_sessions as ps').select()
 
-  console.log(sessions.length)
+  // console.log(sessions.length)
 
-  await fs.writeFile('./sessions-user1-puzzle1.json', JSON.stringify(sessions, null, 2))
+  // await fs.writeFile('./sessions-user1-puzzle1.json', JSON.stringify(sessions, null, 2))
 
-  // const sessionsToDelete = await db('puzzle_sessions').whereNot({session_id: 'IVglTduB3978'}).select()
+  await db('puzzle_sessions').del()
 
-  // console.log('sessionsToDelete', sessionsToDelete.length)
+  const newEntry = {
+    "session_id": "IVglTduB3978",
+    "puzzle_id": 1,
+    "state": "[[\"H\",\"\",\"P\",\"\",\"E\",\"\",\"S\",\"\",\"\",\"\",\"P\",\"\",\"\",\"\",\"\"],[\"O\",\"\",\"O\",\"\",\"R\",\"\",\"T\",\"\",\"\",\"\",\"R\",\"\",\"\",\"\",\"\"],[\"L\",\"U\",\"L\",\"L\",\"A\",\"B\",\"Y\",\"\",\"\",\"\",\"O\",\"\",\"\",\"\",\"\"],[\"Y\",\"\",\"I\",\"\",\"\",\"\",\"L\",\"\",\"\",\"\",\"O\",\"\",\"\",\"\",\"\"],[\"S\",\"I\",\"C\",\"\",\"T\",\"H\",\"E\",\"N\",\"C\",\"E\",\"F\",\"O\",\"R\",\"T\",\"H\"],[\"E\",\"\",\"E\",\"\",\"H\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\"],[\"E\",\"M\",\"C\",\"E\",\"E\",\"\",\"M\",\"A\",\"I\",\"L\",\"O\",\"R\",\"D\",\"E\",\"R\"],[\"\",\"\",\"O\",\"\",\"R\",\"\",\"E\",\"\",\"\",\"\",\"C\",\"\",\"\",\"\",\"\"],[\"V\",\"E\",\"N\",\"G\",\"E\",\"A\",\"N\",\"C\",\"E\",\"\",\"E\",\"X\",\"C\",\"E\",\"L\"],[\"I\",\"\",\"S\",\"\",\"\",\"\",\"A\",\"\",\"\",\"\",\"A\",\"\",\"\",\"\",\"I\"],[\"S\",\"I\",\"T\",\"T\",\"I\",\"N\",\"G\",\"D\",\"O\",\"W\",\"N\",\"\",\"O\",\"W\",\"N\"],[\"I\",\"\",\"A\",\"\",\"C\",\"\",\"E\",\"\",\"M\",\"\",\"\",\"\",\"\",\"\",\"O\"],[\"T\",\"U\",\"B\",\"B\",\"I\",\"E\",\"R\",\"\",\"E\",\"L\",\"E\",\"G\",\"I\",\"A\",\"C\"],[\"S\",\"\",\"L\",\"\",\"N\",\"\",\"I\",\"\",\"G\",\"\",\"T\",\"\",\"\",\"\",\"U\"],[\"\",\"L\",\"E\",\"A\",\"G\",\"U\",\"E\",\"\",\"A\",\"\",\"A\",\"\",\"\",\"\",\"T\"]]",
+    "user_id": 1
+  }
+
+  await db('puzzle_sessions').insert(newEntry)
 }
 
 run().then(() => process.exit(0))
