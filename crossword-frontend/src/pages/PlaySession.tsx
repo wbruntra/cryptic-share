@@ -60,6 +60,16 @@ export function PlaySession() {
     getEndpoint,
   } = usePushNotifications()
 
+  // When user subscribes while already on a session page, link this session
+  useEffect(() => {
+    if (isPushSubscribed && sessionId && socketRef.current) {
+      const endpoint = getEndpoint()
+      if (endpoint) {
+        socketRef.current.emit('link_push_session', { sessionId, endpoint })
+      }
+    }
+  }, [isPushSubscribed, sessionId, getEndpoint])
+
   // --- Data Loading & Socket Setup ---
   useEffect(() => {
     if (!sessionId) return
