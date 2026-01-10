@@ -70,10 +70,18 @@ io.on('connection', (socket) => {
   socket.on(
     'link_push_session',
     async ({ sessionId, endpoint }: { sessionId: string; endpoint: string }) => {
+      console.log(
+        `[Push] Received link_push_session request for session ${sessionId} from ${socket.id}`,
+      )
       if (sessionId && endpoint) {
         await PushService.linkSession(sessionId, endpoint)
         await PushService.clearNotifiedFlag(sessionId, endpoint)
         console.log(`[Push] Late-linked ${endpoint.slice(0, 20)}... to session ${sessionId}`)
+      } else {
+        console.warn(`[Push] Missing sessionId or endpoint for link_push_session:`, {
+          sessionId,
+          hasEndpoint: !!endpoint,
+        })
       }
     },
   )

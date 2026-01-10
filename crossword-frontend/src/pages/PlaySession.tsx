@@ -62,9 +62,17 @@ export function PlaySession() {
 
   // When user subscribes while already on a session page, link this session
   useEffect(() => {
+    // Debug logging
+    console.log('[Push] Link check:', {
+      isPushSubscribed,
+      sessionId,
+      hasSocket: !!socketRef.current,
+    })
+
     if (isPushSubscribed && sessionId && socketRef.current) {
       const endpoint = getEndpoint()
       if (endpoint) {
+        console.log('[Push] Emitting link_push_session')
         socketRef.current.emit('link_push_session', { sessionId, endpoint })
       }
     }
