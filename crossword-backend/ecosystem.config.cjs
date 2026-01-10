@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'crossword-backend',
-      script: 'index.ts',
+      script: 'start.js',
       interpreter: '/home/william/.bun/bin/bun',
       interpreter_args: 'run',
       exec_mode: 'fork',
