@@ -88,11 +88,7 @@ export function NavBar() {
                       if (isSubscribed) {
                         await unsubscribe()
                       } else {
-                        // Subscribe with current session ID if available, otherwise global context (though notifications are per-session)
-                        // Extract session ID from URL pathname if possible: /play/<sessionId>
-                        const matches = window.location.pathname.match(/\/play\/([^\/]+)/)
-                        const sessionId = matches ? matches[1] : 'global'
-                        await subscribe(sessionId)
+                        await subscribe()
                       }
                       setIsNotifPopoverOpen(false)
                     }}
@@ -206,9 +202,7 @@ export function NavBar() {
                     if (isSubscribed) {
                       await unsubscribe()
                     } else {
-                      const matches = window.location.pathname.match(/\/play\/([^\/]+)/)
-                      const sessionId = matches ? matches[1] : 'global'
-                      await subscribe(sessionId)
+                      await subscribe()
                     }
                     setIsMenuOpen(false)
                   }}

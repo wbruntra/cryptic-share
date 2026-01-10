@@ -8,7 +8,7 @@ interface PushNotificationState {
   isSubscribed: boolean
   isDismissed: boolean
   isLoading: boolean
-  subscribe: (sessionId: string) => Promise<void>
+  subscribe: () => Promise<void>
   unsubscribe: () => Promise<void>
   dismiss: () => void
   getEndpoint: () => string | null
@@ -55,45 +55,41 @@ export function usePushNotifications(): PushNotificationState {
     checkSupport()
   }, [])
 
-  const subscribe = useCallback(
-    async (sessionId: string) => {
-      if (!isSupported) return
+  const subscribe = useCallback(async () => {
+    if (!isSupported) return
 
-      setIsLoading(true)
-      try {
-        // Request notification permission
-        const permission = await Notification.requestPermission()
-        if (permission !== 'granted') {
-          console.log('Notification permission denied')
-          setIsLoading(false)
-          return
-        }
-
-        // Get VAPID public key from server
-        const { data } = await axios.get<{ publicKey: string }>('/api/push/vapid-key')
-
-        // Subscribe to push
-        const registration = await navigator.serviceWorker.ready
-        const sub = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(data.publicKey),
-        })
-
-        // Send subscription to backend
-        await axios.post('/api/push/subscribe', {
-          sessionId,
-          subscription: sub.toJSON(),
-        })
-
-        setSubscription(sub)
-        setIsSubscribed(true)
-      } catch (error) {
-        console.error('Error subscribing to push:', error)
+    setIsLoading(true)
+    try {
+      // Request notification permission
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') {
+        console.log('Notification permission denied')
+        setIsLoading(false)
+        return
       }
-      setIsLoading(false)
-    },
-    [isSupported],
-  )
+
+      // Get VAPID public key from server
+      const { data } = await axios.get<{ publicKey: string }>('/api/push/vapid-key')
+
+      // Subscribe to push
+      const registration = await navigator.serviceWorker.ready
+      const sub = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(data.publicKey),
+      })
+
+      // Send subscription to backend
+      await axios.post('/api/push/subscribe', {
+        subscription: sub.toJSON(),
+      })
+
+      setSubscription(sub)
+      setIsSubscribed(true)
+    } catch (error) {
+      console.error('Error subscribing to push:', error)
+    }
+    setIsLoading(false)
+  }, [isSupported])
 
   const unsubscribe = useCallback(async () => {
     if (!subscription) return

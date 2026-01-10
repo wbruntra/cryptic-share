@@ -475,7 +475,7 @@ export function PlaySession() {
             </span>
             <div className="flex gap-2 shrink-0">
               <button
-                onClick={() => subscribePush(sessionId!)}
+                onClick={() => subscribePush()}
                 className="px-3 py-1 bg-primary text-white text-sm rounded-lg hover:bg-primary/90"
               >
                 Enable
@@ -584,7 +584,7 @@ export function PlaySession() {
           <span className="text-text">🔔 Get notified when collaborators update this puzzle</span>
           <div className="flex gap-3 shrink-0">
             <button
-              onClick={() => subscribePush(sessionId!)}
+              onClick={() => subscribePush()}
               className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90"
             >
               Enable Notifications

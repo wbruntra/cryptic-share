@@ -27,57 +27,78 @@ export class PushService {
   }
 
   /**
-   * Save a push subscription for a session
+   * Save a GLOBAL push subscription (device registration only)
    */
-  static async saveSubscription(sessionId: string, subscription: PushSubscription): Promise<void> {
+  static async saveSubscription(subscription: PushSubscription): Promise<void> {
     const { endpoint, keys } = subscription
 
-    // Upsert: if endpoint exists, update session_id; otherwise insert
+    // Upsert global subscription
     const existing = await db('push_subscriptions').where({ endpoint }).first()
 
     if (existing) {
       await db('push_subscriptions').where({ endpoint }).update({
-        session_id: sessionId,
         p256dh: keys.p256dh,
         auth: keys.auth,
-        notified: false,
       })
-      console.log(
-        `[Push] Updated subscription for user ${endpoint.slice(0, 20)}... session: ${sessionId}`,
-      )
+      console.log(`[Push] Updated global subscription for ${endpoint.slice(0, 20)}...`)
     } else {
       await db('push_subscriptions').insert({
-        session_id: sessionId,
         endpoint,
         p256dh: keys.p256dh,
         auth: keys.auth,
-        notified: false,
       })
-      console.log(
-        `[Push] Created NEW subscription for user ${endpoint.slice(
-          0,
-          20,
-        )}... session: ${sessionId}`,
-      )
+      console.log(`[Push] Created NEW global subscription for ${endpoint.slice(0, 20)}...`)
     }
   }
 
   /**
-   * Remove a push subscription
+   * Link an endpoint to a session (subscribe to updates for THIS puzzle)
+   */
+  static async linkSession(sessionId: string, endpoint: string): Promise<void> {
+    // Only link if the global subscription exists (safety check)
+    const sub = await db('push_subscriptions').where({ endpoint }).first()
+    if (!sub) {
+      console.warn(`[Push] Cannot link session ${sessionId}: Endpoint not found globally`)
+      return
+    }
+
+    // Upsert session link
+    // We use ON CONFLICT DO UPDATE (or ignore) logic via application code for broad compatibility
+    const existingLink = await db('session_subscriptions')
+      .where({ session_id: sessionId, endpoint })
+      .first()
+
+    if (!existingLink) {
+      await db('session_subscriptions').insert({
+        session_id: sessionId,
+        endpoint,
+        notified: false,
+      })
+      console.log(`[Push] Linked endpoint to session ${sessionId}`)
+    } else {
+      // Ensure notified is false so they get updates again if they re-join
+      await db('session_subscriptions')
+        .where({ session_id: sessionId, endpoint })
+        .update({ notified: false })
+    }
+  }
+
+  /**
+   * Remove a push subscription globally
    */
   static async removeSubscription(endpoint: string): Promise<void> {
     await db('push_subscriptions').where({ endpoint }).del()
+    // Cascade delete handles session_subscriptions usually, but let's be safe
+    await db('session_subscriptions').where({ endpoint }).del()
   }
 
   /**
    * Clear the notified flag for a subscription (called when user reconnects via WebSocket)
    */
-  static async clearNotifiedFlag(sessionId: string, endpoint?: string): Promise<void> {
-    const query = db('push_subscriptions').where({ session_id: sessionId })
-    if (endpoint) {
-      query.andWhere({ endpoint })
-    }
-    await query.update({ notified: false })
+  static async clearNotifiedFlag(sessionId: string, endpoint: string): Promise<void> {
+    await db('session_subscriptions')
+      .where({ session_id: sessionId, endpoint })
+      .update({ notified: false })
   }
 
   /**
@@ -99,11 +120,22 @@ export class PushService {
     )
 
     // Get all subscriptions for this session that haven't been notified
-    const subscriptions = await db('push_subscriptions')
-      .where({ session_id: sessionId, notified: false })
-      .whereNotIn('endpoint', excludeEndpoints)
+    // Join with global push_subscriptions to get keys
+    const subscriptions = await db('session_subscriptions')
+      .join('push_subscriptions', 'session_subscriptions.endpoint', 'push_subscriptions.endpoint')
+      .where('session_subscriptions.session_id', sessionId)
+      .where('session_subscriptions.notified', false)
+      .whereNotIn('session_subscriptions.endpoint', excludeEndpoints)
+      .select(
+        'session_subscriptions.id as link_id',
+        'push_subscriptions.endpoint',
+        'push_subscriptions.p256dh',
+        'push_subscriptions.auth',
+      )
 
-    console.log(`[Push] Found ${subscriptions.length} eligible subscriptions`)
+    console.log(
+      `[Push] Found ${subscriptions.length} eligible subscriptions for session ${sessionId}`,
+    )
 
     if (subscriptions.length === 0) {
       return
@@ -130,16 +162,16 @@ export class PushService {
         )
 
         // Mark as notified so we don't send again until reconnect
-        await db('push_subscriptions').where({ id: sub.id }).update({ notified: true })
+        await db('session_subscriptions').where({ id: sub.link_id }).update({ notified: true })
 
-        console.log(`Push notification sent for session ${sessionId}`)
+        console.log(`[Push] Notification sent to ${sub.endpoint.slice(0, 20)}...`)
       } catch (error: any) {
         // Handle expired/invalid subscriptions
         if (error.statusCode === 404 || error.statusCode === 410) {
-          console.log(`Removing expired subscription: ${sub.endpoint}`)
+          console.log(`[Push] Removing expired subscription: ${sub.endpoint}`)
           await this.removeSubscription(sub.endpoint)
         } else {
-          console.error('Push notification error:', error)
+          console.error('[Push] Notification error:', error)
         }
       }
     }
@@ -149,6 +181,6 @@ export class PushService {
    * Get subscriptions for a session (for checking connected users)
    */
   static async getSessionSubscriptions(sessionId: string) {
-    return db('push_subscriptions').where({ session_id: sessionId })
+    return db('session_subscriptions').where({ session_id: sessionId })
   }
 }
