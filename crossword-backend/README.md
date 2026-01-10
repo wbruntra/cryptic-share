@@ -9,7 +9,13 @@ bun install
 To run:
 
 ```bash
-bun run index.ts
+bun start
+```
+
+Or for development with hot reload:
+
+```bash
+bun run dev
 ```
 
 ## Database Management with Knex

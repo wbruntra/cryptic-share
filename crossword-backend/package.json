@@ -1,11 +1,11 @@
 {
   "name": "crossword-backend",
-  "module": "index.ts",
+  "module": "app.ts",
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "bun run index.ts",
-    "dev": "bun --watch index.ts",
+    "start": "bun run bin/server.ts",
+    "dev": "bun --watch bin/server.ts",
     "migrate:make": "knex migrate:make -x ts",
     "migrate:latest": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
