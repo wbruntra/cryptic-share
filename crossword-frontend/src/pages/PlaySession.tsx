@@ -8,6 +8,7 @@ import { CrosswordGrid } from '../CrosswordGrid'
 import { saveLocalSession, getLocalSessionById } from '../utils/sessionManager'
 import { useIsMobile } from '../utils/useIsMobile'
 import { ChangeNotification } from '../components/ChangeNotification'
+import { usePushNotifications } from '../hooks/usePushNotifications'
 import {
   BottomSheet,
   FloatingClueBar,
@@ -49,13 +50,24 @@ export function PlaySession() {
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const [isClueBarHidden, setIsClueBarHidden] = useState(false)
 
+  // Push notifications
+  const {
+    isSupported: isPushSupported,
+    isSubscribed: isPushSubscribed,
+    isDismissed: isPushDismissed,
+    subscribe: subscribePush,
+    dismiss: dismissPushBanner,
+    getEndpoint,
+  } = usePushNotifications()
+
   // --- Data Loading & Socket Setup ---
   useEffect(() => {
     if (!sessionId) return
 
     // Initialize Socket
     socketRef.current = io()
-    socketRef.current.emit('join_session', sessionId)
+    // Pass push endpoint so backend can clear notified flag on reconnect
+    socketRef.current.emit('join_session', sessionId, getEndpoint())
 
     socketRef.current.on('puzzle_updated', (newState: string[]) => {
       setAnswers(newState)
@@ -449,8 +461,34 @@ export function PlaySession() {
   // Mobile Layout
   if (isMobile) {
     return (
-      <div className="play-session-mobile bg-bg -mt-8 overflow-x-hidden" style={{ minHeight: 'var(--app-height)' }}>
+      <div
+        className="play-session-mobile bg-bg -mt-8 overflow-x-hidden"
+        style={{ minHeight: 'var(--app-height)' }}
+      >
         <ChangeNotification show={showChangeNotification} onDismiss={handleDismissChanges} />
+
+        {/* One-time push notification prompt */}
+        {isPushSupported && !isPushSubscribed && !isPushDismissed && (
+          <div className="mx-4 mb-4 p-3 bg-primary/10 border border-primary/30 rounded-xl flex items-center justify-between gap-3">
+            <span className="text-sm text-text">
+              🔔 Get notified when collaborators update this puzzle
+            </span>
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => subscribePush(sessionId!)}
+                className="px-3 py-1 bg-primary text-white text-sm rounded-lg hover:bg-primary/90"
+              >
+                Enable
+              </button>
+              <button
+                onClick={dismissPushBanner}
+                className="px-3 py-1 text-text-secondary text-sm hover:text-text"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
         {/* Floating clue bar - only when a clue is active */}
         <FloatingClueBar
           clue={isClueBarHidden ? null : currentClue}
@@ -539,6 +577,27 @@ export function PlaySession() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 pb-12">
       <ChangeNotification show={showChangeNotification} onDismiss={handleDismissChanges} />
+
+      {/* One-time push notification prompt */}
+      {isPushSupported && !isPushSubscribed && !isPushDismissed && (
+        <div className="mb-6 p-4 bg-primary/10 border border-primary/30 rounded-xl flex items-center justify-between gap-4">
+          <span className="text-text">🔔 Get notified when collaborators update this puzzle</span>
+          <div className="flex gap-3 shrink-0">
+            <button
+              onClick={() => subscribePush(sessionId!)}
+              className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90"
+            >
+              Enable Notifications
+            </button>
+            <button
+              onClick={dismissPushBanner}
+              className="px-4 py-2 text-text-secondary text-sm hover:text-text"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 bg-surface p-6 rounded-2xl shadow-lg border border-border">
         <div>
           <h1 className="text-3xl font-bold text-text mb-1 italic tracking-tight">{title}</h1>

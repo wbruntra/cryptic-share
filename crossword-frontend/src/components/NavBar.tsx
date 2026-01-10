@@ -1,13 +1,16 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { usePushNotifications } from '../hooks/usePushNotifications'
 
 export function NavBar() {
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('theme') || 'dark'
   })
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isNotifPopoverOpen, setIsNotifPopoverOpen] = useState(false)
   const { user, logout } = useAuth()
+  const { isSupported, isSubscribed, isLoading, subscribe, unsubscribe } = usePushNotifications()
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -59,6 +62,53 @@ export function NavBar() {
             >
               Login
             </Link>
+          )}
+          {isSupported && (
+            <div className="relative">
+              <button
+                onClick={() => setIsNotifPopoverOpen((v) => !v)}
+                className={`p-2 rounded-lg border flex items-center justify-center transition-all ${
+                  isSubscribed
+                    ? 'bg-primary/10 border-primary text-primary'
+                    : 'bg-input-bg border-border hover:border-primary text-text-secondary'
+                }`}
+                aria-label="Toggle notifications"
+              >
+                {isSubscribed ? '🔔' : '🔕'}
+              </button>
+              {isNotifPopoverOpen && (
+                <div className="absolute right-0 top-full mt-2 w-64 bg-surface border border-border rounded-xl shadow-lg p-4 z-50">
+                  <div className="text-sm text-text mb-3">
+                    {isSubscribed
+                      ? 'Push notifications enabled. Get notified when collaborators update puzzles.'
+                      : 'Enable notifications to know when collaborators update shared puzzles.'}
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (isSubscribed) {
+                        await unsubscribe()
+                      } else {
+                        // Subscribe with a dummy session - will be updated per-session
+                        await subscribe('global')
+                      }
+                      setIsNotifPopoverOpen(false)
+                    }}
+                    disabled={isLoading}
+                    className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                      isSubscribed
+                        ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
+                        : 'bg-primary text-white hover:bg-primary/90'
+                    } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {isLoading
+                      ? 'Loading...'
+                      : isSubscribed
+                      ? 'Disable Notifications'
+                      : 'Enable Notifications'}
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           <button
             onClick={toggleTheme}
@@ -147,6 +197,29 @@ export function NavBar() {
                 </Link>
               )}
               <div className="border-t border-border" />
+              {isSupported && (
+                <button
+                  onClick={async () => {
+                    if (isSubscribed) {
+                      await unsubscribe()
+                    } else {
+                      await subscribe('global')
+                    }
+                    setIsMenuOpen(false)
+                  }}
+                  disabled={isLoading}
+                  className="px-4 py-3 text-left text-text hover:bg-input-bg transition-colors flex items-center gap-2"
+                >
+                  {isSubscribed ? '🔔' : '🔕'}
+                  <span>
+                    {isLoading
+                      ? 'Loading...'
+                      : isSubscribed
+                      ? 'Disable Notifications'
+                      : 'Enable Notifications'}
+                  </span>
+                </button>
+              )}
               <button
                 onClick={() => {
                   toggleTheme()

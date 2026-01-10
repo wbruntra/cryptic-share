@@ -9,7 +9,11 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
+      injectRegister: 'auto',
       manifestFilename: 'manifest.webmanifest',
       includeAssets: ['icons/favicon-48.png', 'icons/apple-touch-icon.png'],
       manifest: {
@@ -32,6 +36,10 @@ export default defineConfig({
             type: 'image/png',
           },
         ],
+      },
+      devOptions: {
+        enabled: true,
+        type: 'module',
       },
     }),
   ],

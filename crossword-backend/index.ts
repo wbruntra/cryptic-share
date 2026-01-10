@@ -10,6 +10,12 @@ import authRouter from './routes/auth'
 import adminSessionsRouter from './routes/admin-sessions'
 import db from './db-knex'
 import { SessionService } from './services/sessionService'
+import { PushService } from './services/pushService'
+
+// Track connected sockets per session: sessionId -> Set of socket IDs
+const connectedSockets = new Map<string, Set<string>>()
+// Track session ID per socket for cleanup: socketId -> sessionId
+const socketToSession = new Map<string, string>()
 
 const app = express()
 const httpServer = createServer(app)
@@ -38,8 +44,21 @@ app.use(
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id)
 
-  socket.on('join_session', (sessionId) => {
+  socket.on('join_session', async (sessionId: string, pushEndpoint?: string) => {
     socket.join(sessionId)
+
+    // Track this socket for session
+    if (!connectedSockets.has(sessionId)) {
+      connectedSockets.set(sessionId, new Set())
+    }
+    connectedSockets.get(sessionId)!.add(socket.id)
+    socketToSession.set(socket.id, sessionId)
+
+    // Clear notified flag when user reconnects (so they can get notifications again later)
+    if (pushEndpoint) {
+      await PushService.clearNotifiedFlag(sessionId, pushEndpoint)
+    }
+
     console.log(`User ${socket.id} joined session ${sessionId}`)
   })
 
@@ -62,12 +81,27 @@ io.on('connection', (socket) => {
     try {
       // Use Service to update cache and schedule DB save
       await SessionService.updateCell(sessionId, r, c, value)
+
+      // Get puzzle title for notification
+      const session = await SessionService.getSessionWithPuzzle(sessionId)
+      if (session) {
+        // Trigger push notification to disconnected participants
+        await PushService.notifySessionParticipants(sessionId, session.title)
+      }
     } catch (error) {
       console.error('Error saving session cell state via socket:', error)
     }
   })
 
   socket.on('disconnect', () => {
+    const sessionId = socketToSession.get(socket.id)
+    if (sessionId) {
+      connectedSockets.get(sessionId)?.delete(socket.id)
+      if (connectedSockets.get(sessionId)?.size === 0) {
+        connectedSockets.delete(sessionId)
+      }
+      socketToSession.delete(socket.id)
+    }
     console.log('User disconnected:', socket.id)
   })
 })
@@ -89,6 +123,46 @@ app.get('/api/check-auth', (req, res) => {
     res.json({ authenticated: true })
   } else {
     res.status(401).json({ authenticated: false })
+  }
+})
+
+// Push Notification Routes
+app.get('/api/push/vapid-key', (_req, res) => {
+  const publicKey = PushService.getVapidPublicKey()
+  if (publicKey) {
+    res.json({ publicKey })
+  } else {
+    res.status(503).json({ error: 'Push notifications not configured' })
+  }
+})
+
+app.post('/api/push/subscribe', async (req, res) => {
+  const { sessionId, subscription } = req.body
+  if (!sessionId || !subscription?.endpoint || !subscription?.keys) {
+    return res.status(400).json({ error: 'Missing sessionId or subscription' })
+  }
+
+  try {
+    await PushService.saveSubscription(sessionId, subscription)
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Push subscribe error:', error)
+    res.status(500).json({ error: 'Failed to save subscription' })
+  }
+})
+
+app.post('/api/push/unsubscribe', async (req, res) => {
+  const { endpoint } = req.body
+  if (!endpoint) {
+    return res.status(400).json({ error: 'Missing endpoint' })
+  }
+
+  try {
+    await PushService.removeSubscription(endpoint)
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Push unsubscribe error:', error)
+    res.status(500).json({ error: 'Failed to remove subscription' })
   }
 })
 
