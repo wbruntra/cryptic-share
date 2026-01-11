@@ -132,4 +132,62 @@ describe('SessionService', () => {
     expect(result.sessionState[0]).toBe('AB')
     expect(result.sessionState[1]).toBe('CD')
   })
+
+  it('getOrCreateSession should find existing session for logged in user', async () => {
+    const userId = 789
+    await db('users').insert({
+      id: userId,
+      username: 'testu3',
+      password_hash: 'hash',
+    })
+
+    // Create first session
+    const result1 = await SessionService.getOrCreateSession(userId, 1)
+    expect(result1.isNew).toBe(true)
+
+    // Update state to simulate progress
+    await db('puzzle_sessions')
+      .where({ session_id: result1.sessionId })
+      .update({ state: JSON.stringify(['AB', 'CD']) })
+
+    // Try to get/create again - should return existing, NOT reset
+    const result2 = await SessionService.getOrCreateSession(userId, 1)
+    expect(result2.isNew).toBe(false)
+    expect(result2.sessionId).toBe(result1.sessionId)
+
+    // Verify state was NOT reset
+    const session = await db('puzzle_sessions').where({ session_id: result1.sessionId }).first()
+    expect(session.state).toBe(JSON.stringify(['AB', 'CD']))
+  })
+
+  it('getOrCreateSession should find existing session for anonymous user', async () => {
+    const anonymousId = 'anon-test-123'
+
+    // Create first session
+    const result1 = await SessionService.getOrCreateSession(null, 1, anonymousId)
+    expect(result1.isNew).toBe(true)
+
+    // Try to get/create again - should return existing
+    const result2 = await SessionService.getOrCreateSession(null, 1, anonymousId)
+    expect(result2.isNew).toBe(false)
+    expect(result2.sessionId).toBe(result1.sessionId)
+  })
+
+  it('getOrCreateSession should create new session when none exists', async () => {
+    const userId = 999
+    await db('users').insert({
+      id: userId,
+      username: 'testu4',
+      password_hash: 'hash',
+    })
+
+    const result = await SessionService.getOrCreateSession(userId, 1)
+    expect(result.isNew).toBe(true)
+    expect(result.sessionId).toBeDefined()
+
+    // Verify session was created
+    const session = await db('puzzle_sessions').where({ session_id: result.sessionId }).first()
+    expect(session).toBeDefined()
+    expect(session.user_id).toBe(userId)
+  })
 })

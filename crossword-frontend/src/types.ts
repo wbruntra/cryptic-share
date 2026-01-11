@@ -31,13 +31,14 @@ export interface RenderedCell {
 }
 
 export interface User {
-  id: number;
-  username: string;
+  id: number
+  username: string
 }
 
 export interface RemoteSession {
-  session_id: string;
-  puzzle_id: number;
-  title: string;
-  state: string;
+  session_id: string
+  puzzle_id: number
+  title: string
+  state: string
+  is_complete: boolean
 }

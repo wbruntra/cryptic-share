@@ -37,7 +37,7 @@ router.post('/sync', authenticateUser, async (req, res) => {
   }
 })
 
-// Create a new session
+// Create a new session (or reset existing one - legacy behavior)
 router.post('/', optionalAuthenticateUser, async (req, res) => {
   const { puzzleId, anonymousId } = req.body
   if (!puzzleId) {
@@ -54,6 +54,26 @@ router.post('/', optionalAuthenticateUser, async (req, res) => {
   } catch (error) {
     console.error('Error creating session:', error)
     res.status(500).json({ error: 'Failed to create session' })
+  }
+})
+
+// Go to puzzle - gets existing session or creates new one (does NOT reset)
+router.post('/go', optionalAuthenticateUser, async (req, res) => {
+  const { puzzleId, anonymousId } = req.body
+  if (!puzzleId) {
+    return res.status(400).json({ error: 'Missing puzzleId' })
+  }
+
+  try {
+    const result = await SessionService.getOrCreateSession(
+      res.locals.user?.id || null,
+      puzzleId,
+      anonymousId,
+    )
+    res.status(result.isNew ? 201 : 200).json(result)
+  } catch (error) {
+    console.error('Error getting/creating session:', error)
+    res.status(500).json({ error: 'Failed to get or create session' })
   }
 })
 

@@ -1,20 +1,18 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import type { PuzzleSummary, RemoteSession } from '../types'
 import { useAuth } from '../context/AuthContext'
 
-import {
-  getLocalSessions,
-  saveLocalSession,
-  getAnonymousId,
-  type LocalSession,
-} from '../utils/sessionManager'
+import { getLocalSessions, saveLocalSession, getAnonymousId } from '../utils/sessionManager'
+
+type PuzzleStatus = 'complete' | 'in-progress' | null
 
 export function HomePage() {
   const [puzzles, setPuzzles] = useState<PuzzleSummary[]>([])
-  const [recentSessions, setRecentSessions] = useState<LocalSession[]>([])
+  const [puzzleStatus, setPuzzleStatus] = useState<Map<number, PuzzleStatus>>(new Map())
   const [loading, setLoading] = useState(false)
+  const [navigating, setNavigating] = useState<number | null>(null)
   const navigate = useNavigate()
   const { user, refreshSessions } = useAuth()
 
@@ -27,66 +25,50 @@ export function HomePage() {
       .finally(() => setLoading(false))
   }, [])
 
+  // Load puzzle status for badge display (best effort, not critical)
   useEffect(() => {
-    const loadSessions = async () => {
-      if (user) {
-        try {
+    const loadPuzzleStatus = async () => {
+      try {
+        const statusMap = new Map<number, PuzzleStatus>()
+        if (user) {
           const remoteSessions = await refreshSessions()
-          // Map to LocalSession format
-          const mappedSessions: LocalSession[] = remoteSessions.map((s: RemoteSession) => ({
-            sessionId: s.session_id,
-            puzzleId: s.puzzle_id,
-            puzzleTitle: s.title,
-            lastPlayed: 0, // Backend doesn't store this yet
-          }))
-          setRecentSessions(mappedSessions)
-        } catch (e) {
-          console.error('Failed to load user sessions', e)
+          for (const s of remoteSessions as RemoteSession[]) {
+            statusMap.set(s.puzzle_id, s.is_complete ? 'complete' : 'in-progress')
+          }
+        } else {
+          // For anonymous users, we only know if they started (no completion tracking)
+          const localSessions = getLocalSessions()
+          for (const s of localSessions) {
+            statusMap.set(s.puzzleId, 'in-progress')
+          }
         }
-      } else {
-        setRecentSessions(getLocalSessions())
+        setPuzzleStatus(statusMap)
+      } catch (e) {
+        console.error('Failed to load puzzle status', e)
       }
     }
-    loadSessions()
+    loadPuzzleStatus()
   }, [user, refreshSessions])
 
-  const handleStartSession = async (
-    puzzleId: number,
-    puzzleTitle: string,
-    hasExistingSession: boolean,
-  ) => {
-    if (hasExistingSession) {
-      if (
-        !window.confirm(
-          'Are you sure you want to restart this puzzle? Your previous progress will be lost.',
-        )
-      ) {
-        return
-      }
-    }
-
+  const handleGoToPuzzle = async (puzzleId: number, puzzleTitle: string) => {
+    setNavigating(puzzleId)
     try {
       const anonymousId = getAnonymousId()
-      const res = await axios.post('/api/sessions', { puzzleId, anonymousId })
+      const res = await axios.post('/api/sessions/go', { puzzleId, anonymousId })
       const { sessionId } = res.data
-      // eslint-disable-next-line react-hooks/purity
-      const now = Date.now()
 
       saveLocalSession({
         sessionId,
         puzzleId,
         puzzleTitle,
-        lastPlayed: now,
+        lastPlayed: Date.now(),
       })
-
-      // If logged in, the session is already created with user_id by the backend (thanks to interceptor)
-      // We just navigate.
-      // Note: We might want to refresh the list if we come back, but for now just navigating.
 
       navigate(`/play/${sessionId}`)
     } catch (error) {
-      console.error('Failed to start session:', error)
-      alert('Failed to start session')
+      console.error('Failed to go to puzzle:', error)
+      alert('Failed to load puzzle')
+      setNavigating(null)
     }
   }
 
@@ -105,37 +87,37 @@ export function HomePage() {
         ) : (
           <div className="space-y-4">
             {puzzles.map((puzzle) => {
-              const session = recentSessions.find((s) => s.puzzleId === puzzle.id)
+              const status = puzzleStatus.get(puzzle.id)
+              const isNavigating = navigating === puzzle.id
 
               return (
                 <div
                   key={puzzle.id}
                   className="group bg-surface rounded-xl p-4 shadow-sm border border-border hover:border-primary hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
                 >
-                  <h3 className="text-lg font-bold text-text group-hover:text-primary transition-colors">
-                    {puzzle.title}
-                  </h3>
-
-                  <div className="flex gap-3 w-full sm:w-auto">
-                    {session && (
-                      <Link
-                        to={`/play/${session.sessionId}`}
-                        className="flex-1 sm:flex-none py-2 px-6 rounded-lg bg-primary/10 text-primary font-bold text-center no-underline hover:bg-primary/20 transition-colors border border-primary/20"
-                      >
-                        Resume
-                      </Link>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-bold text-text group-hover:text-primary transition-colors">
+                      {puzzle.title}
+                    </h3>
+                    {status === 'complete' && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-600 dark:text-green-400 font-medium">
+                        ✓ Complete
+                      </span>
                     )}
-                    <button
-                      onClick={() => handleStartSession(puzzle.id, puzzle.title, !!session)}
-                      className={`flex-1 sm:flex-none py-2 px-6 rounded-lg font-bold transition-all shadow-sm active:scale-95 border-none cursor-pointer ${
-                        session
-                          ? 'bg-surface-hover text-text-secondary hover:bg-border hover:text-text'
-                          : 'bg-primary text-white hover:bg-primary-hover'
-                      }`}
-                    >
-                      {session ? 'Reset' : 'Start'}
-                    </button>
+                    {status === 'in-progress' && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary font-medium">
+                        In Progress
+                      </span>
+                    )}
                   </div>
+
+                  <button
+                    onClick={() => handleGoToPuzzle(puzzle.id, puzzle.title)}
+                    disabled={isNavigating}
+                    className="w-full sm:w-auto py-2 px-6 rounded-lg font-bold transition-all shadow-sm active:scale-95 border-none cursor-pointer bg-primary text-white hover:bg-primary-hover disabled:opacity-60 disabled:cursor-wait"
+                  >
+                    {isNavigating ? 'Loading...' : 'Go to Puzzle'}
+                  </button>
                 </div>
               )
             })}

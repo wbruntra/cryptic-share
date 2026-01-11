@@ -1,4 +1,5 @@
 import db from '../db-knex'
+import { calculateLetterCount } from '../utils/stateHelpers'
 
 export class PuzzleService {
   static async getAllPuzzles() {
@@ -17,13 +18,15 @@ export class PuzzleService {
   }
 
   static async createPuzzle(title: string, grid: string, clues: any) {
+    const letterCount = calculateLetterCount(grid)
     const [id] = await db('puzzles').insert({
       title,
       grid,
       clues: JSON.stringify(clues),
+      letter_count: letterCount,
     })
 
-    return { id, title, grid, clues }
+    return { id, title, grid, clues, letter_count: letterCount }
   }
 
   static async updatePuzzle(id: number, updates: { grid?: string; clues?: any; title?: string }) {
@@ -34,7 +37,11 @@ export class PuzzleService {
     }
 
     const dbUpdates: any = {}
-    if (updates.grid !== undefined) dbUpdates.grid = updates.grid
+    if (updates.grid !== undefined) {
+      dbUpdates.grid = updates.grid
+      // Recalculate letter_count when grid changes
+      dbUpdates.letter_count = calculateLetterCount(updates.grid)
+    }
     if (updates.clues !== undefined) dbUpdates.clues = JSON.stringify(updates.clues)
     if (updates.title !== undefined) dbUpdates.title = updates.title
 

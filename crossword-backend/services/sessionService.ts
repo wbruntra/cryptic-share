@@ -1,6 +1,11 @@
 import db from '../db-knex'
 
-import { setCharAt, createEmptyState, migrateLegacyState } from '../utils/stateHelpers'
+import {
+  setCharAt,
+  createEmptyState,
+  migrateLegacyState,
+  countFilledLetters,
+} from '../utils/stateHelpers'
 
 export class SessionService {
   static generateSessionId(length = 12) {
@@ -19,6 +24,7 @@ export class SessionService {
       .select(
         'puzzle_sessions.session_id',
         'puzzle_sessions.state',
+        'puzzle_sessions.is_complete',
         'puzzles.title',
         'puzzles.id as puzzle_id',
       )
@@ -27,6 +33,7 @@ export class SessionService {
     return sessions.map((s: any) => ({
       ...s,
       state: migrateLegacyState(JSON.parse(s.state)),
+      is_complete: Boolean(s.is_complete),
     }))
   }
 
@@ -96,6 +103,58 @@ export class SessionService {
     return sessionId
   }
 
+  /**
+   * Gets an existing session for the user/puzzle combo, or creates a new one.
+   * This does NOT reset an existing session - it just returns it.
+   * Used for the "Go to Puzzle" flow to avoid duplicate sessions across devices.
+   */
+  static async getOrCreateSession(
+    userId: number | null,
+    puzzleId: number,
+    anonymousId?: string,
+  ): Promise<{ sessionId: string; isNew: boolean }> {
+    const initialState = '[]'
+
+    // If user is logged in, check for existing session
+    if (userId) {
+      const existingSession = await db('puzzle_sessions')
+        .where({
+          user_id: userId,
+          puzzle_id: puzzleId,
+        })
+        .first()
+
+      if (existingSession) {
+        return { sessionId: existingSession.session_id, isNew: false }
+      }
+    } else if (anonymousId) {
+      // If user is anonymous, check for existing session with this anonymousId
+      const existingSession = await db('puzzle_sessions')
+        .where({
+          puzzle_id: puzzleId,
+          anonymous_id: anonymousId,
+        })
+        .whereNull('user_id')
+        .first()
+
+      if (existingSession) {
+        return { sessionId: existingSession.session_id, isNew: false }
+      }
+    }
+
+    // Create new session
+    const sessionId = this.generateSessionId()
+    await db('puzzle_sessions').insert({
+      session_id: sessionId,
+      puzzle_id: puzzleId,
+      state: initialState,
+      user_id: userId,
+      anonymous_id: anonymousId || null,
+    })
+
+    return { sessionId, isNew: true }
+  }
+
   // In-memory cache for active sessions to reduce DB reads/writes
   // Map<sessionId, { state: string[], lastAccess: number, dirty: boolean }>
   private static cache = new Map<string, { state: string[]; lastAccess: number; dirty: boolean }>()
@@ -131,9 +190,25 @@ export class SessionService {
       const cached = this.cache.get(sessionId)
       if (cached && cached.dirty) {
         try {
-          await db('puzzle_sessions')
-            .where({ session_id: sessionId })
-            .update({ state: JSON.stringify(cached.state) })
+          // Check for completion
+          const filledCount = countFilledLetters(cached.state)
+
+          // Get puzzle's letter_count for comparison
+          const session = await db('puzzle_sessions')
+            .join('puzzles', 'puzzle_sessions.puzzle_id', 'puzzles.id')
+            .where('puzzle_sessions.session_id', sessionId)
+            .select('puzzles.letter_count', 'puzzle_sessions.is_complete')
+            .first()
+
+          const isComplete = session?.letter_count != null && filledCount >= session.letter_count
+
+          // Only update is_complete if it changed
+          const updateData: any = { state: JSON.stringify(cached.state) }
+          if (isComplete !== Boolean(session?.is_complete)) {
+            updateData.is_complete = isComplete
+          }
+
+          await db('puzzle_sessions').where({ session_id: sessionId }).update(updateData)
           cached.dirty = false
         } catch (e) {
           console.error('Failed to save session state to DB', sessionId, e)

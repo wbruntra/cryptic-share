@@ -38,3 +38,36 @@ export function migrateLegacyState(state: unknown): string[] {
 
   return []
 }
+
+/**
+ * Calculate the number of fillable cells (W and N) in a grid.
+ * Grid format: "W B N\nW W B" (space-separated cells, newline-separated rows)
+ */
+export function calculateLetterCount(grid: string): number {
+  const rows = grid.split('\n').map((row) => row.trim().split(' '))
+  let count = 0
+  for (const row of rows) {
+    for (const cell of row) {
+      if (cell === 'W' || cell === 'N') {
+        count++
+      }
+    }
+  }
+  return count
+}
+
+/**
+ * Count the number of non-empty letters in a session state.
+ * State format: string[] where each string is a row, spaces are empty cells.
+ */
+export function countFilledLetters(state: string[]): number {
+  let count = 0
+  for (const row of state) {
+    for (const char of row) {
+      if (char !== ' ' && char !== '') {
+        count++
+      }
+    }
+  }
+  return count
+}
