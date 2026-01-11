@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { requireAdmin } from '../middleware/auth'
 import { PuzzleService } from '../services/puzzleService'
-import { generateGrid } from '../utils/gemini.js'
+import { generateGrid } from '../utils/openrouter'
 
 const router = Router()
 
