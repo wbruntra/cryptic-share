@@ -1,3 +1,4 @@
 secrets.js
 *.db
 node_modules/
+backups
