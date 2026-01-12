@@ -1,0 +1,56 @@
+export const samplePuzzle = {
+  title: 'Sample Puzzle',
+  grid: `N W N W N W N B N W N W N W B
+W B W B W B W B W B W B W B N
+N W W W W W W B N W W W W W W
+W B W B B B W B W B W B W B W
+N W W B N W W W W W W W W W W
+W B W B W B B B W B B B W B W
+N W W W W B N W W W N W W W W
+B B W B W B W B W B W B W B B
+N W W W W W W W W B N W W W N
+W B W B B B W B B B W B W B W
+N W W W N W W W N W W B N W W
+W B W B W B W B W B B B W B W
+N W W W W W W B N W N W W W W
+W B W B W B W B W B W B W B W
+B N W W W W W B N W W W W W W`,
+  clues: {
+    across: [
+      { number: 1, clue: "Bad rule flouted? That's tough (7)" },
+      { number: 5, clue: "Admits lethal old 'tree' has lost its crown (6)" },
+      { number: 9, clue: "These we stick up in strips at Lord's (7)" },
+      { number: 10, clue: 'Priest to withdraw lead (7)' },
+      { number: 11, clue: 'IT nerd spent thousands in US -- what a pity (3)' },
+      { number: 12, clue: "In this sad state only Jesse's happy with second (11)" },
+      { number: 13, clue: 'Check over spruce primarily for what it exudes (5)' },
+      { number: 14, clue: 'Cleaner employs Charles briefly as buyer (9)' },
+      { number: 16, clue: 'Stewed meat leaves scar if spilt, understand? (9)' },
+      { number: 17, clue: 'Drug dealer needs no introduction to escort (5)' },
+      { number: 19, clue: 'Display centre to house members, creating dispute (11)' },
+      { number: 22, clue: "Provided money's invested they may bail you out (3)" },
+      { number: 23, clue: 'Four enter sort of diner — this sort? (5-2)' },
+      { number: 24, clue: 'European city: ugly pile with zone Joe recalled (7)' },
+      { number: 26, clue: 'Position Laurel in front of church (6)' },
+      { number: 27, clue: 'Fight off feisty supermodel mod jilted (7)' },
+    ],
+    down: [
+      { number: 1, clue: 'Do women grow older by right, such as this Lady? (7)' },
+      { number: 2, clue: "E.g. von Braun's test etc. is in Cork amazingly (6,9)" },
+      { number: 3, clue: "Member of colony's been docked (3)" },
+      { number: 4, clue: 'SA broadcast short piece of writing (5)' },
+      { number: 5, clue: 'Without Henry, 3 support computer firm - it bears fruit (5,4)' },
+      { number: 6, clue: 'Vegetables are smooth and shiny, top to tail (5)' },
+      { number: 7, clue: 'Schweitzer and Lenin ordered food in Austria (6,9)' },
+      { number: 8, clue: 'Old chap described hot tourist attraction in Iceland (6)' },
+      { number: 12, clue: 'Coup leaders advanced after project involving navy (5)' },
+      { number: 14, clue: "It's taught in English lessons -- or was, perhaps? (4,5)" },
+      { number: 15, clue: 'Finish off home to entertain king for part of day (5)' },
+      { number: 16, clue: 'Foreign café has poster in front (6)' },
+      { number: 18, clue: 'EU free criminal, arresting German exile (7)' },
+      { number: 20, clue: 'German flower for Heine but not outsiders? (5)' },
+      { number: 21, clue: 'We use it to masticate our 6 and radishes primarily (5)' },
+      { number: 25, clue: "Simpson's not entirely a cheeky devil (3)" },
+    ],
+  },
+}
