@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import axios from 'axios'
 import type { CellType } from '../types'
 import { CrosswordGrid } from '../CrosswordGrid'
 import { EditOutput } from '../EditOutput'
 import { renderGrid } from '../utils/gridRenderer'
+import { validateClues } from '../utils/clueHelpers'
 
 export function EditPuzzle() {
   const { puzzleId } = useParams<{ puzzleId: string }>()
@@ -12,7 +13,13 @@ export function EditPuzzle() {
   const [loading, setLoading] = useState(true)
   const [title, setTitle] = useState('')
   const [grid, setGrid] = useState<CellType[][]>([])
+  const [cluesJson, setCluesJson] = useState('')
   const [saving, setSaving] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
+  const [isJsonValid, setIsJsonValid] = useState(true)
+
+  // Track previous grid string to detect changes
+  const prevGridStringRef = useRef<string>('')
 
   useEffect(() => {
     if (!puzzleId) return
@@ -21,13 +28,21 @@ export function EditPuzzle() {
       setLoading(true)
       try {
         const response = await axios.get(`/api/puzzles/${puzzleId}`)
-        const { title, grid: gridString } = response.data
+        const { title, grid: gridString, clues } = response.data
         setTitle(title)
 
         const parsedGrid = gridString
           .split('\n')
           .map((row: string) => row.trim().split(' ') as CellType[])
         setGrid(parsedGrid)
+        prevGridStringRef.current = gridString
+
+        // Initialize clues JSON
+        if (clues) {
+          setCluesJson(JSON.stringify(clues, null, 2))
+        } else {
+          setCluesJson(JSON.stringify({ across: [], down: [] }, null, 2))
+        }
       } catch (error) {
         console.error('Failed to fetch puzzle:', error)
         alert('Failed to load puzzle.')
@@ -39,18 +54,47 @@ export function EditPuzzle() {
     fetchPuzzle()
   }, [puzzleId])
 
+  // Validate clues when grid or json changes
+  useEffect(() => {
+    if (grid.length === 0) return
+
+    // Quick syntactical check
+    try {
+      JSON.parse(cluesJson)
+      setIsJsonValid(true)
+    } catch {
+      setIsJsonValid(false)
+      setValidationErrors(['Invalid JSON format'])
+      return
+    }
+
+    const errors = validateClues(grid, cluesJson)
+    setValidationErrors(errors)
+  }, [grid, cluesJson])
+
   const handleSave = async () => {
     if (!puzzleId) return
+
+    if (validationErrors.length > 0) {
+      if (!confirm('There are validation errors. Are you sure you want to save?')) {
+        return
+      }
+    }
+
     setSaving(true)
     try {
       const outputString = grid.map((row) => row.join(' ')).join('\n')
+      // cluesJson is already a string, but we want to send it as an object
+      const cluesObj = JSON.parse(cluesJson)
+
       await axios.put(`/api/puzzles/${puzzleId}`, {
         grid: outputString,
+        clues: cluesObj,
       })
-      alert('Grid layout updated successfully!')
+      alert('Puzzle saved successfully!')
     } catch (error) {
-      console.error('Failed to save grid:', error)
-      alert('Failed to save grid.')
+      console.error('Failed to save puzzle:', error)
+      alert('Failed to save puzzle.')
     } finally {
       setSaving(false)
     }
@@ -99,41 +143,93 @@ export function EditPuzzle() {
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10 pb-6 border-b border-border">
         <div>
           <h1 className="text-3xl font-bold text-text italic tracking-tight">
-            Edit Grid: {title}
+            Edit Puzzle: {title}
           </h1>
           <p className="text-text-secondary text-sm font-medium">
-            Click cells below to modify the grid structure.
+            Modify the grid structure and clues JSON below.
           </p>
         </div>
-        <Link
-          to="/admin"
-          className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-input-bg border border-border text-text-secondary font-bold hover:text-text hover:border-text transition-all text-center no-underline flex items-center justify-center gap-2"
-        >
-          Back to Dashboard
-        </Link>
+        <div className="flex gap-4">
+          <Link
+            to="/admin"
+            className="px-6 py-2.5 rounded-xl bg-input-bg border border-border text-text-secondary font-bold hover:text-text hover:border-text transition-all text-center no-underline flex items-center justify-center gap-2"
+          >
+            Cancel
+          </Link>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-6 py-2.5 rounded-xl bg-primary text-white font-bold shadow-md hover:bg-primary-hover hover:shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border-none cursor-pointer"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
       </header>
 
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-surface p-6 md:p-10 rounded-2xl shadow-xl border border-border relative overflow-hidden group">
-          <div className="absolute top-0 left-0 w-2 h-full bg-primary/20"></div>
-
-          <div className="mb-8 flex justify-center">
-            <div className="bg-bg p-4 rounded-xl border border-border shadow-inner">
-              <CrosswordGrid grid={renderedGrid} mode="edit" onCellClick={handleCellClick} />
+      <div className="flex flex-col gap-8">
+        {/* Grid Editor (Top) */}
+        <div className="flex flex-col gap-8">
+          <div className="bg-surface p-6 md:p-10 rounded-2xl shadow-xl border border-border relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-2 h-full bg-primary/20"></div>
+            <h2 className="text-xl font-bold mb-6 text-text">Grid Editor</h2>
+            <div className="flex justify-center mb-6">
+              <div className="bg-bg p-4 rounded-xl border border-border shadow-inner">
+                <CrosswordGrid grid={renderedGrid} mode="edit" onCellClick={handleCellClick} />
+              </div>
             </div>
+            <EditOutput outputString={outputString} onSave={handleSave} saving={saving} />
           </div>
-
-          <EditOutput outputString={outputString} onSave={handleSave} saving={saving} />
         </div>
 
-        <div className="mt-8 p-6 bg-surface rounded-2xl border border-border shadow-md">
-          <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
-            <span className="text-primary tracking-tighter">ℹ️</span> Component Information
-          </h3>
-          <p className="text-sm text-text-secondary leading-relaxed">
-            This editor only modifies the physical layout (structure) of the grid. To change the
-            title or clues, use the main puzzle editor from the dashboard.
-          </p>
+        {/* Clue JSON Editor (Bottom) */}
+        <div className="flex flex-col gap-6">
+          <div className="bg-surface p-6 md:p-8 rounded-2xl shadow-xl border border-border h-full flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-text">Clues JSON</h2>
+              <div
+                className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                  validationErrors.length === 0
+                    ? 'bg-success/10 text-success border-success/30'
+                    : 'bg-error/10 text-error border-error/30'
+                }`}
+              >
+                {validationErrors.length === 0 ? '✓ Valid' : `${validationErrors.length} Issues`}
+              </div>
+            </div>
+
+            <textarea
+              value={cluesJson}
+              onChange={(e) => setCluesJson(e.target.value)}
+              placeholder='{"across": [{"number": 1, "clue": "..."}], "down": [...]}'
+              className={`w-full flex-1 p-4 rounded-xl bg-input-bg border text-text font-mono text-sm leading-relaxed outline-none transition-all resize-none min-h-[400px] ${
+                !isJsonValid
+                  ? 'border-error focus:border-error focus:ring-1 focus:ring-error'
+                  : 'border-border focus:border-primary focus:ring-1 focus:ring-primary'
+              }`}
+              spellCheck={false}
+            />
+
+            {validationErrors.length > 0 && (
+              <div className="mt-4 p-4 bg-error/5 border border-error/20 rounded-xl space-y-1 max-h-[200px] overflow-y-auto custom-scrollbar">
+                <h4 className="text-error font-bold text-sm mb-2">Validation Issues:</h4>
+                {validationErrors.map((err, i) => (
+                  <div key={i} className="flex gap-2 items-start text-xs text-error/90">
+                    <span>•</span>
+                    <span>{err}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="p-6 bg-surface rounded-2xl border border-border shadow-md">
+            <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
+              <span className="text-primary tracking-tighter">ℹ️</span> Editor Info
+            </h3>
+            <p className="text-sm text-text-secondary leading-relaxed">
+              Grid structure and clues must match. Numbered cells ('N') in the grid require
+              corresponding entries in the JSON.
+            </p>
+          </div>
         </div>
       </div>
     </div>

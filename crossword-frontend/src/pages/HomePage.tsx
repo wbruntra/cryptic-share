@@ -79,13 +79,13 @@ export function HomePage() {
           Puzzles
         </h2>
         {loading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-20 bg-surface rounded-xl animate-pulse" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-48 bg-surface rounded-xl animate-pulse" />
             ))}
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {puzzles.map((puzzle) => {
               const status = puzzleStatus.get(puzzle.id)
               const isNavigating = navigating === puzzle.id
@@ -93,28 +93,30 @@ export function HomePage() {
               return (
                 <div
                   key={puzzle.id}
-                  className="group bg-surface rounded-xl p-4 shadow-sm border border-border hover:border-primary hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                  className="group bg-surface rounded-xl p-6 shadow-lg border border-border hover:border-primary transition-all duration-300 flex flex-col justify-between"
                 >
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-lg font-bold text-text group-hover:text-primary transition-colors">
+                  <div className="mb-4 flex items-center flex-wrap gap-3">
+                    <h3 className="text-xl font-bold text-text group-hover:text-primary transition-colors">
                       {puzzle.title}
                     </h3>
-                    {status === 'complete' && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-600 dark:text-green-400 font-medium">
-                        ✓ Complete
-                      </span>
-                    )}
-                    {status === 'in-progress' && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary font-medium">
-                        In Progress
-                      </span>
-                    )}
+                    <div className="flex gap-2">
+                      {status === 'complete' && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-600 dark:text-green-400 font-medium border border-green-500/20 whitespace-nowrap">
+                          ✓ Complete
+                        </span>
+                      )}
+                      {status === 'in-progress' && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary font-medium border border-primary/20 whitespace-nowrap">
+                          In Progress
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <button
                     onClick={() => handleGoToPuzzle(puzzle.id, puzzle.title)}
                     disabled={isNavigating}
-                    className="w-full sm:w-auto py-2 px-6 rounded-lg font-bold transition-all shadow-sm active:scale-95 border-none cursor-pointer bg-primary text-white hover:bg-primary-hover disabled:opacity-60 disabled:cursor-wait"
+                    className="w-full py-2.5 px-4 rounded-lg font-bold transition-all shadow-sm active:scale-95 border-none cursor-pointer bg-primary text-white hover:bg-primary-hover disabled:opacity-60 disabled:cursor-wait mt-auto"
                   >
                     {isNavigating ? 'Loading...' : 'Go to Puzzle'}
                   </button>
@@ -122,7 +124,7 @@ export function HomePage() {
               )
             })}
             {puzzles.length === 0 && (
-              <div className="py-12 text-center bg-surface rounded-xl border-2 border-dashed border-border">
+              <div className="col-span-full py-16 text-center bg-surface rounded-2xl border-2 border-dashed border-border shadow-inner">
                 <p className="text-text-secondary italic">No puzzles found. Create one!</p>
               </div>
             )}
