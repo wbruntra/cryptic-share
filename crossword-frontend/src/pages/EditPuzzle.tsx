@@ -4,7 +4,7 @@ import axios from 'axios'
 import type { CellType } from '../types'
 import { CrosswordGrid } from '../CrosswordGrid'
 import { EditOutput } from '../EditOutput'
-import { renderGrid } from '../utils/gridRenderer'
+import { parseGridJson, parseGridString, renderGrid } from '../utils/gridRenderer'
 import { validateClues } from '../utils/clueHelpers'
 
 export function EditPuzzle() {
@@ -17,9 +17,47 @@ export function EditPuzzle() {
   const [saving, setSaving] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [isJsonValid, setIsJsonValid] = useState(true)
+  const [replaceGridInput, setReplaceGridInput] = useState('')
+  const [replaceGridError, setReplaceGridError] = useState<string | null>(null)
 
   // Track previous grid string to detect changes
   const prevGridStringRef = useRef<string>('')
+
+  const applyReplaceGridInput = () => {
+    setReplaceGridError(null)
+
+    const raw = replaceGridInput.trim()
+    if (!raw) {
+      setReplaceGridError('Paste a grid string or JSON array first.')
+      return
+    }
+
+    const parsedJson = parseGridJson(raw)
+    const candidate = parsedJson.length > 0 ? parsedJson : parseGridString(raw)
+
+    if (candidate.length === 0 || candidate[0]?.length === 0) {
+      setReplaceGridError(
+        'Invalid grid format. Use JSON array of row strings or newline-separated rows.',
+      )
+      return
+    }
+
+    const width = candidate[0].length
+    for (const row of candidate) {
+      if (row.length !== width) {
+        setReplaceGridError('Grid rows must all have the same number of columns.')
+        return
+      }
+      for (const cell of row) {
+        if (cell !== 'N' && cell !== 'W' && cell !== 'B') {
+          setReplaceGridError("Grid can only contain 'N', 'W', and 'B' cells.")
+          return
+        }
+      }
+    }
+
+    setGrid(candidate)
+  }
 
   useEffect(() => {
     if (!puzzleId) return
@@ -177,6 +215,34 @@ export function EditPuzzle() {
                 <CrosswordGrid grid={renderedGrid} mode="edit" onCellClick={handleCellClick} />
               </div>
             </div>
+
+            <div className="mt-6 p-4 bg-bg rounded-2xl border border-border shadow-inner">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                <label className="text-sm font-semibold text-text-secondary">
+                  Replace Grid (paste string or JSON array)
+                </label>
+                <button
+                  type="button"
+                  onClick={applyReplaceGridInput}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-primary text-white font-bold shadow-md hover:bg-primary-hover active:scale-[0.98] transition-all border-none cursor-pointer"
+                >
+                  Replace Grid
+                </button>
+              </div>
+              <textarea
+                value={replaceGridInput}
+                onChange={(e) => setReplaceGridInput(e.target.value)}
+                placeholder='["N W N...", "W B W..."] OR\nN W N...\nW B W...'
+                className="w-full px-4 py-3 rounded-xl bg-input-bg border border-border text-text font-mono text-xs min-h-[160px] focus:border-primary outline-none transition-all resize-y"
+                spellCheck={false}
+              />
+              {replaceGridError && (
+                <div className="mt-3 p-3 bg-error/10 border border-error/20 rounded-xl text-error text-sm font-medium">
+                  {replaceGridError}
+                </div>
+              )}
+            </div>
+
             <EditOutput outputString={outputString} onSave={handleSave} saving={saving} />
           </div>
         </div>
