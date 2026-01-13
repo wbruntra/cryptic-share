@@ -38,11 +38,93 @@ export class SessionService {
   }
 
   static async syncSessions(userId: number, sessionIds: string[]): Promise<number> {
-    // Update sessions that don't have a user_id yet
-    const count = await db('puzzle_sessions')
-      .whereIn('session_id', sessionIds)
-      .whereNull('user_id')
-      .update({ user_id: userId })
+    const now = new Date().toISOString()
+    let count = 0
+
+    for (const anonymousSessionId of sessionIds) {
+      // 1. Get the anonymous session
+      const anonymousSession = await db('puzzle_sessions')
+        .where({ session_id: anonymousSessionId })
+        .first()
+
+      // If it doesn't exist or already belongs to a user (any user), skip
+      if (!anonymousSession || anonymousSession.user_id) {
+        continue
+      }
+
+      // 2. Check for an existing session for this user and puzzle
+      const userSession = await db('puzzle_sessions')
+        .where({
+          user_id: userId,
+          puzzle_id: anonymousSession.puzzle_id,
+        })
+        .first()
+
+      if (userSession) {
+        // CONFLICT: Merge required
+        try {
+          const anonState = migrateLegacyState(JSON.parse(anonymousSession.state))
+          const userState = migrateLegacyState(JSON.parse(userSession.state))
+
+          // Merge: Anonymous takes precedence for non-empty cells
+          // We assume dimensions match because it's the same puzzle
+          const mergedState = [...userState]
+          if (anonState.length > 0) {
+            // Ensure mergedState is initialized if userState was empty
+            if (mergedState.length === 0 && anonState.length > 0) {
+              // If user state is empty, just take anon state
+              mergedState.push(...anonState)
+            } else {
+              for (let r = 0; r < anonState.length; r++) {
+                const anonRow = anonState[r]
+                if (!anonRow) continue
+
+                if (!mergedState[r]) mergedState[r] = ''
+                for (let c = 0; c < anonRow.length; c++) {
+                  const anonChar = anonRow[c]
+                  // If anon has a letter (and it's not a space), overwrite
+                  if (anonChar && anonChar.trim() !== '') {
+                    mergedState[r] = setCharAt(mergedState[r], c, anonChar as string)
+                  }
+                }
+              }
+            }
+          }
+
+          // Update user session with merged state
+          await db('puzzle_sessions')
+            .where({ session_id: userSession.session_id })
+            .update({
+              state: JSON.stringify(mergedState),
+              updated_at: now,
+              // We could also update is_complete here but it requires checking letter counts again.
+              // For simplicity, let's assume if they are merging, they might trigger a save later or we verify next load.
+              // actually, let's trust the FE/save logic to eventually fix is_complete, or we could calculate it.
+            })
+
+          // Invalidate cache for user session if it exists so next load gets merged state
+          this.cache.delete(userSession.session_id)
+
+          // Delete anonymous session
+          await db('puzzle_sessions').where({ session_id: anonymousSessionId }).del()
+          this.cache.delete(anonymousSessionId)
+
+          count++
+        } catch (e) {
+          console.error(
+            `Failed to reconcile sessions for user ${userId} and puzzle ${anonymousSession.puzzle_id}`,
+            e,
+          )
+        }
+      } else {
+        // NO CONFLICT: Just claim it
+        await db('puzzle_sessions').where({ session_id: anonymousSessionId }).update({
+          user_id: userId,
+          updated_at: now,
+        })
+        count++
+      }
+    }
 
     return count
   }
@@ -53,6 +135,7 @@ export class SessionService {
     anonymousId?: string,
   ): Promise<string> {
     const initialState = '[]'
+    const now = new Date().toISOString()
 
     // If user is logged in, check for existing session
     if (userId) {
@@ -67,6 +150,7 @@ export class SessionService {
         // Reset the existing session
         await db('puzzle_sessions').where({ session_id: existingSession.session_id }).update({
           state: initialState,
+          updated_at: now,
         })
         return existingSession.session_id
       }
@@ -85,6 +169,7 @@ export class SessionService {
         // Reset the existing session
         await db('puzzle_sessions').where({ session_id: existingSession.session_id }).update({
           state: initialState,
+          updated_at: now,
         })
         return existingSession.session_id
       }
@@ -98,6 +183,8 @@ export class SessionService {
       state: initialState,
       user_id: userId,
       anonymous_id: anonymousId || null,
+      created_at: now,
+      updated_at: now,
     })
 
     return sessionId
@@ -114,6 +201,7 @@ export class SessionService {
     anonymousId?: string,
   ): Promise<{ sessionId: string; isNew: boolean }> {
     const initialState = '[]'
+    const now = new Date().toISOString()
 
     // If user is logged in, check for existing session
     if (userId) {
@@ -150,6 +238,8 @@ export class SessionService {
       state: initialState,
       user_id: userId,
       anonymous_id: anonymousId || null,
+      created_at: now,
+      updated_at: now,
     })
 
     return { sessionId, isNew: true }
@@ -190,6 +280,7 @@ export class SessionService {
       const cached = this.cache.get(sessionId)
       if (cached && cached.dirty) {
         try {
+          const now = new Date().toISOString()
           // Check for completion
           const filledCount = countFilledLetters(cached.state)
 
@@ -203,7 +294,10 @@ export class SessionService {
           const isComplete = session?.letter_count != null && filledCount >= session.letter_count
 
           // Only update is_complete if it changed
-          const updateData: any = { state: JSON.stringify(cached.state) }
+          const updateData: any = {
+            state: JSON.stringify(cached.state),
+            updated_at: now,
+          }
           if (isComplete !== Boolean(session?.is_complete)) {
             updateData.is_complete = isComplete
           }
@@ -316,6 +410,8 @@ export class SessionService {
         'puzzle_sessions.user_id',
         'puzzle_sessions.anonymous_id',
         'puzzle_sessions.puzzle_id',
+        'puzzle_sessions.created_at',
+        'puzzle_sessions.updated_at',
         'users.username',
         'puzzles.title as puzzle_title',
       )
