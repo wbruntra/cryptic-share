@@ -80,8 +80,6 @@ export function PlaySession() {
         checkedCount: number
         totalLetters: number
         filledLetters: number
-        filledLetters: number
-        totalLetters: number
       }>(`/api/sessions/${sessionId}/check`)
 
       if (response.data.success) {
