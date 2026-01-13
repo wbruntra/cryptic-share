@@ -1,45 +1,5 @@
 [
   {
-    "session_id": "IVglTduB3978",
-    "puzzle_id": 1,
-    "state": "[\"HYPHENS DEPICT \",\"O O R T E R O T\",\"LULLABY TROUNCE\",\"Y I   L E O T T\",\"SIC THENCEFORTH\",\"E E H   T   A E\",\"EMCEE MAILORDER\",\"  O R E V C I  \",\"VENGEANCE EXCEL\",\"I S   A   A T I\",\"SITTINGDOWN OWN\",\"I A C E M   R O\",\"TUBBIER ELEGIAC\",\"S L N I G T L U\",\" LEAGUE ANALYST\"]",
-    "user_id": 1,
-    "anonymous_id": null,
-    "is_complete": 1
-  },
-  {
-    "session_id": "CMAICIt21l4e",
-    "puzzle_id": 3,
-    "state": "[\"DURABLE ALLOWS \",\"O O E S P E I G\",\"WICKETS PRECEDE\",\"A K   A L K N Y\",\"GEE JOYLELSNESS\",\"E T U   T   R E\",\"RESIN PURCHASER\",\"  C T A E O C  \",\"FRICASSEE USHER\",\"A E   T   R N E\",\"CONTRETEMPS IMF\",\"A T H E O   T U\",\"DRIVEIN LEIPZIG\",\"E S I S A M E E\",\" STANCE REPULSE\"]",
-    "user_id": 1,
-    "anonymous_id": "cc122078-9a01-409a-bc1e-25e0e5eb78d0",
-    "is_complete": 1
-  },
-  {
-    "session_id": "8VNzX7DaqRNb",
-    "puzzle_id": 3,
-    "state": "[]",
-    "user_id": 1,
-    "anonymous_id": "134c6c82-1c0b-4157-b1cd-2d6bd6ba24ef",
-    "is_complete": 0
-  },
-  {
-    "session_id": "0ZqgZjD5SYHA",
-    "puzzle_id": 4,
-    "state": "[\"FORCEPS CLEAVE \",\"R O R E O A I F\",\"IRONAGE NOSTRIL\",\"T M   D S E G E\",\"TUT CRYSTALLINE\",\"E E U   R   N C\",\"REMIT PRIMITIVE\",\"  P U H C D A  \",\"VIEWPOINT INCAS\",\"A R   L   O R A\",\"PLANETARIUM ELF\",\"O T X N M   E F\",\"USURPED PROSPER\",\"R R E E E U E O\",\" FEELER LATERON\"]",
-    "user_id": 1,
-    "anonymous_id": "c33d3d7e-d775-4fdd-a78e-72f5a35ff90e",
-    "is_complete": 1
-  },
-  {
-    "session_id": "gUgG6hVMS4EY",
-    "puzzle_id": 5,
-    "state": "[\"HOTSEAT SPRUCE \",\"A I W I E U E V\",\"NEGLECT NOMINEE\",\"G H   H I B T S\",\"MAT BUENOSAIRES\",\"A R R   R   E E\",\"NOONE SWISSROLL\",\"  P N H T I F  \",\"ELECTRIFY RUGBY\",\"N W   F   E R I\",\"DRAUGHTSMAN ADD\",\"E L E L I   V D\",\"ASKANCE MARTINI\",\"R E I S E A T S\",\" BRIEFS DIPTYCH\"]",
-    "user_id": 1,
-    "anonymous_id": "c33d3d7e-d775-4fdd-a78e-72f5a35ff90e",
-    "is_complete": 1
-  },
-  {
     "session_id": "Q5i7r70rbFXL",
     "puzzle_id": 5,
     "state": "[]",
@@ -48,17 +8,9 @@
     "is_complete": 0
   },
   {
-    "session_id": "N3SovpLTc5MO",
-    "puzzle_id": 6,
-    "state": "[\"  UNDEMOCRATIC \",\"E P E U O R N  \",\"XEROXED LUMPSUM\",\"T I T D D Y U O\",\"REVERSIBLE SLAV\",\"A E O E Y M I A\",\"VIRTUOSO HOBNOB\",\"A   S THY N   L\",\"GOOGLE MEMORISE\",\"A P Y M A T G F\",\"NOTE GUARDHOUSE\",\"Z I S E L E A A\",\"AIMLESS ORIENTS\",\"  A A L N S A T\",\" OLYMPICGAMES  \"]",
-    "user_id": 1,
-    "anonymous_id": "cc122078-9a01-409a-bc1e-25e0e5eb78d0",
-    "is_complete": 1
-  },
-  {
-    "session_id": "z4TxH2NeguqF",
-    "puzzle_id": 6,
-    "state": "[\"               \",\"E              \",\"X              \",\"T              \",\"R              \",\"A              \",\"V              \",\"A              \",\"G              \",\"A              \",\"N              \",\"Z              \",\"A              \",\"               \",\"               \"]",
+    "session_id": "8VNzX7DaqRNb",
+    "puzzle_id": 3,
+    "state": "[]",
     "user_id": 1,
     "anonymous_id": "134c6c82-1c0b-4157-b1cd-2d6bd6ba24ef",
     "is_complete": 0
