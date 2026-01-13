@@ -62,14 +62,19 @@ router.get('/:id', async (req, res) => {
 
 // Create new puzzle
 router.post('/', requireAdmin, async (req, res) => {
-  const { title, grid, clues } = req.body
+  const { title, grid, clues, answers } = req.body
 
   if (!title || !grid || !clues) {
     return res.status(400).json({ error: 'Missing required fields: title, grid, clues' })
   }
 
   try {
-    const puzzle = await PuzzleService.createPuzzle(title, grid, clues)
+    // Pass 'answers' as part of the 'clues' object trick or separate argument if we refactored createPuzzle.
+    // Looking at PuzzleService.createPuzzle signature: createPuzzle(title, grid, clues).
+    // I need to attach answers_encrypted to clues object to pass it through based on my service change.
+    const serviceClues = { ...clues, answers_encrypted: answers }
+
+    const puzzle = await PuzzleService.createPuzzle(title, grid, serviceClues)
     res.status(201).json(puzzle)
   } catch (error) {
     console.error('Error creating puzzle:', error)
@@ -80,10 +85,15 @@ router.post('/', requireAdmin, async (req, res) => {
 // Update puzzle grid, clues, or title
 router.put('/:id', requireAdmin, async (req, res) => {
   const { id } = req.params
-  const { grid, clues, title } = req.body
+  const { grid, clues, title, answers } = req.body
 
   try {
-    const result = await PuzzleService.updatePuzzle(Number(id), { grid, clues, title })
+    const result = await PuzzleService.updatePuzzle(Number(id), {
+      grid,
+      clues,
+      title,
+      answers,
+    } as any)
 
     if (result === null) {
       return res.status(404).json({ error: 'Puzzle not found' })

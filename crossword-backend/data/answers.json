@@ -1,0 +1,544 @@
+{
+  "puzzles": [
+    {
+      "puzzle_id": 17,
+      "across": [
+        {
+          "number": 1,
+          "answer": "Hyphens"
+        },
+        {
+          "number": 5,
+          "answer": "Depict"
+        },
+        {
+          "number": 9,
+          "answer": "Lullaby"
+        },
+        {
+          "number": 10,
+          "answer": "Trounce"
+        },
+        {
+          "number": 11,
+          "answer": "Sic"
+        },
+        {
+          "number": 12,
+          "answer": "Thenceforth"
+        },
+        {
+          "number": 13,
+          "answer": "Emcee"
+        },
+        {
+          "number": 14,
+          "answer": "Mall order"
+        },
+        {
+          "number": 16,
+          "answer": "Vengeance"
+        },
+        {
+          "number": 17,
+          "answer": "Excel"
+        },
+        {
+          "number": 19,
+          "answer": "Sitting down"
+        },
+        {
+          "number": 22,
+          "answer": "Own"
+        },
+        {
+          "number": 23,
+          "answer": "Tubbier"
+        },
+        {
+          "number": 24,
+          "answer": "Elegiac"
+        },
+        {
+          "number": 26,
+          "answer": "League"
+        },
+        {
+          "number": 27,
+          "answer": "Analyst"
+        }
+      ],
+      "down": [
+        {
+          "number": 1,
+          "answer": "Holy See"
+        },
+        {
+          "number": 2,
+          "answer": "Police constable"
+        },
+        {
+          "number": 3,
+          "answer": "Era"
+        },
+        {
+          "number": 4,
+          "answer": "Style"
+        },
+        {
+          "number": 5,
+          "answer": "Detective"
+        },
+        {
+          "number": 6,
+          "answer": "Proof"
+        },
+        {
+          "number": 7,
+          "answer": "Contradictorily"
+        },
+        {
+          "number": 8,
+          "answer": "Tether"
+        },
+        {
+          "number": 12,
+          "answer": "There"
+        },
+        {
+          "number": 14,
+          "answer": "Menagerie"
+        },
+        {
+          "number": 15,
+          "answer": "Ocean"
+        },
+        {
+          "number": 16,
+          "answer": "Visits"
+        },
+        {
+          "number": 18,
+          "answer": "Linocut"
+        },
+        {
+          "number": 20,
+          "answer": "Icing"
+        },
+        {
+          "number": 21,
+          "answer": "Omega"
+        },
+        {
+          "number": 25,
+          "answer": "Eta"
+        }
+      ]
+    },
+    {
+      "puzzle_id": 18,
+      "across": [
+        {
+          "number": 1,
+          "answer": "Durable"
+        },
+        {
+          "number": 5,
+          "answer": "Allows"
+        },
+        {
+          "number": 9,
+          "answer": "Wickets"
+        },
+        {
+          "number": 10,
+          "answer": "Precede"
+        },
+        {
+          "number": 11,
+          "answer": "Gee"
+        },
+        {
+          "number": 12,
+          "answer": "Joylessness"
+        },
+        {
+          "number": 13,
+          "answer": "Resin"
+        },
+        {
+          "number": 14,
+          "answer": "Purchaser"
+        },
+        {
+          "number": 16,
+          "answer": "Fricassee"
+        },
+        {
+          "number": 17,
+          "answer": "Usher"
+        },
+        {
+          "number": 19,
+          "answer": "Contretemps"
+        },
+        {
+          "number": 22,
+          "answer": "IMF"
+        },
+        {
+          "number": 23,
+          "answer": "Drive-in"
+        },
+        {
+          "number": 24,
+          "answer": "Leipzig"
+        },
+        {
+          "number": 26,
+          "answer": "Stance"
+        },
+        {
+          "number": 27,
+          "answer": "Repulse"
+        }
+      ],
+      "down": [
+        {
+          "number": 1,
+          "answer": "Dowager"
+        },
+        {
+          "number": 2,
+          "answer": "Rocket scientist"
+        },
+        {
+          "number": 3,
+          "answer": "Bee"
+        },
+        {
+          "number": 4,
+          "answer": "Essay"
+        },
+        {
+          "number": 5,
+          "answer": "Apple tree"
+        },
+        {
+          "number": 6,
+          "answer": "Leeks"
+        },
+        {
+          "number": 7,
+          "answer": "Wiener schnitzel"
+        },
+        {
+          "number": 8,
+          "answer": "Geyser"
+        },
+        {
+          "number": 12,
+          "answer": "Junta"
+        },
+        {
+          "number": 14,
+          "answer": "Past tense"
+        },
+        {
+          "number": 15,
+          "answer": "Hours"
+        },
+        {
+          "number": 16,
+          "answer": "Facade"
+        },
+        {
+          "number": 18,
+          "answer": "Refugee"
+        },
+        {
+          "number": 20,
+          "answer": "Rhein"
+        },
+        {
+          "number": 21,
+          "answer": "Molar"
+        },
+        {
+          "number": 25,
+          "answer": "Imp"
+        }
+      ]
+    },
+    {
+      "puzzle_id": 19,
+      "across": [
+        {
+          "number": 1,
+          "answer": "Forceps"
+        },
+        {
+          "number": 5,
+          "answer": "Cleave"
+        },
+        {
+          "number": 9,
+          "answer": "Iron age"
+        },
+        {
+          "number": 10,
+          "answer": "Nostril"
+        },
+        {
+          "number": 11,
+          "answer": "Tut"
+        },
+        {
+          "number": 12,
+          "answer": "Crystallise"
+        },
+        {
+          "number": 13,
+          "answer": "Remit"
+        },
+        {
+          "number": 14,
+          "answer": "Primitive"
+        },
+        {
+          "number": 16,
+          "answer": "Viewpoint"
+        },
+        {
+          "number": 17,
+          "answer": "Incas"
+        },
+        {
+          "number": 19,
+          "answer": "Planetarium"
+        },
+        {
+          "number": 22,
+          "answer": "Elf"
+        },
+        {
+          "number": 23,
+          "answer": "Usurped"
+        },
+        {
+          "number": 24,
+          "answer": "Prosper"
+        },
+        {
+          "number": 26,
+          "answer": "Feeler"
+        },
+        {
+          "number": 27,
+          "answer": "Later on"
+        }
+      ],
+      "down": [
+        {
+          "number": 1,
+          "answer": "Fritter"
+        },
+        {
+          "number": 2,
+          "answer": "Room temperature"
+        },
+        {
+          "number": 3,
+          "answer": "Era"
+        },
+        {
+          "number": 4,
+          "answer": "Seedy"
+        },
+        {
+          "number": 5,
+          "answer": "Constrict"
+        },
+        {
+          "number": 6,
+          "answer": "Easel"
+        },
+        {
+          "number": 7,
+          "answer": "Virginia creeper"
+        },
+        {
+          "number": 8,
+          "answer": "Fleece"
+        },
+        {
+          "number": 12,
+          "answer": "Cut up"
+        },
+        {
+          "number": 14,
+          "answer": "Philander"
+        },
+        {
+          "number": 15,
+          "answer": "Idiom"
+        },
+        {
+          "number": 16,
+          "answer": "Vapour"
+        },
+        {
+          "number": 18,
+          "answer": "Saffron"
+        },
+        {
+          "number": 20,
+          "answer": "Expel"
+        },
+        {
+          "number": 21,
+          "answer": "Impel"
+        },
+        {
+          "number": 25,
+          "answer": "Out"
+        }
+      ]
+    },
+    {
+      "puzzle_id": 20,
+      "across": [
+        {
+          "number": 1,
+          "answer": "Hot seat"
+        },
+        {
+          "number": 5,
+          "answer": "Spruce"
+        },
+        {
+          "number": 9,
+          "answer": "Neglect"
+        },
+        {
+          "number": 10,
+          "answer": "Nominee"
+        },
+        {
+          "number": 11,
+          "answer": "Mat"
+        },
+        {
+          "number": 12,
+          "answer": "Buenos Aires"
+        },
+        {
+          "number": 13,
+          "answer": "No one"
+        },
+        {
+          "number": 14,
+          "answer": "Swiss roll"
+        },
+        {
+          "number": 16,
+          "answer": "Electrify"
+        },
+        {
+          "number": 17,
+          "answer": "Rugby"
+        },
+        {
+          "number": 19,
+          "answer": "Draughtsman"
+        },
+        {
+          "number": 22,
+          "answer": "Add"
+        },
+        {
+          "number": 23,
+          "answer": "Askance"
+        },
+        {
+          "number": 24,
+          "answer": "Martini"
+        },
+        {
+          "number": 26,
+          "answer": "Briefs"
+        },
+        {
+          "number": 27,
+          "answer": "Diptych"
+        }
+      ],
+      "down": [
+        {
+          "number": 1,
+          "answer": "Hangman"
+        },
+        {
+          "number": 2,
+          "answer": "Tightrope walker"
+        },
+        {
+          "number": 3,
+          "answer": "Ewe"
+        },
+        {
+          "number": 4,
+          "answer": "Tithe"
+        },
+        {
+          "number": 5,
+          "answer": "Seniority"
+        },
+        {
+          "number": 6,
+          "answer": "Rumba"
+        },
+        {
+          "number": 7,
+          "answer": "Centre of gravity"
+        },
+        {
+          "number": 8,
+          "answer": "Vessel"
+        },
+        {
+          "number": 12,
+          "answer": "Brent"
+        },
+        {
+          "number": 14,
+          "answer": "Shiftless"
+        },
+        {
+          "number": 15,
+          "answer": "Siren"
+        },
+        {
+          "number": 16,
+          "answer": "Endear"
+        },
+        {
+          "number": 18,
+          "answer": "Yiddish"
+        },
+        {
+          "number": 20,
+          "answer": "Genie"
+        },
+        {
+          "number": 21,
+          "answer": "Mimed"
+        },
+        {
+          "number": 25,
+          "answer": "Rap"
+        }
+      ]
+    }
+  ]
+}

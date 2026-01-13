@@ -14,6 +14,11 @@ export class PuzzleService {
     }
 
     puzzle.clues = JSON.parse(puzzle.clues)
+    // Return encrypted answers as 'answers' for frontend compatibility
+    // but keep as string since it's encrypted JSON/string
+    if (puzzle.answers_encrypted) {
+      puzzle.answers = JSON.parse(puzzle.answers_encrypted)
+    }
     return puzzle
   }
 
@@ -24,9 +29,12 @@ export class PuzzleService {
       grid,
       clues: JSON.stringify(clues),
       letter_count: letterCount,
+      answers_encrypted: clues.answers_encrypted
+        ? JSON.stringify(clues.answers_encrypted)
+        : undefined,
     })
 
-    return { id, title, grid, clues, letter_count: letterCount }
+    return { id, title, grid, clues, letter_count: letterCount, answers: clues.answers_encrypted }
   }
 
   static async updatePuzzle(id: number, updates: { grid?: string; clues?: any; title?: string }) {
@@ -44,6 +52,10 @@ export class PuzzleService {
     }
     if (updates.clues !== undefined) dbUpdates.clues = JSON.stringify(updates.clues)
     if (updates.title !== undefined) dbUpdates.title = updates.title
+    // Handle answers separately if passed in updates (e.g. from frontend as 'answers')
+    if ((updates as any).answers !== undefined) {
+      dbUpdates.answers_encrypted = JSON.stringify((updates as any).answers)
+    }
 
     if (Object.keys(dbUpdates).length === 0) {
       return { updated: false, message: 'No fields to update' }

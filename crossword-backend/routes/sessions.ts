@@ -118,4 +118,42 @@ router.put('/:sessionId', async (req, res) => {
   }
 })
 
+// Check session answers
+router.post('/:sessionId/check', async (req, res) => {
+  const { sessionId } = req.params
+
+  try {
+    const session = await SessionService.getSessionWithPuzzle(sessionId)
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    const { checkSessionAnswers } = await import('../utils/answerChecker')
+    // session is the puzzle object + sessionState, so the ID is session.id
+    const { results, totalClues, totalLetters, filledLetters } = await checkSessionAnswers(
+      session.id,
+      session.sessionState,
+    )
+
+    // Filter to return only incorrect answers with their cells
+    const incorrect = results.filter((r) => !r.isCorrect)
+
+    // For privacy/spoiler prevention, we might mostly care about WHICH cells are wrong.
+    // We return the raw results or a simplified list of incorrect cells?
+    // Let's return the full results (filtered for incorrect) so frontend can decide.
+    // Flatten to a list of "error cells" for easy highlighting
+    const errorCells: string[] = []
+    incorrect.forEach((item) => {
+      item.cells.forEach((cell) => {
+        errorCells.push(`${cell.r}-${cell.c}`)
+      })
+    })
+
+    res.json({ success: true, incorrectCount: incorrect.length, errorCells })
+  } catch (error) {
+    console.error('Error checking session:', error)
+    res.status(500).json({ error: 'Failed to check session' })
+  }
+})
+
 export default router

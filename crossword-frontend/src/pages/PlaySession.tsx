@@ -15,6 +15,7 @@ import {
   MobileClueList,
   VirtualKeyboard,
 } from '../components/mobile'
+import { Modal } from '../components/Modal'
 
 interface SessionData extends PuzzleData {
   sessionState: string[] // Array of rows (strings)
@@ -59,6 +60,53 @@ export function PlaySession() {
     dismiss: dismissPushBanner,
     getEndpoint,
   } = usePushNotifications()
+
+  // Answer Checking
+  const [checking, setChecking] = useState(false)
+  const [errorCells, setErrorCells] = useState<Set<string>>(new Set())
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+
+  const handleCheckAnswers = async () => {
+    setChecking(true)
+    try {
+      // Clear previous errors first
+      setErrorCells(new Set())
+
+      const response = await axios.post<{
+        success: boolean
+        incorrectCount: number
+        errorCells: string[]
+        totalClues: number
+        checkedCount: number
+        totalLetters: number
+        filledLetters: number
+        filledLetters: number
+        totalLetters: number
+      }>(`/api/sessions/${sessionId}/check`)
+
+      if (response.data.success) {
+        if (response.data.errorCells.length > 0) {
+          setErrorCells(new Set(response.data.errorCells))
+        } else if (response.data.incorrectCount === 0) {
+          // All checked answers are correct
+          if (response.data.filledLetters === response.data.totalLetters) {
+            // Puzzle is entirely filled and checked correct -> Success Modal
+            setShowSuccessModal(true)
+          } else {
+            // Partial success
+            alert(`Good job! All ${response.data.checkedCount} checked answers are correct.`)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking answers:', error)
+      alert('Failed to check answers')
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  const clearErrors = () => setErrorCells(new Set())
 
   // When user subscribes while already on a session page, link this session
   useEffect(() => {
@@ -208,6 +256,16 @@ export function PlaySession() {
   const handleCellClick = (r: number, c: number) => {
     if (!isPlayable(r, c)) return
 
+    // Clear specific error if clicking on it? Or just clear all?
+    // Let's clear all errors when user starts interacting to allow retry
+    if (errorCells.size > 0) {
+      // Optional: only clear if clicking on error cell?
+      // if (errorCells.has(`${r}-${c}`)) ...
+      // For simplicity, maybe we don't clear on click, only on type?
+      // User asked: "anything they got wrong would be marked... until?"
+      // Usually good UX to clear when they change it.
+    }
+
     setCursor((prev) => {
       if (prev && prev.r === r && prev.c === c) {
         return { ...prev, direction: prev.direction === 'across' ? 'down' : 'across' }
@@ -279,6 +337,13 @@ export function PlaySession() {
           socketRef.current.emit('update_cell', { sessionId, r, c, value: char })
         }
 
+        // Clear error for this cell if it exists
+        if (errorCells.has(`${r}-${c}`)) {
+          const newErrors = new Set(errorCells)
+          newErrors.delete(`${r}-${c}`)
+          setErrorCells(newErrors)
+        }
+
         moveCursor(r, c, direction, 1)
       } else if (e.key === 'Backspace') {
         const currentVal = answers[r][c]
@@ -290,6 +355,13 @@ export function PlaySession() {
         // Emit granular update
         if (socketRef.current) {
           socketRef.current.emit('update_cell', { sessionId, r, c, value: '' })
+        }
+
+        // Clear error for this cell
+        if (errorCells.has(`${r}-${c}`)) {
+          const newErrors = new Set(errorCells)
+          newErrors.delete(`${r}-${c}`)
+          setErrorCells(newErrors)
         }
 
         if (currentVal === '') {
@@ -615,7 +687,32 @@ export function PlaySession() {
             Solve the cryptic clues to complete the grid.
           </p>
         </div>
-        <div className="flex items-center gap-4 self-end md:self-center"></div>
+        <div className="flex items-center gap-4 self-end md:self-center">
+          {/* Check Answers Button */}
+          <button
+            onClick={handleCheckAnswers}
+            disabled={checking}
+            className={`px-4 py-2 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30 rounded-lg hover:bg-yellow-500/20 flex items-center gap-2 transition-colors ${
+              checking ? 'opacity-50 cursor-wait' : ''
+            }`}
+          >
+            {checking ? (
+              'Checking...'
+            ) : (
+              <>
+                <span>🔍</span> Check Answers
+              </>
+            )}
+          </button>
+          {errorCells.size > 0 && (
+            <button
+              onClick={clearErrors}
+              className="px-3 py-2 text-text-secondary hover:text-text text-sm"
+            >
+              Clear Highlights
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
@@ -635,6 +732,7 @@ export function PlaySession() {
             mode="play"
             onCellClick={handleCellClick}
             changedCells={changedCells}
+            errorCells={errorCells}
           />
 
           <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
@@ -664,6 +762,26 @@ export function PlaySession() {
           </div>
         </div>
       </div>
+
+      <Modal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title="🎉 Congratulations!"
+      >
+        <div className="text-center">
+          <div className="text-6xl mb-4 animate-bounce">🏆</div>
+          <p className="text-lg text-text mb-6">
+            You've solved all the checked answers correctly!
+          </p>
+          <p className="text-text-secondary mb-8">Great job solving this cryptic crossword.</p>
+          <button
+            onClick={() => setShowSuccessModal(false)}
+            className="px-6 py-3 bg-primary text-white font-bold rounded-lg shadow-lg hover:bg-primary/90 hover:scale-105 transition-all"
+          >
+            Keep Playing
+          </button>
+        </div>
+      </Modal>
     </div>
   )
 }

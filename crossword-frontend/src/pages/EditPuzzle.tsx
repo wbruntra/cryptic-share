@@ -14,6 +14,7 @@ export function EditPuzzle() {
   const [title, setTitle] = useState('')
   const [grid, setGrid] = useState<CellType[][]>([])
   const [cluesJson, setCluesJson] = useState('')
+  const [answersJson, setAnswersJson] = useState('')
   const [saving, setSaving] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [isJsonValid, setIsJsonValid] = useState(true)
@@ -66,7 +67,7 @@ export function EditPuzzle() {
       setLoading(true)
       try {
         const response = await axios.get(`/api/puzzles/${puzzleId}`)
-        const { title, grid: gridString, clues } = response.data
+        const { title, grid: gridString, clues, answers } = response.data
         setTitle(title)
 
         const parsedGrid = gridString
@@ -80,6 +81,10 @@ export function EditPuzzle() {
           setCluesJson(JSON.stringify(clues, null, 2))
         } else {
           setCluesJson(JSON.stringify({ across: [], down: [] }, null, 2))
+        }
+
+        if (answers) {
+          setAnswersJson(JSON.stringify(answers, null, 2))
         }
       } catch (error) {
         console.error('Failed to fetch puzzle:', error)
@@ -125,9 +130,22 @@ export function EditPuzzle() {
       // cluesJson is already a string, but we want to send it as an object
       const cluesObj = JSON.parse(cluesJson)
 
+      let answersObj = undefined
+      if (answersJson.trim()) {
+        try {
+          answersObj = JSON.parse(answersJson)
+        } catch (e) {
+          if (!confirm('Answers JSON is invalid. Save without updating answers?')) {
+            setSaving(false)
+            return
+          }
+        }
+      }
+
       await axios.put(`/api/puzzles/${puzzleId}`, {
         grid: outputString,
         clues: cluesObj,
+        answers: answersObj,
       })
       alert('Puzzle saved successfully!')
     } catch (error) {
@@ -286,6 +304,18 @@ export function EditPuzzle() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Answers JSON Editor */}
+          <div className="bg-surface p-6 md:p-8 rounded-2xl shadow-xl border border-border h-full flex flex-col">
+            <h2 className="text-xl font-bold text-text mb-4">Answers JSON (Paste from script)</h2>
+            <textarea
+              value={answersJson}
+              onChange={(e) => setAnswersJson(e.target.value)}
+              placeholder="Paste JSON output from transcribe-answers.ts here..."
+              className="w-full flex-1 p-4 rounded-xl bg-input-bg border border-border text-text font-mono text-sm leading-relaxed outline-none transition-all resize-none min-h-[200px] focus:border-primary focus:ring-1 focus:ring-primary"
+              spellCheck={false}
+            />
           </div>
           <div className="p-6 bg-surface rounded-2xl border border-border shadow-md">
             <h3 className="text-lg font-bold mb-3 flex items-center gap-2">

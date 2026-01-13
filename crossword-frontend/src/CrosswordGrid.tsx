@@ -5,9 +5,16 @@ interface CrosswordGridProps {
   mode: Mode
   onCellClick: (r: number, c: number) => void
   changedCells?: Set<string>
+  errorCells?: Set<string>
 }
 
-export function CrosswordGrid({ grid, mode, onCellClick, changedCells }: CrosswordGridProps) {
+export function CrosswordGrid({
+  grid,
+  mode,
+  onCellClick,
+  changedCells,
+  errorCells,
+}: CrosswordGridProps) {
   return (
     <div className="flex justify-center max-w-full w-full overflow-hidden">
       <div
@@ -21,12 +28,15 @@ export function CrosswordGrid({ grid, mode, onCellClick, changedCells }: Crosswo
               {row.map((cell, cIndex) => {
                 const isBlack = cell.type === 'B'
                 const isChanged = changedCells?.has(`${rIndex}-${cIndex}`)
+                const isError = errorCells?.has(`${rIndex}-${cIndex}`)
                 let bgClass = 'bg-surface'
 
                 if (isBlack) {
                   bgClass = 'bg-black'
                 } else if (cell.isSelected) {
                   bgClass = 'bg-selection'
+                } else if (isError) {
+                  bgClass = 'bg-[#ffeb3b] dark:bg-[#fbc02d]' // Vivid yellow for error (adjust for dark mode)
                 } else if (isChanged) {
                   bgClass = 'bg-changed-cell'
                 } else if (cell.isActiveWord) {
@@ -40,8 +50,11 @@ export function CrosswordGrid({ grid, mode, onCellClick, changedCells }: Crosswo
                         w-10 h-10 md:w-11 md:h-11 flex items-center justify-center relative select-none font-mono cursor-pointer transition-colors duration-100
                         ${bgClass}
                         ${cell.isSelected ? '!text-black z-10' : ''}
-                        ${!isBlack && !cell.isSelected && !isChanged ? 'text-text' : ''}
+                        ${
+                          !isBlack && !cell.isSelected && !isChanged && !isError ? 'text-text' : ''
+                        }
                         ${!isBlack && !cell.isSelected && isChanged ? 'text-text-changed' : ''}
+                        ${!isBlack && !cell.isSelected && isError ? 'text-black font-bold' : ''}
                         ${
                           !isBlack && !cell.isSelected && !cell.isActiveWord
                             ? 'hover:bg-input-bg'
