@@ -94,7 +94,12 @@ export interface CheckResult {
 export async function checkSessionAnswers(
   puzzleId: number,
   sessionState: string[],
-): Promise<{ results: CheckResult[]; totalClues: number; totalLetters: number; filledLetters: number }> {
+): Promise<{
+  results: CheckResult[]
+  totalClues: number
+  totalLetters: number
+  filledLetters: number
+}> {
   const puzzle = await PuzzleService.getPuzzleById(puzzleId)
   if (!puzzle) throw new Error(`Puzzle ${puzzleId} not found`)
 
@@ -159,9 +164,6 @@ export async function checkSessionAnswers(
         isCorrect,
         cells,
       })
-    }
-  }
-
     }
   }
 
