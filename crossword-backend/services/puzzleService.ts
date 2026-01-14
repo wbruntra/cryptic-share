@@ -32,6 +32,9 @@ export class PuzzleService {
       answers_encrypted: clues.answers_encrypted
         ? JSON.stringify(clues.answers_encrypted)
         : undefined,
+      // Hack: populating puzzle_number with title and hardcoding book to 3
+      puzzle_number: title as any,
+      book: '3',
     })
 
     return { id, title, grid, clues, letter_count: letterCount, answers: clues.answers_encrypted }
