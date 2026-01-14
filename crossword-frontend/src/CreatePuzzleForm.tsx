@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import imageCompression from 'browser-image-compression'
 import { parseGridString, parseGridJson, renderGrid } from './utils/gridRenderer'
 import { CrosswordGrid } from './CrosswordGrid'
+import { ImageCropperDialog } from './components/ImageCropperDialog'
 import type { PuzzleSummary } from './types'
 
 interface CreatePuzzleFormProps {
@@ -30,6 +32,11 @@ export function CreatePuzzleForm({
   const [transcribing, setTranscribing] = useState(false)
   const [transcribingGrid, setTranscribingGrid] = useState(false)
 
+  // Cropper state
+  const [cropModalOpen, setCropModalOpen] = useState(false)
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null)
+  const [cropContext, setCropContext] = useState<'clues' | 'grid' | null>(null)
+
   useEffect(() => {
     axios
       .get('/api/puzzles')
@@ -48,7 +55,7 @@ export function CreatePuzzleForm({
     }
   }
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, context: 'clues' | 'grid') => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -57,89 +64,96 @@ export function CreatePuzzleForm({
       return
     }
 
-    setTranscribing(true)
+    const reader = new FileReader()
+    reader.addEventListener('load', () => {
+      setCropImageSrc(reader.result as string)
+      setCropContext(context)
+      setCropModalOpen(true)
+      // Reset input value so same file can be selected again if needed
+      e.target.value = ''
+    })
+    reader.readAsDataURL(file)
+  }
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    setCropModalOpen(false)
+    if (!cropContext) return
+
+    const isGrid = cropContext === 'grid'
+    if (isGrid) {
+      setTranscribingGrid(true)
+    } else {
+      setTranscribing(true)
+    }
     setError(null)
 
     try {
+      // Compress the image
+      const compressedFile = await imageCompression(croppedBlob as File, {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true,
+      })
+
       const reader = new FileReader()
-      reader.readAsDataURL(file)
+      reader.readAsDataURL(compressedFile)
       reader.onload = async () => {
+        const base64Image = reader.result as string
+
         try {
-          const base64Image = reader.result as string
-          const response = await axios.post('/api/clues/from-image', {
-            image: base64Image,
-          })
-          setCluesJson(JSON.stringify(response.data, null, 2))
+          if (isGrid) {
+            const response = await axios.post('/api/puzzles/generate-grid', {
+              image: base64Image,
+            })
+            const gridData = response.data
+            let rows = gridData
+            if (gridData.rows && Array.isArray(gridData.rows)) {
+              rows = gridData.rows
+            }
+            if (Array.isArray(rows)) {
+              setGrid(JSON.stringify(rows, null, 2))
+            } else {
+              setGrid(typeof gridData === 'string' ? gridData : JSON.stringify(gridData, null, 2))
+            }
+          } else {
+            const response = await axios.post('/api/clues/from-image', {
+              image: base64Image,
+            })
+            setCluesJson(JSON.stringify(response.data, null, 2))
+          }
         } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : 'Failed to transcribe clues'
-          console.error('Transcription error:', err)
-          setError('Transcription failed: ' + message)
+          const message = err instanceof Error ? err.message : 'Failed to process image'
+          console.error(`${cropContext} processing error:`, err)
+          setError(
+            `${cropContext === 'grid' ? 'Grid generation' : 'Transcription'} failed: ${message}`,
+          )
         } finally {
-          setTranscribing(false)
+          if (isGrid) {
+            setTranscribingGrid(false)
+          } else {
+            setTranscribing(false)
+          }
+          setCropImageSrc(null)
+          setCropContext(null)
         }
       }
       reader.onerror = () => {
-        setError('Failed to read file')
-        setTranscribing(false)
+        setError('Failed to process compressed file')
+        if (isGrid) setTranscribingGrid(false)
+        else setTranscribing(false)
       }
     } catch (err) {
-      console.error(err)
-      setError('Failed to process image')
-      setTranscribing(false)
+      console.error('Compression error:', err)
+      setError('Failed to compress image')
+      if (isGrid) setTranscribingGrid(false)
+      else setTranscribing(false)
     }
   }
 
-  const handleGridImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    if (!file.type.startsWith('image/')) {
-      setError('Please upload an image file')
-      return
-    }
-
-    setTranscribingGrid(true)
-    setError(null)
-
-    try {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = async () => {
-        try {
-          const base64Image = reader.result as string
-          const response = await axios.post('/api/puzzles/generate-grid', {
-            image: base64Image,
-          })
-
-          const gridData = response.data
-          // Handle both array of strings (gemini return) or { rows: [] } object
-          let rows = gridData
-          if (gridData.rows && Array.isArray(gridData.rows)) {
-            rows = gridData.rows
-          }
-
-          if (Array.isArray(rows)) {
-            setGrid(JSON.stringify(rows, null, 2))
-          } else {
-            setGrid(typeof gridData === 'string' ? gridData : JSON.stringify(gridData, null, 2))
-          }
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : 'Failed to generate grid'
-          console.error('Grid generation error:', err)
-          setError('Grid generation failed: ' + message)
-        } finally {
-          setTranscribingGrid(false)
-        }
-      }
-      reader.onerror = () => {
-        setError('Failed to read file')
-        setTranscribingGrid(false)
-      }
-    } catch (err) {
-      console.error(err)
-      setError('Failed to process image')
-      setTranscribingGrid(false)
-    }
+  const handleCropCancel = () => {
+    setCropModalOpen(false)
+    setCropImageSrc(null)
+    setCropContext(null)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -204,182 +218,192 @@ export function CreatePuzzleForm({
   const labelClasses = 'block text-sm font-semibold mb-2 text-text-secondary'
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-8 bg-surface p-6 md:p-8 rounded-2xl shadow-xl border border-border"
-    >
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Left Column: Metadata and Clues */}
-        <div className="space-y-6">
-          <h2 className="text-2xl font-bold text-text italic tracking-tight border-b border-border pb-4">
-            {isEdit ? 'Edit Puzzle' : 'Create New Puzzle'}
-          </h2>
+    <>
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-8 bg-surface p-6 md:p-8 rounded-2xl shadow-xl border border-border"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Left Column: Metadata and Clues */}
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-text italic tracking-tight border-b border-border pb-4">
+              {isEdit ? 'Edit Puzzle' : 'Create New Puzzle'}
+            </h2>
 
-          <div>
-            <label htmlFor="title" className={labelClasses}>
-              Puzzle Title
-            </label>
-            <input
-              id="title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., Cryptic #2"
-              className={inputClasses}
-            />
-          </div>
+            <div>
+              <label htmlFor="title" className={labelClasses}>
+                Puzzle Title
+              </label>
+              <input
+                id="title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g., Cryptic #2"
+                className={inputClasses}
+              />
+            </div>
 
-          <div>
-            <label htmlFor="copy-grid" className={labelClasses}>
-              Copy Grid Layout From (Optional)
-            </label>
-            <select
-              id="copy-grid"
-              onChange={(e) => handleCopyGrid(Number(e.target.value))}
-              defaultValue=""
-              className={`${inputClasses} cursor-pointer`}
-            >
-              <option value="" disabled>
-                Select existing puzzle...
-              </option>
-              {puzzles.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.title}
+            <div>
+              <label htmlFor="copy-grid" className={labelClasses}>
+                Copy Grid Layout From (Optional)
+              </label>
+              <select
+                id="copy-grid"
+                onChange={(e) => handleCopyGrid(Number(e.target.value))}
+                defaultValue=""
+                className={`${inputClasses} cursor-pointer`}
+              >
+                <option value="" disabled>
+                  Select existing puzzle...
                 </option>
-              ))}
-            </select>
+                {puzzles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <label htmlFor="clues" className="text-sm font-semibold text-text-secondary">
+                  Clues (JSON format)
+                </label>
+                <label className="text-xs font-bold text-primary cursor-pointer hover:text-primary-hover flex items-center gap-1 group">
+                  {transcribing ? (
+                    <>
+                      <div className="w-3 h-3 border border-primary border-t-transparent rounded-full animate-spin"></div>{' '}
+                      Transcribing...
+                    </>
+                  ) : (
+                    <>
+                      <span>✨</span> Auto-fill from Image
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleFileSelect(e, 'clues')}
+                    disabled={transcribing}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              <textarea
+                id="clues"
+                value={cluesJson}
+                onChange={(e) => setCluesJson(e.target.value)}
+                placeholder='{"across": [{"number": 1, "clue": "..."}], "down": [...]}'
+                rows={15}
+                className={`${inputClasses} resize-y min-h-[300px]`}
+              />
+            </div>
           </div>
 
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label htmlFor="clues" className="text-sm font-semibold text-text-secondary">
-                Clues (JSON format)
+          {/* Right Column: Grid and Preview */}
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-text italic tracking-tight border-b border-border pb-4 invisible md:visible">
+              Grid Layout
+            </h2>
+
+            <div>
+              <label htmlFor="grid" className={labelClasses}>
+                Grid Representation (JSON Array or Newlines)
               </label>
-              <label className="text-xs font-bold text-primary cursor-pointer hover:text-primary-hover flex items-center gap-1 group">
-                {transcribing ? (
-                  <>
-                    <div className="w-3 h-3 border border-primary border-t-transparent rounded-full animate-spin"></div>{' '}
-                    Transcribing...
-                  </>
+              <div className="flex justify-between items-center mb-2">
+                <label className="text-xs font-bold text-primary cursor-pointer hover:text-primary-hover flex items-center gap-1 group">
+                  {transcribingGrid ? (
+                    <>
+                      <div className="w-3 h-3 border border-primary border-t-transparent rounded-full animate-spin"></div>{' '}
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <span>✨</span> Auto-fill from Image
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleFileSelect(e, 'grid')}
+                    disabled={transcribingGrid}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              <textarea
+                id="grid"
+                value={grid}
+                onChange={(e) => setGrid(e.target.value)}
+                placeholder='["N W N...", "W B W..."] OR&#10;N W N...&#10;W B W...'
+                rows={10}
+                className={`${inputClasses} resize-y min-h-[220px]`}
+              />
+            </div>
+
+            <div>
+              <label className={labelClasses}>Visual Preview</label>
+              <div className="bg-bg rounded-xl border border-border p-4 flex items-center justify-center min-h-[350px] shadow-inner relative overflow-hidden group">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                {previewRenderedGrid.length > 0 ? (
+                  <div className="transform scale-90 sm:scale-100 transition-transform">
+                    <CrosswordGrid grid={previewRenderedGrid} mode="view" onCellClick={() => {}} />
+                  </div>
                 ) : (
-                  <>
-                    <span>✨</span> Auto-fill from Image
-                  </>
+                  <div className="text-text-secondary italic text-sm text-center">
+                    <p>Enter grid data above to see preview</p>
+                    <p className="text-[10px] mt-2 opacity-50 uppercase tracking-widest">
+                      Awaiting valid format
+                    </p>
+                  </div>
                 )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  disabled={transcribing}
-                  className="hidden"
-                />
-              </label>
-            </div>
-            <textarea
-              id="clues"
-              value={cluesJson}
-              onChange={(e) => setCluesJson(e.target.value)}
-              placeholder='{"across": [{"number": 1, "clue": "..."}], "down": [...]}'
-              rows={15}
-              className={`${inputClasses} resize-y min-h-[300px]`}
-            />
-          </div>
-        </div>
-
-        {/* Right Column: Grid and Preview */}
-        <div className="space-y-6">
-          <h2 className="text-2xl font-bold text-text italic tracking-tight border-b border-border pb-4 invisible md:visible">
-            Grid Layout
-          </h2>
-
-          <div>
-            <label htmlFor="grid" className={labelClasses}>
-              Grid Representation (JSON Array or Newlines)
-            </label>
-            <div className="flex justify-between items-center mb-2">
-              <label className="text-xs font-bold text-primary cursor-pointer hover:text-primary-hover flex items-center gap-1 group">
-                {transcribingGrid ? (
-                  <>
-                    <div className="w-3 h-3 border border-primary border-t-transparent rounded-full animate-spin"></div>{' '}
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <span>✨</span> Auto-fill from Image
-                  </>
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleGridImageUpload}
-                  disabled={transcribingGrid}
-                  className="hidden"
-                />
-              </label>
-            </div>
-            <textarea
-              id="grid"
-              value={grid}
-              onChange={(e) => setGrid(e.target.value)}
-              placeholder='["N W N...", "W B W..."] OR&#10;N W N...&#10;W B W...'
-              rows={10}
-              className={`${inputClasses} resize-y min-h-[220px]`}
-            />
-          </div>
-
-          <div>
-            <label className={labelClasses}>Visual Preview</label>
-            <div className="bg-bg rounded-xl border border-border p-4 flex items-center justify-center min-h-[350px] shadow-inner relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              {previewRenderedGrid.length > 0 ? (
-                <div className="transform scale-90 sm:scale-100 transition-transform">
-                  <CrosswordGrid grid={previewRenderedGrid} mode="view" onCellClick={() => {}} />
-                </div>
-              ) : (
-                <div className="text-text-secondary italic text-sm text-center">
-                  <p>Enter grid data above to see preview</p>
-                  <p className="text-[10px] mt-2 opacity-50 uppercase tracking-widest">
-                    Awaiting valid format
-                  </p>
-                </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {error && (
-        <div className="p-4 bg-error/10 border border-error/20 rounded-xl text-error text-sm font-medium animate-in fade-in slide-in-from-top-2 duration-300">
-          <strong>Error:</strong> {error}
+        {error && (
+          <div className="p-4 bg-error/10 border border-error/20 rounded-xl text-error text-sm font-medium animate-in fade-in slide-in-from-top-2 duration-300">
+            <strong>Error:</strong> {error}
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-border">
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex-1 py-3 px-8 rounded-xl bg-primary text-white font-bold shadow-lg hover:bg-primary-hover hover:shadow-xl active:scale-[0.98] disabled:opacity-50 transition-all border-none cursor-pointer flex items-center justify-center gap-2"
+          >
+            {submitting ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>{' '}
+                Saving...
+              </>
+            ) : isEdit ? (
+              'Update Puzzle'
+            ) : (
+              'Create Puzzle'
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={submitting}
+            className="py-3 px-8 rounded-xl bg-input-bg border border-border text-text-secondary font-bold hover:text-text hover:border-text transition-all active:scale-[0.98] border-none cursor-pointer"
+          >
+            Cancel
+          </button>
         </div>
+      </form>
+
+      {cropModalOpen && cropImageSrc && (
+        <ImageCropperDialog
+          imageSrc={cropImageSrc}
+          onCancel={handleCropCancel}
+          onCropComplete={handleCropComplete}
+        />
       )}
-
-      <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-border">
-        <button
-          type="submit"
-          disabled={submitting}
-          className="flex-1 py-3 px-8 rounded-xl bg-primary text-white font-bold shadow-lg hover:bg-primary-hover hover:shadow-xl active:scale-[0.98] disabled:opacity-50 transition-all border-none cursor-pointer flex items-center justify-center gap-2"
-        >
-          {submitting ? (
-            <>
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>{' '}
-              Saving...
-            </>
-          ) : isEdit ? (
-            'Update Puzzle'
-          ) : (
-            'Create Puzzle'
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={submitting}
-          className="py-3 px-8 rounded-xl bg-input-bg border border-border text-text-secondary font-bold hover:text-text hover:border-text transition-all active:scale-[0.98] border-none cursor-pointer"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
+    </>
   )
 }

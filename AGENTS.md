@@ -10,6 +10,8 @@ This is a full-stack crossword puzzle application with:
 - **Backend**: Express.js + TypeScript + Bun runtime + SQLite/Knex
 - **Database**: SQLite with Knex migrations
 
+Use Bun instead of node/npm for all commands, including running scripts and managing dependencies. (Use `bun add` instead of `npm install`)
+
 ## Build & Development Commands
 
 ### Frontend (crossword-frontend/)

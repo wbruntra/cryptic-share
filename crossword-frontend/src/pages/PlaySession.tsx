@@ -587,8 +587,33 @@ export function PlaySession() {
           }}
         >
           {/* Compact header */}
-          <div className="flex items-center justify-between py-3 px-2">
+          <div className="flex items-center justify-between py-3 px-2 gap-2">
             <h1 className="text-xl font-bold text-text m-0 truncate flex-1">{title}</h1>
+            <div className="flex items-center gap-2 shrink-0">
+              {errorCells.size > 0 && (
+                <button
+                  onClick={clearErrors}
+                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-surface border border-border text-text-secondary active:bg-input-bg transition-colors"
+                  aria-label="Clear errors"
+                >
+                  ✕
+                </button>
+              )}
+              <button
+                onClick={handleCheckAnswers}
+                disabled={checking}
+                className={`w-9 h-9 flex items-center justify-center rounded-lg bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30 active:bg-yellow-500/20 transition-colors ${
+                  checking ? 'opacity-50' : ''
+                }`}
+                aria-label="Check answers"
+              >
+                {checking ? (
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  '🔍'
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Grid - full width */}
@@ -598,6 +623,7 @@ export function PlaySession() {
               mode="play"
               onCellClick={handleCellClick}
               changedCells={changedCells}
+              errorCells={errorCells}
             />
           </div>
         </div>
@@ -641,6 +667,26 @@ export function PlaySession() {
             />
           )}
         </BottomSheet>
+
+        <Modal
+          isOpen={showSuccessModal}
+          onClose={() => setShowSuccessModal(false)}
+          title="🎉 Congratulations!"
+        >
+          <div className="text-center">
+            <div className="text-6xl mb-4 animate-bounce">🏆</div>
+            <p className="text-lg text-text mb-6">
+              You've solved all the checked answers correctly!
+            </p>
+            <p className="text-text-secondary mb-8">Great job solving this cryptic crossword.</p>
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className="px-6 py-3 bg-primary text-white font-bold rounded-lg shadow-lg hover:bg-primary/90 hover:scale-105 transition-all"
+            >
+              Keep Playing
+            </button>
+          </div>
+        </Modal>
 
         <VirtualKeyboard
           isOpen={isKeyboardOpen}
