@@ -191,9 +191,7 @@ router.post('/:sessionId/hint', async (req, res) => {
       // We need to find *any* correct letter for this position.
       // Strategy: Iterate all answers, map them to grid, see if any covers (r, c).
 
-      const grid = puzzle.grid
-        .split('\n')
-        .map((row: string) => row.trim().split(' ') as any[])
+      const grid = puzzle.grid.split('\n').map((row: string) => row.trim().split(' ') as any[])
       const metadata = extractClueMetadata(grid)
 
       // Find a clue that covers this cell
@@ -227,6 +225,10 @@ router.post('/:sessionId/hint', async (req, res) => {
         return res.status(404).json({ error: 'Answer not found for this cell' })
       }
 
+      if (req.body.dryRun) {
+        return res.json({ success: true, value: valueToReveal })
+      }
+
       // Update session
       await SessionService.updateCell(sessionId, r, c, valueToReveal)
     } else if (type === 'word') {
@@ -243,9 +245,7 @@ router.post('/:sessionId/hint', async (req, res) => {
 
       // We need to know where to start writing.
       // Re-extract metadata to find start row/col for this clue number/direction
-      const grid = puzzle.grid
-        .split('\n')
-        .map((row: string) => row.trim().split(' ') as any[])
+      const grid = puzzle.grid.split('\n').map((row: string) => row.trim().split(' ') as any[])
       const metadata = extractClueMetadata(grid)
       const clueInfo = metadata.find((m) => m.number === number && m.direction === direction)
 
@@ -256,6 +256,11 @@ router.post('/:sessionId/hint', async (req, res) => {
       // Update each cell of the word
       let r = clueInfo.row
       let c = clueInfo.col
+
+      if (req.body.dryRun) {
+        return res.json({ success: true, value: valueToReveal })
+      }
+
       for (let i = 0; i < decrypted.length; i++) {
         await SessionService.updateCell(sessionId, r, c, decrypted[i])
         if (direction === 'across') c++
