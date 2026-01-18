@@ -208,8 +208,10 @@ router.post('/:sessionId/hint', async (req, res) => {
             const list = puzzleAnswers[item.direction]
             const answerEntry = list?.find((a: any) => a.number === item.number)
             if (answerEntry) {
-              const decrypted = rot13(answerEntry.answer).toUpperCase()
-              valueToReveal = decrypted[index]
+              const decrypted = rot13(answerEntry.answer)
+                .toUpperCase()
+                .replace(/[^A-Z]/g, '')
+              valueToReveal = decrypted[index] || ''
               found = true
               break
             }
@@ -240,7 +242,9 @@ router.post('/:sessionId/hint', async (req, res) => {
         return res.status(404).json({ error: 'Answer not found for this clue' })
       }
 
-      const decrypted = rot13(answerEntry.answer).toUpperCase()
+      const decrypted = rot13(answerEntry.answer)
+        .toUpperCase()
+        .replace(/[^A-Z]/g, '')
       valueToReveal = decrypted
 
       // We need to know where to start writing.
@@ -262,7 +266,7 @@ router.post('/:sessionId/hint', async (req, res) => {
       }
 
       for (let i = 0; i < decrypted.length; i++) {
-        await SessionService.updateCell(sessionId, r, c, decrypted[i])
+        await SessionService.updateCell(sessionId, r, c, decrypted[i] || '')
         if (direction === 'across') c++
         else r++
       }
