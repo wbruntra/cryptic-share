@@ -66,6 +66,41 @@ export function PlaySession() {
   const [errorCells, setErrorCells] = useState<Set<string>>(new Set())
   const [showSuccessModal, setShowSuccessModal] = useState(false)
 
+  // Hint State
+  const [showHintMenu, setShowHintMenu] = useState(false)
+  const [hinting, setHinting] = useState(false)
+
+  const handleHint = async (type: 'letter' | 'word') => {
+    setHinting(true)
+    setShowHintMenu(false)
+    try {
+      let target: any = {}
+      if (type === 'letter') {
+        if (!cursor) return
+        target = { r: cursor.r, c: cursor.c }
+      } else {
+        if (!cursor || !currentClueNumber) return
+        target = { number: currentClueNumber, direction: cursor.direction }
+      }
+
+      const response = await axios.post(`/api/sessions/${sessionId}/hint`, {
+        type,
+        target,
+      })
+
+      if (response.data.success) {
+        // The socket update will handle the state change.
+        // We could also optimistically update, but socket is fast enough.
+        // Maybe show a toast or highlight the revealed cell/word briefly?
+      }
+    } catch (error) {
+      console.error('Error getting hint:', error)
+      alert('Failed to get hint. Answers might not be available.')
+    } finally {
+      setHinting(false)
+    }
+  }
+
   const handleCheckAnswers = async () => {
     setChecking(true)
     try {
@@ -599,6 +634,47 @@ export function PlaySession() {
                   ✕
                 </button>
               )}
+              {/* Mobile Hint Button */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowHintMenu(!showHintMenu)}
+                  disabled={hinting}
+                  className={`w-9 h-9 flex items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 active:bg-blue-500/20 transition-colors ${
+                    hinting ? 'opacity-50' : ''
+                  }`}
+                  aria-label="Get Hint"
+                >
+                  {hinting ? (
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    '💡'
+                  )}
+                </button>
+                {showHintMenu && (
+                  <div className="absolute top-full right-0 mt-2 w-40 bg-surface rounded-lg shadow-xl border border-border z-50 overflow-hidden">
+                    <button
+                      onClick={() => handleHint('letter')}
+                      className="w-full text-left px-4 py-3 text-sm hover:bg-input-bg active:bg-primary/10 transition-colors flex items-center gap-2"
+                    >
+                      <span>🔤</span> Letter
+                    </button>
+                    <button
+                      onClick={() => handleHint('word')}
+                      className="w-full text-left px-4 py-3 text-sm hover:bg-input-bg active:bg-primary/10 transition-colors border-t border-border flex items-center gap-2"
+                    >
+                      <span>📝</span> Word
+                    </button>
+                  </div>
+                )}
+                {/* Backdrop for mobile menu */}
+                {showHintMenu && (
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowHintMenu(false)}
+                  ></div>
+                )}
+              </div>
+
               <button
                 onClick={handleCheckAnswers}
                 disabled={checking}
@@ -732,6 +808,47 @@ export function PlaySession() {
           </p>
         </div>
         <div className="flex items-center gap-4 self-end md:self-center">
+          {/* Hint Button (Desktop) */}
+          <div className="relative">
+            <button
+              onClick={() => setShowHintMenu(!showHintMenu)}
+              disabled={hinting}
+              className={`px-4 py-2 bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/20 flex items-center gap-2 transition-colors ${
+                hinting ? 'opacity-50 cursor-wait' : ''
+              }`}
+            >
+              {hinting ? (
+                'Loading...'
+              ) : (
+                <>
+                  <span>💡</span> Hint
+                </>
+              )}
+            </button>
+            {showHintMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowHintMenu(false)}
+                ></div>
+                <div className="absolute top-full right-0 mt-2 w-40 bg-surface rounded-lg shadow-xl border border-border z-20 overflow-hidden">
+                  <button
+                    onClick={() => handleHint('letter')}
+                    className="w-full text-left px-4 py-3 text-sm hover:bg-input-bg active:bg-primary/10 transition-colors flex items-center gap-2"
+                  >
+                    <span>🔤</span> Reveal Letter
+                  </button>
+                  <button
+                    onClick={() => handleHint('word')}
+                    className="w-full text-left px-4 py-3 text-sm hover:bg-input-bg active:bg-primary/10 transition-colors border-t border-border flex items-center gap-2"
+                  >
+                    <span>📝</span> Reveal Word
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
           {/* Check Answers Button */}
           <button
             onClick={handleCheckAnswers}
