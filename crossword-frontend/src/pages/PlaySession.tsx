@@ -326,6 +326,18 @@ export function PlaySession() {
   }
 
   // --- Actions ---
+  // Save state locally to avoid "partner made changes" on own reload
+  const updateLocalState = (currentAnswers: string[]) => {
+    if (!sessionId) return
+    saveLocalSession({
+      sessionId,
+      puzzleId: 0, // Not needed for update
+      puzzleTitle: title,
+      lastPlayed: Date.now(),
+      lastKnownState: currentAnswers,
+    })
+  }
+
   // --- Auto-save Logic (via Socket) ---
   // REMOVED: Debounced auto-save is replaced by granular updates.
 
@@ -408,6 +420,7 @@ export function PlaySession() {
         const row = newAnswers[r] || ' '
         newAnswers[r] = row.substring(0, c) + char + row.substring(c + 1)
         setAnswers(newAnswers)
+        updateLocalState(newAnswers)
 
         // Emit granular update
         if (socketRef.current) {
@@ -428,6 +441,7 @@ export function PlaySession() {
         const row = newAnswers[r] || ' '
         newAnswers[r] = row.substring(0, c) + ' ' + row.substring(c + 1)
         setAnswers(newAnswers)
+        updateLocalState(newAnswers)
 
         // Emit granular update
         if (socketRef.current) {
@@ -471,6 +485,7 @@ export function PlaySession() {
     const row = newAnswers[r] || ' '
     newAnswers[r] = row.substring(0, c) + key + row.substring(c + 1)
     setAnswers(newAnswers)
+    updateLocalState(newAnswers)
 
     // Emit granular update
     if (socketRef.current) {
@@ -488,6 +503,7 @@ export function PlaySession() {
     const row = newAnswers[r] || ' '
     newAnswers[r] = row.substring(0, c) + ' ' + row.substring(c + 1)
     setAnswers(newAnswers)
+    updateLocalState(newAnswers)
 
     // Emit granular update
     if (socketRef.current) {
@@ -627,7 +643,7 @@ export function PlaySession() {
         <ChangeNotification show={showChangeNotification} onDismiss={handleDismissChanges} />
 
         {/* One-time push notification prompt */}
-        {isPushSupported && !isPushSubscribed && !isPushDismissed && (
+        {/* {isPushSupported && !isPushSubscribed && !isPushDismissed && (
           <div className="mx-4 mb-4 p-3 bg-primary/10 border border-primary/30 rounded-xl flex items-center justify-between gap-3">
             <span className="text-sm text-text">
               🔔 Get notified when collaborators update this puzzle
@@ -647,7 +663,7 @@ export function PlaySession() {
               </button>
             </div>
           </div>
-        )}
+        )} */}
         {/* Floating clue bar - only when a clue is active */}
         <FloatingClueBar
           clue={isClueBarHidden ? null : currentClue}

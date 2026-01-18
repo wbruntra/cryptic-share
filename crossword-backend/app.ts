@@ -110,7 +110,7 @@ io.on('connection', (socket) => {
         const connectedSessionSockets = connectedSockets.get(sessionId) || new Set()
 
         console.log(`[Push] Checking push for session ${sessionId}`)
-        await PushService.notifySessionParticipants(sessionId, session.title)
+        // await PushService.notifySessionParticipants(sessionId, session.title)
       }
     } catch (error) {
       console.error('Error saving session cell state via socket:', error)
