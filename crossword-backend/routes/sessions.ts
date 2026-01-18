@@ -156,4 +156,126 @@ router.post('/:sessionId/check', async (req, res) => {
   }
 })
 
+// Get hint (reveal letter or word)
+router.post('/:sessionId/hint', async (req, res) => {
+  const { sessionId } = req.params
+  const { type, target } = req.body
+
+  if (!type || !target) {
+    return res.status(400).json({ error: 'Missing type or target' })
+  }
+
+  try {
+    const session = await SessionService.getSessionWithPuzzle(sessionId)
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    const { getCorrectAnswersStructure, rot13, extractClueMetadata } = await import(
+      '../utils/answerChecker'
+    )
+    const { puzzle, puzzleAnswers } = await getCorrectAnswersStructure(session.id)
+
+    if (!puzzleAnswers) {
+      return res.status(400).json({ error: 'No answers available for this puzzle' })
+    }
+
+    let valueToReveal = ''
+
+    if (type === 'letter') {
+      const { r, c } = target
+      // Find which word this cell belongs to (could be across or down) to look up the answer.
+      // Or search both.
+      // Actually we have the grid structure, we can find the clue number for this cell.
+      // But a cell can belong to two clues.
+      // We need to find *any* correct letter for this position.
+      // Strategy: Iterate all answers, map them to grid, see if any covers (r, c).
+
+      const grid = puzzle.grid.split('\n').map((row: string) => row.trim().split(' ') as any[])
+      const metadata = extractClueMetadata(grid)
+
+      // Find a clue that covers this cell
+      let found = false
+      for (const item of metadata) {
+        // Trace word path
+        let cr = item.row
+        let cc = item.col
+        let index = 0
+        const cells = []
+        while (cr < grid.length && cc < grid[0].length && grid[cr][cc] !== 'B') {
+          if (cr === r && cc === c) {
+            // This clue covers our cell at index `index`
+            const list = puzzleAnswers[item.direction]
+            const answerEntry = list?.find((a: any) => a.number === item.number)
+            if (answerEntry) {
+              const decrypted = rot13(answerEntry.answer).toUpperCase()
+              valueToReveal = decrypted[index]
+              found = true
+              break
+            }
+          }
+          if (item.direction === 'across') cc++
+          else cr++
+          index++
+        }
+        if (found) break
+      }
+
+      if (!found) {
+        return res.status(404).json({ error: 'Answer not found for this cell' })
+      }
+
+      if (req.body.dryRun) {
+        return res.json({ success: true, value: valueToReveal })
+      }
+
+      // Update session
+      await SessionService.updateCell(sessionId, r, c, valueToReveal)
+    } else if (type === 'word') {
+      const { number, direction } = target
+      const list = puzzleAnswers[direction]
+      const answerEntry = list?.find((a: any) => a.number === number)
+
+      if (!answerEntry) {
+        return res.status(404).json({ error: 'Answer not found for this clue' })
+      }
+
+      const decrypted = rot13(answerEntry.answer).toUpperCase()
+      valueToReveal = decrypted
+
+      // We need to know where to start writing.
+      // Re-extract metadata to find start row/col for this clue number/direction
+      const grid = puzzle.grid.split('\n').map((row: string) => row.trim().split(' ') as any[])
+      const metadata = extractClueMetadata(grid)
+      const clueInfo = metadata.find((m) => m.number === number && m.direction === direction)
+
+      if (!clueInfo) {
+        return res.status(404).json({ error: 'Clue not found in grid' })
+      }
+
+      // Update each cell of the word
+      let r = clueInfo.row
+      let c = clueInfo.col
+
+      if (req.body.dryRun) {
+        return res.json({ success: true, value: valueToReveal })
+      }
+
+      for (let i = 0; i < decrypted.length; i++) {
+        await SessionService.updateCell(sessionId, r, c, decrypted[i])
+        if (direction === 'across') c++
+        else r++
+      }
+    } else {
+      return res.status(400).json({ error: 'Invalid hint type' })
+    }
+
+    // Return the revealed value (and updated state if needed, but socket handles that)
+    res.json({ success: true, value: valueToReveal })
+  } catch (error) {
+    console.error('Error providing hint:', error)
+    res.status(500).json({ error: 'Failed to provide hint' })
+  }
+})
+
 export default router

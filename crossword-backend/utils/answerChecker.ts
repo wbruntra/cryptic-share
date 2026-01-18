@@ -11,7 +11,7 @@ export interface ClueMetadata {
   col: number
 }
 
-function extractClueMetadata(grid: CellType[][]): ClueMetadata[] {
+export function extractClueMetadata(grid: CellType[][]): ClueMetadata[] {
   const clues: ClueMetadata[] = []
 
   if (!grid || grid.length === 0) return clues
@@ -50,7 +50,7 @@ function extractClueMetadata(grid: CellType[][]): ClueMetadata[] {
   return clues
 }
 
-function rot13(str: string): string {
+export function rot13(str: string): string {
   return str.replace(/[a-zA-Z]/g, (c) => {
     const base = c <= 'Z' ? 65 : 97
     return String.fromCharCode(base + ((c.charCodeAt(0) - base + 13) % 26))
@@ -91,22 +91,9 @@ export interface CheckResult {
   cells: { r: number; c: number }[]
 }
 
-export async function checkSessionAnswers(
-  puzzleId: number,
-  sessionState: string[],
-): Promise<{
-  results: CheckResult[]
-  totalClues: number
-  totalLetters: number
-  filledLetters: number
-}> {
+export async function getCorrectAnswersStructure(puzzleId: number) {
   const puzzle = await PuzzleService.getPuzzleById(puzzleId)
   if (!puzzle) throw new Error(`Puzzle ${puzzleId} not found`)
-
-  const grid: CellType[][] = puzzle.grid
-    .split('\n')
-    .map((row: string) => row.trim().split(' ') as CellType[])
-  const metadata = extractClueMetadata(grid)
 
   let correctAnswers: any = {}
   if (puzzle.answers) {
@@ -121,6 +108,25 @@ export async function checkSessionAnswers(
   if (correctAnswers.puzzles && Array.isArray(correctAnswers.puzzles)) {
     puzzleAnswers = correctAnswers.puzzles[0]
   }
+
+  return { puzzle, puzzleAnswers }
+}
+
+export async function checkSessionAnswers(
+  puzzleId: number,
+  sessionState: string[],
+): Promise<{
+  results: CheckResult[]
+  totalClues: number
+  totalLetters: number
+  filledLetters: number
+}> {
+  const { puzzle, puzzleAnswers } = await getCorrectAnswersStructure(puzzleId)
+
+  const grid: CellType[][] = puzzle.grid
+    .split('\n')
+    .map((row: string) => row.trim().split(' ') as CellType[])
+  const metadata = extractClueMetadata(grid)
 
   const results: CheckResult[] = []
 

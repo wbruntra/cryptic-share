@@ -16,6 +16,7 @@ import {
   VirtualKeyboard,
 } from '../components/mobile'
 import { Modal } from '../components/Modal'
+import { HintModal } from '../components/HintModal'
 
 interface SessionData extends PuzzleData {
   sessionState: string[] // Array of rows (strings)
@@ -65,6 +66,84 @@ export function PlaySession() {
   const [checking, setChecking] = useState(false)
   const [errorCells, setErrorCells] = useState<Set<string>>(new Set())
   const [showSuccessModal, setShowSuccessModal] = useState(false)
+
+  // ... existing imports
+
+  // Hint State
+  const [isHintModalOpen, setIsHintModalOpen] = useState(false)
+  const [hinting, setHinting] = useState(false)
+
+  // Calculate current word state for the modal
+  const currentWordState = useMemo(() => {
+    if (!cursor || !grid.length) return []
+    const { r, c, direction } = cursor
+    let startR = r
+    let startC = c
+    const cells: string[] = []
+
+    if (direction === 'across') {
+      while (startC > 0 && grid[startR][startC - 1] !== 'B') startC--
+      let curr = startC
+      while (curr < grid[0].length && grid[startR][curr] !== 'B') {
+        cells.push(answers[startR] ? answers[startR][curr] : ' ')
+        curr++
+      }
+    } else {
+      while (startR > 0 && grid[startR - 1][startC] !== 'B') startR--
+      let curr = startR
+      while (curr < grid.length && grid[curr][startC] !== 'B') {
+        cells.push(answers[curr] ? answers[curr][startC] : ' ')
+        curr++
+      }
+    }
+    return cells
+  }, [cursor, grid, answers])
+
+  const handleModalHintRequest = async (type: 'letter' | 'word', index?: number) => {
+    if (!cursor || !currentClueNumber) throw new Error('No active clue')
+
+    // For letter hint, we need to calculate the specific r, c
+    let target: any = {}
+    if (type === 'letter') {
+      if (index === undefined) throw new Error('Index required for letter hint')
+
+      // Re-calculate start position to find the specific cell
+      const { r, c, direction } = cursor
+      let startR = r
+      let startC = c
+
+      if (direction === 'across') {
+        while (startC > 0 && grid[startR][startC - 1] !== 'B') startC--
+        target = { r: startR, c: startC + index }
+      } else {
+        while (startR > 0 && grid[startR - 1][startC] !== 'B') startR--
+        target = { r: startR + index, c: startC }
+      }
+    } else {
+      target = { number: currentClueNumber, direction: cursor.direction }
+    }
+
+    const response = await axios.post<{ success: boolean; value: string }>(
+      `/api/sessions/${sessionId}/hint`,
+      {
+        type,
+        target,
+        dryRun: true,
+      },
+    )
+
+    if (response.data.success) {
+      return response.data.value
+    } else {
+      throw new Error('Hint request failed')
+    }
+  }
+
+  const handleOpenHint = () => {
+    if (cursor && currentClue) {
+      setIsHintModalOpen(true)
+    }
+  }
 
   const handleCheckAnswers = async () => {
     setChecking(true)
@@ -599,6 +678,20 @@ export function PlaySession() {
                   ✕
                 </button>
               )}
+              {/* Mobile Hint Button */}
+              <div className="relative">
+                <button
+                  onClick={handleOpenHint}
+                  disabled={hinting || !cursor || !currentClue}
+                  className={`w-9 h-9 flex items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 active:bg-blue-500/20 transition-colors ${
+                    hinting || !cursor || !currentClue ? 'opacity-50' : ''
+                  }`}
+                  aria-label="Get Hint"
+                >
+                  💡
+                </button>
+              </div>
+
               <button
                 onClick={handleCheckAnswers}
                 disabled={checking}
@@ -694,6 +787,19 @@ export function PlaySession() {
           onKeyPress={handleVirtualKeyPress}
           onDelete={handleVirtualDelete}
         />
+
+        {currentClue && (
+          <HintModal
+            isOpen={isHintModalOpen}
+            onClose={() => setIsHintModalOpen(false)}
+            wordLength={currentWordState.length}
+            clue={currentClue.clue}
+            clueNumber={currentClue.number}
+            direction={cursor?.direction}
+            currentWordState={currentWordState}
+            onHintRequest={handleModalHintRequest}
+          />
+        )}
       </div>
     )
   }
@@ -732,6 +838,25 @@ export function PlaySession() {
           </p>
         </div>
         <div className="flex items-center gap-4 self-end md:self-center">
+          {/* Hint Button (Desktop) */}
+          <div className="relative">
+            <button
+              onClick={handleOpenHint}
+              disabled={hinting || !cursor || !currentClue}
+              className={`px-4 py-2 bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/20 flex items-center gap-2 transition-colors ${
+                hinting || !cursor || !currentClue ? 'opacity-50 cursor-wait' : ''
+              }`}
+            >
+              {hinting ? (
+                'Loading...'
+              ) : (
+                <>
+                  <span>💡</span> Hint
+                </>
+              )}
+            </button>
+          </div>
+
           {/* Check Answers Button */}
           <button
             onClick={handleCheckAnswers}
@@ -826,6 +951,19 @@ export function PlaySession() {
           </button>
         </div>
       </Modal>
+
+      {currentClue && (
+        <HintModal
+          isOpen={isHintModalOpen}
+          onClose={() => setIsHintModalOpen(false)}
+          wordLength={currentWordState.length}
+          clue={currentClue.clue}
+          clueNumber={currentClue.number}
+          direction={cursor?.direction}
+          currentWordState={currentWordState}
+          onHintRequest={handleModalHintRequest}
+        />
+      )}
     </div>
   )
 }
