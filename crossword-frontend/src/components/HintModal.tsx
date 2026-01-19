@@ -9,7 +9,7 @@ interface HintModalProps {
   clueNumber: number | null
   direction: 'across' | 'down' | undefined
   currentWordState: string[] // The characters currently in the grid for this word
-  onHintRequest: (type: 'letter' | 'word', index?: number) => Promise<string>
+  onFetchAnswer: () => Promise<string>
 }
 
 export function HintModal({
@@ -20,48 +20,46 @@ export function HintModal({
   clueNumber,
   direction,
   currentWordState,
-  onHintRequest,
+  onFetchAnswer,
 }: HintModalProps) {
   const [modalState, setModalState] = useState<string[]>([''])
+  const [fullAnswer, setFullAnswer] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Initialize modal state from current grid state when opened
+  // Initialize modal state from current grid state when opened and fetch answer
   useEffect(() => {
     if (isOpen) {
       setModalState(currentWordState)
+      setFullAnswer(null)
       setError(null)
-    }
-  }, [isOpen, currentWordState])
+      setLoading(true)
 
-  const handleLetterHint = async (index: number) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const char = await onHintRequest('letter', index)
-      setModalState((prev) => {
-        const newState = [...prev]
-        newState[index] = char
-        return newState
-      })
-    } catch (err) {
-      setError('Failed to get hint')
-    } finally {
-      setLoading(false)
+      onFetchAnswer()
+        .then((answer) => {
+          setFullAnswer(answer)
+        })
+        .catch(() => {
+          setError('Failed to load hint answer')
+        })
+        .finally(() => {
+          setLoading(false)
+        })
     }
+  }, [isOpen, currentWordState, onFetchAnswer])
+
+  const handleLetterHint = (index: number) => {
+    if (!fullAnswer) return
+    setModalState((prev) => {
+      const newState = [...prev]
+      newState[index] = fullAnswer[index]
+      return newState
+    })
   }
 
-  const handleWordHint = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const word = await onHintRequest('word')
-      setModalState(word.split(''))
-    } catch (err) {
-      setError('Failed to get word hint')
-    } finally {
-      setLoading(false)
-    }
+  const handleWordHint = () => {
+    if (!fullAnswer) return
+    setModalState(fullAnswer.split(''))
   }
 
   if (!isOpen) return null

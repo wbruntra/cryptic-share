@@ -99,34 +99,15 @@ export function PlaySession() {
     return cells
   }, [cursor, grid, answers])
 
-  const handleModalHintRequest = async (type: 'letter' | 'word', index?: number) => {
+  const handleFetchHintAnswer = async () => {
     if (!cursor || !currentClueNumber) throw new Error('No active clue')
 
-    // For letter hint, we need to calculate the specific r, c
-    let target: any = {}
-    if (type === 'letter') {
-      if (index === undefined) throw new Error('Index required for letter hint')
-
-      // Re-calculate start position to find the specific cell
-      const { r, c, direction } = cursor
-      let startR = r
-      let startC = c
-
-      if (direction === 'across') {
-        while (startC > 0 && grid[startR][startC - 1] !== 'B') startC--
-        target = { r: startR, c: startC + index }
-      } else {
-        while (startR > 0 && grid[startR - 1][startC] !== 'B') startR--
-        target = { r: startR + index, c: startC }
-      }
-    } else {
-      target = { number: currentClueNumber, direction: cursor.direction }
-    }
+    const target = { number: currentClueNumber, direction: cursor.direction }
 
     const response = await axios.post<{ success: boolean; value: string }>(
       `/api/sessions/${sessionId}/hint`,
       {
-        type,
+        type: 'word',
         target,
         dryRun: true,
       },
@@ -813,7 +794,7 @@ export function PlaySession() {
             clueNumber={currentClue.number}
             direction={cursor?.direction}
             currentWordState={currentWordState}
-            onHintRequest={handleModalHintRequest}
+            onFetchAnswer={handleFetchHintAnswer}
           />
         )}
       </div>
@@ -977,7 +958,7 @@ export function PlaySession() {
           clueNumber={currentClue.number}
           direction={cursor?.direction}
           currentWordState={currentWordState}
-          onHintRequest={handleModalHintRequest}
+          onFetchAnswer={handleFetchHintAnswer}
         />
       )}
     </div>
