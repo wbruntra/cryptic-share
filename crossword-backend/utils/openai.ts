@@ -196,12 +196,11 @@ Hint mode behavior:
 
 Final check (required):
 - Verify that the letter_breakdown concatenates exactly to the answer.
-- If it does not, revise or simplify the parse.
 `
 
   const response = await (openai as any).responses.create({
     model: 'gpt-5.1',
-    reasoning: { effort: 'medium' },
+    reasoning: { effort: 'low' },
     input: [
       {
         role: 'user',
