@@ -581,19 +581,21 @@ export function PlaySession() {
   const handleFetchHintAnswer = useCallback(async () => {
     if (!cursor || !currentClueNumber) throw new Error('No active clue')
 
-    const target = { number: currentClueNumber, direction: cursor.direction }
-
-    const response = await axios.post<{ success: boolean; value: string }>(
-      `/api/sessions/${sessionId}/hint`,
-      {
-        type: 'word',
-        target,
-        dryRun: true,
-      },
-    )
+    const response = await axios.post<{
+      success: boolean
+      value?: string
+      cached?: boolean
+      processing?: boolean
+      requestId?: string
+      message?: string
+    }>(`/api/sessions/${sessionId}/hint`, {
+      type: 'word',
+      target: { number: currentClueNumber, direction: cursor.direction },
+      dryRun: true,
+    })
 
     if (response.data.success) {
-      return response.data.value
+      return response.data.value || ''
     } else {
       throw new Error('Hint request failed')
     }
@@ -602,15 +604,27 @@ export function PlaySession() {
   const handleFetchExplanation = useCallback(async () => {
     if (!cursor || !currentClueNumber) throw new Error('No active clue')
 
-    const response = await axios.post<{ success: boolean; explanation: any; cached: boolean }>(
-      `/api/sessions/${sessionId}/explain`,
-      {
-        clueNumber: currentClueNumber,
-        direction: cursor.direction,
-      },
-    )
+    const response = await axios.post<{
+      success: boolean
+      explanation?: any
+      cached?: boolean
+      processing?: boolean
+      requestId?: string
+      message?: string
+    }>(`/api/sessions/${sessionId}/explain`, {
+      clueNumber: currentClueNumber,
+      direction: cursor.direction,
+    })
 
     if (response.data.success) {
+      // Return the whole object if processing, or explanation if done
+      if (response.data.processing) {
+        return {
+          processing: true,
+          requestId: response.data.requestId,
+          message: response.data.message,
+        }
+      }
       return response.data.explanation
     } else {
       throw new Error('Explanation request failed')
@@ -985,6 +999,7 @@ export function PlaySession() {
           onFetchAnswer={handleFetchHintAnswer}
           onFetchExplanation={handleFetchExplanation}
           timerDisplay={formattedTime}
+          socket={socketRef.current}
         />
       )}
     </div>

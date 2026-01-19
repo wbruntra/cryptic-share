@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import crypto from 'crypto'
 import { authenticateUser, optionalAuthenticateUser } from '../middleware/auth'
 
 import { SessionService } from '../services/sessionService'
@@ -291,51 +292,100 @@ router.post('/:sessionId/explain', authenticateUser, async (req, res) => {
     return res.status(400).json({ error: 'Missing clueNumber or direction' })
   }
 
+  // Generate a request ID to track this specific request
+  const requestId = crypto.randomUUID()
+
   try {
     const session = await SessionService.getSessionWithPuzzle(sessionId)
     if (!session) {
-      return res.status(404).json({ error: 'Session not found' })
+      return res.status(444).json({ error: 'Session not found' })
     }
 
-    const { getCorrectAnswersStructure, rot13 } = await import('../utils/answerChecker')
-    const { puzzle, puzzleAnswers } = await getCorrectAnswersStructure(session.id)
-
-    if (!puzzleAnswers) {
-      return res.status(400).json({ error: 'No answers available for this puzzle' })
-    }
-
-    // Get the clue text
-    const clueList = direction === 'across' ? session.clues.across : session.clues.down
-    const clueEntry = clueList?.find((c: any) => c.number === clueNumber)
-    if (!clueEntry) {
-      return res.status(404).json({ error: 'Clue not found' })
-    }
-
-    // Get the answer
-    const answerList = puzzleAnswers[direction]
-    const answerEntry = answerList?.find((a: any) => a.number === clueNumber)
-    if (!answerEntry) {
-      return res.status(404).json({ error: 'Answer not found for this clue' })
-    }
-
-    const decryptedAnswer = rot13(answerEntry.answer)
-      .toUpperCase()
-      .replace(/[^A-Z]/g, '')
-
-    // Use the explanation service to get or create the explanation
+    // Check cache synchronously
     const { ExplanationService } = await import('../services/explanationService')
-    const { explanation, cached } = await ExplanationService.getOrCreateExplanation(
-      session.id,
-      clueNumber,
-      direction,
-      clueEntry.clue,
-      decryptedAnswer,
-    )
+    const cached = await ExplanationService.getCachedExplanation(session.id, clueNumber, direction)
 
-    res.json({ success: true, explanation, cached })
+    if (cached) {
+      return res.json({ success: true, explanation: cached, cached: true })
+    }
+
+    // Not cached - return 202 immediately and process in background
+    res.status(202).json({
+      success: true,
+      processing: true,
+      requestId,
+      message: 'Explanation is being generated...',
+    })
+
+    // Background processing
+    setImmediate(async () => {
+      try {
+        const { getCorrectAnswersStructure, rot13 } = await import('../utils/answerChecker')
+        const { puzzleAnswers } = await getCorrectAnswersStructure(session.id)
+
+        if (!puzzleAnswers) {
+          // Should emit error via socket
+          return
+        }
+
+        // Get the clue text
+        const clueList = direction === 'across' ? session.clues.across : session.clues.down
+        const clueEntry = clueList?.find((c: any) => c.number === clueNumber)
+        if (!clueEntry) return
+
+        // Get the answer
+        const answerList = puzzleAnswers[direction]
+        const answerEntry = answerList?.find((a: any) => a.number === clueNumber)
+        if (!answerEntry) return
+
+        const decryptedAnswer = rot13(answerEntry.answer)
+          .toUpperCase()
+          .replace(/[^A-Z]/g, '')
+
+        // This will now call OpenAI (slow)
+        const { ExplanationService } = await import('../services/explanationService')
+        const { explanation } = await ExplanationService.getOrCreateExplanation(
+          session.id,
+          clueNumber,
+          direction,
+          clueEntry.clue,
+          decryptedAnswer,
+        )
+
+        // Import io dynamically to avoid circular dependency issues if possible,
+        // or rely on the fact that app.ts exports it.
+        // For now, let's assume we can import it.
+        const { io } = await import('../app')
+
+        io.to(sessionId as string).emit('explanation_ready', {
+          requestId,
+          clueNumber,
+          direction,
+          explanation,
+          success: true,
+        })
+      } catch (error) {
+        console.error('Background explanation error:', error)
+        try {
+          const { io } = await import('../app')
+          io.to(sessionId as string).emit('explanation_ready', {
+            requestId,
+            clueNumber,
+            direction,
+            success: false,
+            error: 'Failed to generate explanation',
+          })
+        } catch (e) {
+          console.error('Failed to emit error socket event:', e)
+        }
+      }
+    })
   } catch (error) {
     console.error('Error providing explanation:', error)
-    res.status(500).json({ error: 'Failed to provide explanation' })
+    // If headers haven't been sent, we can send error
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to provide explanation' })
+    }
   }
 })
 

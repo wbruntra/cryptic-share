@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Socket } from 'socket.io-client'
 import { Modal } from './Modal'
 
 // Explanation type matching the backend response
@@ -22,8 +23,11 @@ interface HintModalProps {
   direction: 'across' | 'down' | undefined
   currentWordState: string[] // The characters currently in the grid for this word
   onFetchAnswer: () => Promise<string>
-  onFetchExplanation?: () => Promise<ClueExplanation>
+  onFetchExplanation?: () => Promise<
+    ClueExplanation | { processing: true; requestId: string; message: string }
+  >
   timerDisplay?: string
+  socket?: Socket | null
 }
 
 type TabType = 'letters' | 'explain'
@@ -45,6 +49,7 @@ export function HintModal({
   onFetchAnswer,
   onFetchExplanation,
   timerDisplay,
+  socket,
 }: HintModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('letters')
 
@@ -58,12 +63,41 @@ export function HintModal({
   const [explanation, setExplanation] = useState<ClueExplanation | null>(null)
   const [explanationLoading, setExplanationLoading] = useState(false)
   const [explanationError, setExplanationError] = useState<string | null>(null)
+  const [requestId, setRequestId] = useState<string | null>(null)
+  const [processingMessage, setProcessingMessage] = useState<string>('')
+
   const [revealedSections, setRevealedSections] = useState<RevealedSections>({
     definition: false,
     wordplayTypes: false,
     letterBreakdown: false,
     fullExplanation: false,
   })
+
+  // Listen for socket events for async explanation
+  useEffect(() => {
+    if (!socket || !requestId) return
+
+    const handleExplanationReady = (data: any) => {
+      // Check if this explanation is for our current request
+      if (data.requestId === requestId) {
+        if (data.success && data.explanation) {
+          setExplanation(data.explanation)
+          setExplanationLoading(false)
+          setRequestId(null) // Clear request ID as we're done
+        } else {
+          setExplanationError(data.error || 'Failed to generate explanation')
+          setExplanationLoading(false)
+          setRequestId(null)
+        }
+      }
+    }
+
+    socket.on('explanation_ready', handleExplanationReady)
+
+    return () => {
+      socket.off('explanation_ready', handleExplanationReady)
+    }
+  }, [socket, requestId])
 
   // Reset state when modal opens
   useEffect(() => {
@@ -78,6 +112,7 @@ export function HintModal({
       setExplanation(null)
       setExplanationLoading(false)
       setExplanationError(null)
+      setRequestId(null)
       setRevealedSections({
         definition: false,
         wordplayTypes: false,
@@ -117,13 +152,23 @@ export function HintModal({
 
     setExplanationLoading(true)
     setExplanationError(null)
+    setProcessingMessage('Requesting explanation...')
 
     try {
       const result = await onFetchExplanation()
-      setExplanation(result)
+
+      // Check if it's a processing response (202 Accepted)
+      if ('processing' in result && result.processing) {
+        setRequestId(result.requestId)
+        setProcessingMessage(result.message || 'AI is thinking...')
+        // Keep loading true, waiting for socket
+      } else {
+        // Immediate result (cached)
+        setExplanation(result as ClueExplanation)
+        setExplanationLoading(false)
+      }
     } catch {
       setExplanationError('Failed to load explanation. Please try again.')
-    } finally {
       setExplanationLoading(false)
     }
   }
@@ -246,7 +291,9 @@ export function HintModal({
             {explanationLoading && (
               <div className="text-center py-8">
                 <div className="w-12 h-12 mx-auto border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4" />
-                <p className="text-text-secondary font-medium">Analyzing clue...</p>
+                <p className="text-text-secondary font-medium">
+                  {processingMessage || 'Analyzing clue...'}
+                </p>
                 <p className="text-xs text-text-secondary mt-1">This may take 20-30 seconds</p>
               </div>
             )}
