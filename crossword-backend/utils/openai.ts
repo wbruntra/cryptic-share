@@ -1,4 +1,6 @@
 import OpenAI from 'openai'
+import { mkdir, writeFile } from 'fs/promises'
+import { join } from 'path'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -203,8 +205,8 @@ Constraints:
 `
 
   const response = await (openai as any).responses.create({
-    model: 'gpt-5.1',
-    reasoning: { effort: 'low' },
+    model: 'gpt-5-mini',
+    reasoning: { effort: 'medium' },
     input: [
       {
         role: 'user',
@@ -237,13 +239,37 @@ Mode: ${mode}
 }
 
 const test = async () => {
-  const explanation = await explainCrypticClue({
-    clue: "Innards of Galloway - fashionable butcher's meat (4)",
-    answer: 'LOIN',
-    mode: 'full',
-  })
+  const input = {
+    clue: "Section of Mafia's courting disaster (6)",
+    answer: 'FIASCO',
+    mode: 'full' as const,
+  }
+
+  const startTime = performance.now()
+  const explanation = await explainCrypticClue(input)
+  const endTime = performance.now()
+  const durationSeconds = (endTime - startTime) / 1000
 
   console.log(JSON.stringify(explanation, null, 2))
+  console.log(`\nResponse time: ${durationSeconds.toFixed(2)} seconds`)
+
+  // Save test results to test_data folder
+  const testDataDir = join(__dirname, '../test_data')
+  await mkdir(testDataDir, { recursive: true })
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const filename = `test-${timestamp}.json`
+  const filepath = join(testDataDir, filename)
+
+  const testResult = {
+    timestamp: new Date().toISOString(),
+    durationSeconds: parseFloat(durationSeconds.toFixed(3)),
+    input,
+    result: explanation,
+  }
+
+  await writeFile(filepath, JSON.stringify(testResult, null, 2))
+  console.log(`Test result saved to: ${filepath}`)
 }
 
 if (import.meta.main) {
