@@ -283,7 +283,7 @@ router.post('/:sessionId/hint', async (req, res) => {
 })
 
 // Get explanation for a clue (uses OpenAI, cached in database)
-router.post('/:sessionId/explain', async (req, res) => {
+router.post('/:sessionId/explain', authenticateUser, async (req, res) => {
   const { sessionId } = req.params
   const { clueNumber, direction } = req.body
 
