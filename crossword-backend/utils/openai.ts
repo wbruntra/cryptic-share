@@ -129,18 +129,118 @@ export const transcribeAnswers = async (input: any) => {
   }
 }
 
+export const explainCrypticClue = async (input: {
+  clue: string
+  answer: string
+  mode?: 'hint' | 'full'
+}) => {
+  const { clue, answer, mode = 'full' } = input
+
+  const instructions = `
+You are a cryptic crossword expert explaining a solved clue.
+
+You will be given:
+- A cryptic crossword clue
+- The correct answer
+
+Your task:
+1. Identify the exact definition in the clue (quote it verbatim).
+2. Identify a single, clean wordplay parse that leads to the answer.
+3. Provide both a hint and a full explanation.
+
+Core cryptic rules (strict):
+- Each part of the wordplay MUST correspond to one explicit indicator in the clue.
+- Use the simplest valid parse; do not offer alternatives or supporting interpretations.
+- Do NOT mix mechanisms (e.g. hidden letters, charades, containers) unless the clue explicitly indicates them.
+- Every letter in the answer MUST be explicitly justified.
+- Do not invent extra indicators, padding, or explanatory glue.
+- If a clean parse cannot be produced, state that the clue is loose or flawed rather than inventing one.
+
+Letter accounting (mandatory):
+- Break the answer into its component letter groups.
+- For each group, state exactly which indicator produced it.
+- The concatenation of all letter groups MUST exactly equal the answer.
+
+Style constraints:
+- Write like a crossword setter explaining a clue to another setter.
+- Be concise and literal.
+- Avoid hedging or justification language such as “also”, “alternatively”, “supported by”, or “equivalently”.
+- Do not explain basic cryptic conventions unless necessary.
+
+Output format:
+Return ONLY valid JSON in the following format:
+
+{
+  "definition": <string>,
+  "letter_breakdown": [
+    { "source": <string>, "letters": <string> }
+  ],
+  "wordplay_steps": [
+    {
+      "indicator": <string>,
+      "operation": <string>,
+      "result": <string>
+    }
+  ],
+  "hint": {
+    "definition_location": "start" | "end",
+    "wordplay_types": <string[]>
+  },
+  "full_explanation": <string>
+}
+
+Hint mode behavior:
+- If mode is "hint", keep the explanation non-spoilery.
+- Do not explicitly assemble the answer in the explanation.
+- Still include correct letter accounting internally.
+
+Final check (required):
+- Verify that the letter_breakdown concatenates exactly to the answer.
+- If it does not, revise or simplify the parse.
+`
+
+  const response = await (openai as any).responses.create({
+    model: 'gpt-5.1',
+    reasoning: { effort: 'medium' },
+    input: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_text',
+            text: `
+Clue: ${clue}
+Answer: ${answer}
+Mode: ${mode}
+          `.trim(),
+          },
+          { type: 'input_text', text: instructions },
+        ],
+      },
+    ],
+    text: {
+      format: {
+        type: 'json_object',
+      },
+    },
+  })
+
+  const outputText = response.output_text
+  if (!outputText) {
+    throw new Error('No content received from OpenAI')
+  }
+
+  return JSON.parse(outputText)
+}
+
 const test = async () => {
-  const path = await import('path')
-  const answerImagePath = path.join(import.meta.dir, '..', 'images', 'answers_17_20.jpg')
+  const explanation = await explainCrypticClue({
+    clue: "Innards of Galloway - fashionable butcher's meat (4)",
+    answer: 'LOIN',
+    mode: 'full',
+  })
 
-  console.log('Testing with image:', answerImagePath)
-
-  // as file object (using Bun.file as verified in openrouter debugging)
-  const file = Bun.file(answerImagePath)
-
-  const result = await transcribeAnswers(file)
-
-  console.log(JSON.stringify(result, null, 2))
+  console.log(JSON.stringify(explanation, null, 2))
 }
 
 if (import.meta.main) {

@@ -599,6 +599,24 @@ export function PlaySession() {
     }
   }, [cursor, currentClueNumber, sessionId])
 
+  const handleFetchExplanation = useCallback(async () => {
+    if (!cursor || !currentClueNumber) throw new Error('No active clue')
+
+    const response = await axios.post<{ success: boolean; explanation: any; cached: boolean }>(
+      `/api/sessions/${sessionId}/explain`,
+      {
+        clueNumber: currentClueNumber,
+        direction: cursor.direction,
+      },
+    )
+
+    if (response.data.success) {
+      return response.data.explanation
+    } else {
+      throw new Error('Explanation request failed')
+    }
+  }, [cursor, currentClueNumber, sessionId])
+
   useEffect(() => {
     setIsClueBarHidden(false)
   }, [currentClue])
@@ -799,6 +817,7 @@ export function PlaySession() {
             direction={cursor?.direction}
             currentWordState={currentWordState}
             onFetchAnswer={handleFetchHintAnswer}
+            onFetchExplanation={handleFetchExplanation}
             timerDisplay={formattedTime}
           />
         )}
@@ -964,6 +983,7 @@ export function PlaySession() {
           direction={cursor?.direction}
           currentWordState={currentWordState}
           onFetchAnswer={handleFetchHintAnswer}
+          onFetchExplanation={handleFetchExplanation}
           timerDisplay={formattedTime}
         />
       )}

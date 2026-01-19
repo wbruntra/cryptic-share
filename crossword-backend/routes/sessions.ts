@@ -282,4 +282,61 @@ router.post('/:sessionId/hint', async (req, res) => {
   }
 })
 
+// Get explanation for a clue (uses OpenAI, cached in database)
+router.post('/:sessionId/explain', async (req, res) => {
+  const { sessionId } = req.params
+  const { clueNumber, direction } = req.body
+
+  if (!clueNumber || !direction) {
+    return res.status(400).json({ error: 'Missing clueNumber or direction' })
+  }
+
+  try {
+    const session = await SessionService.getSessionWithPuzzle(sessionId)
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' })
+    }
+
+    const { getCorrectAnswersStructure, rot13 } = await import('../utils/answerChecker')
+    const { puzzle, puzzleAnswers } = await getCorrectAnswersStructure(session.id)
+
+    if (!puzzleAnswers) {
+      return res.status(400).json({ error: 'No answers available for this puzzle' })
+    }
+
+    // Get the clue text
+    const clueList = direction === 'across' ? session.clues.across : session.clues.down
+    const clueEntry = clueList?.find((c: any) => c.number === clueNumber)
+    if (!clueEntry) {
+      return res.status(404).json({ error: 'Clue not found' })
+    }
+
+    // Get the answer
+    const answerList = puzzleAnswers[direction]
+    const answerEntry = answerList?.find((a: any) => a.number === clueNumber)
+    if (!answerEntry) {
+      return res.status(404).json({ error: 'Answer not found for this clue' })
+    }
+
+    const decryptedAnswer = rot13(answerEntry.answer)
+      .toUpperCase()
+      .replace(/[^A-Z]/g, '')
+
+    // Use the explanation service to get or create the explanation
+    const { ExplanationService } = await import('../services/explanationService')
+    const { explanation, cached } = await ExplanationService.getOrCreateExplanation(
+      session.id,
+      clueNumber,
+      direction,
+      clueEntry.clue,
+      decryptedAnswer,
+    )
+
+    res.json({ success: true, explanation, cached })
+  } catch (error) {
+    console.error('Error providing explanation:', error)
+    res.status(500).json({ error: 'Failed to provide explanation' })
+  }
+})
+
 export default router
