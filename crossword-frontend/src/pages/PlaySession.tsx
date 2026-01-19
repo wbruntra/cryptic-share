@@ -32,6 +32,7 @@ export function PlaySession() {
 
   // Socket
   const socketRef = useRef<Socket | null>(null)
+  const [socket, setSocket] = useState<Socket | null>(null)
 
   // Grid structure (static)
   const [grid, setGrid] = useState<CellType[][]>([])
@@ -164,9 +165,23 @@ export function PlaySession() {
     if (!sessionId) return
 
     // Initialize Socket
-    socketRef.current = io()
-    // Pass push endpoint so backend can clear notified flag on reconnect
-    socketRef.current.emit('join_session', sessionId, getEndpoint())
+    const newSocket = io()
+    socketRef.current = newSocket
+    setSocket(newSocket)
+
+    // Join session on connect (and reconnect)
+    const handleConnect = () => {
+      console.log('[PlaySession] Socket connected, joining session:', sessionId)
+      socketRef.current?.emit('join_session', sessionId, getEndpoint())
+    }
+
+    // If already connected, join immediately
+    if (socketRef.current.connected) {
+      handleConnect()
+    }
+
+    // Also listen for connect event (for initial connect and reconnects)
+    socketRef.current.on('connect', handleConnect)
 
     socketRef.current.on('puzzle_updated', (newState: string[]) => {
       setAnswers(newState)
@@ -279,6 +294,7 @@ export function PlaySession() {
 
     return () => {
       socketRef.current?.disconnect()
+      setSocket(null)
     }
   }, [sessionId])
 
@@ -833,6 +849,7 @@ export function PlaySession() {
             onFetchAnswer={handleFetchHintAnswer}
             onFetchExplanation={handleFetchExplanation}
             timerDisplay={formattedTime}
+            socket={socket}
           />
         )}
       </div>
@@ -999,7 +1016,7 @@ export function PlaySession() {
           onFetchAnswer={handleFetchHintAnswer}
           onFetchExplanation={handleFetchExplanation}
           timerDisplay={formattedTime}
-          socket={socketRef.current}
+          socket={socket}
         />
       )}
     </div>

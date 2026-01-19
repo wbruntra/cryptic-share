@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Socket } from 'socket.io-client'
 import { Modal } from './Modal'
 
@@ -73,31 +73,49 @@ export function HintModal({
     fullExplanation: false,
   })
 
-  // Listen for socket events for async explanation
+  // Use a ref to track the current requestId for the socket listener
+  // This avoids race conditions where the listener closure has a stale requestId
+  const requestIdRef = useRef<string | null>(null)
+
+  // Keep ref in sync with state
   useEffect(() => {
-    if (!socket || !requestId) return
+    requestIdRef.current = requestId
+  }, [requestId])
+
+  // Listen for socket events for async explanation
+  // Set up listener once when socket is available, not dependent on requestId
+  useEffect(() => {
+    if (!socket) return
 
     const handleExplanationReady = (data: any) => {
-      // Check if this explanation is for our current request
-      if (data.requestId === requestId) {
+      console.log('[HintModal] Received explanation_ready event:', data)
+      console.log('[HintModal] Current requestIdRef:', requestIdRef.current)
+
+      // Check if this explanation is for our current request using the ref
+      if (data.requestId === requestIdRef.current) {
+        console.log('[HintModal] RequestId matches! Processing...')
         if (data.success && data.explanation) {
           setExplanation(data.explanation)
           setExplanationLoading(false)
-          setRequestId(null) // Clear request ID as we're done
+          setRequestId(null)
         } else {
           setExplanationError(data.error || 'Failed to generate explanation')
           setExplanationLoading(false)
           setRequestId(null)
         }
+      } else {
+        console.log('[HintModal] RequestId mismatch, ignoring event')
       }
     }
 
+    console.log('[HintModal] Setting up explanation_ready listener')
     socket.on('explanation_ready', handleExplanationReady)
 
     return () => {
+      console.log('[HintModal] Removing explanation_ready listener')
       socket.off('explanation_ready', handleExplanationReady)
     }
-  }, [socket, requestId])
+  }, [socket]) // Only depend on socket, not requestId
 
   // Reset state when modal opens
   useEffect(() => {
@@ -156,9 +174,11 @@ export function HintModal({
 
     try {
       const result = await onFetchExplanation()
+      console.log('[HintModal] Fetch explanation result:', result)
 
       // Check if it's a processing response (202 Accepted)
       if ('processing' in result && result.processing) {
+        console.log('[HintModal] Got processing response, requestId:', result.requestId)
         setRequestId(result.requestId)
         setProcessingMessage(result.message || 'AI is thinking...')
         // Keep loading true, waiting for socket

@@ -357,6 +357,12 @@ router.post('/:sessionId/explain', authenticateUser, async (req, res) => {
         // For now, let's assume we can import it.
         const { io } = await import('../app')
 
+        console.log(
+          '[Explain] Emitting explanation_ready to room:',
+          sessionId,
+          'requestId:',
+          requestId,
+        )
         io.to(sessionId as string).emit('explanation_ready', {
           requestId,
           clueNumber,
