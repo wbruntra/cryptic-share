@@ -5,7 +5,15 @@ const STORAGE_KEY_PREFIX = 'cryptic_timer_'
 export const usePuzzleTimer = (sessionId: string | undefined) => {
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const timerRef = useRef<any>(null)
+
+  // Track last real update to total seconds
   const lastUpdateTimeRef = useRef<number>(Date.now())
+
+  // Track user activity for idle detection
+  const lastActivityRef = useRef<number>(Date.now())
+
+  // IDLE THRESHOLD: 60 seconds
+  const IDLE_THRESHOLD = 60 * 1000
 
   useEffect(() => {
     if (!sessionId) return
@@ -17,10 +25,8 @@ export const usePuzzleTimer = (sessionId: string | undefined) => {
       try {
         const stored = localStorage.getItem(key)
         if (stored) {
-          const { totalSeconds, lastTimestamp } = JSON.parse(stored)
-          // Add time elapsed since last close/refresh if reasonable (e.g. < 5 mins? No, user wants accumulated work time, assume pause if closed)
-          // Actually, if we want to track "work" time, we should assume closing the tab pauses the timer.
-          // So we just load the totalSeconds.
+          const { totalSeconds } = JSON.parse(stored)
+          // We assume "work" time is only while open, so we don't add diff from lastTimestamp
           return totalSeconds || 0
         }
       } catch (e) {
@@ -31,10 +37,39 @@ export const usePuzzleTimer = (sessionId: string | undefined) => {
 
     setElapsedSeconds(loadState())
     lastUpdateTimeRef.current = Date.now()
+    lastActivityRef.current = Date.now()
+
+    // Activity listeners to reset idle timer
+    const handleActivity = () => {
+      lastActivityRef.current = Date.now()
+    }
+
+    const events = ['mousedown', 'keydown', 'touchstart']
+    // Throttle adding listeners? No, the handler is cheap (just assigning a ref)
+    // But we might want to throttle the actual assignment if it was heavy.
+    // Assigning a number to a ref is extremely cheap.
+    events.forEach((event) => window.addEventListener(event, handleActivity))
 
     // Start timer
     timerRef.current = setInterval(() => {
       const now = Date.now()
+
+      // 1. Check if tab is visible
+      if (document.hidden) {
+        // If hidden, we don't count time.
+        // We just update lastUpdateTimeRef to now so we don't accidentally add a huge chunk later.
+        lastUpdateTimeRef.current = now
+        return
+      }
+
+      // 2. Check for idleness
+      if (now - lastActivityRef.current > IDLE_THRESHOLD) {
+        // User is idle. Do not count time.
+        lastUpdateTimeRef.current = now
+        return
+      }
+
+      // Calculate delta since last check
       const delta = Math.floor((now - lastUpdateTimeRef.current) / 1000)
 
       if (delta >= 1) {
@@ -58,6 +93,7 @@ export const usePuzzleTimer = (sessionId: string | undefined) => {
       if (timerRef.current) {
         clearInterval(timerRef.current)
       }
+      events.forEach((event) => window.removeEventListener(event, handleActivity))
     }
   }, [sessionId])
 
