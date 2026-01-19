@@ -10,6 +10,7 @@ interface HintModalProps {
   direction: 'across' | 'down' | undefined
   currentWordState: string[] // The characters currently in the grid for this word
   onFetchAnswer: () => Promise<string>
+  timerDisplay?: string
 }
 
 export function HintModal({
@@ -21,6 +22,7 @@ export function HintModal({
   direction,
   currentWordState,
   onFetchAnswer,
+  timerDisplay,
 }: HintModalProps) {
   const [modalState, setModalState] = useState<string[]>([''])
   const [fullAnswer, setFullAnswer] = useState<string | null>(null)
@@ -68,8 +70,15 @@ export function HintModal({
     <Modal isOpen={isOpen} onClose={onClose} title="Get a Hint">
       <div className="flex flex-col gap-6">
         <div className="text-center">
-          <div className="text-sm font-bold text-primary mb-1">
-            {clueNumber} {direction?.toUpperCase()}
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-sm font-bold text-primary">
+              {clueNumber} {direction?.toUpperCase()}
+            </span>
+            {timerDisplay && (
+              <span className="text-xs font-mono text-text-secondary bg-surface-highlight px-2 py-0.5 rounded border border-border">
+                ⏱️ {timerDisplay}
+              </span>
+            )}
           </div>
           <h3 className="text-xl font-serif text-text mb-4">{clue}</h3>
         </div>

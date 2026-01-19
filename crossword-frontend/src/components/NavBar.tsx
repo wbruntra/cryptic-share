@@ -63,7 +63,7 @@ export function NavBar() {
               Login
             </Link>
           )}
-          {isSupported && (
+          {/* {isSupported && (
             <div className="relative">
               <button
                 onClick={() => setIsNotifPopoverOpen((v) => !v)}
@@ -108,7 +108,7 @@ export function NavBar() {
                 </div>
               )}
             </div>
-          )}
+          )} */}
           <button
             onClick={toggleTheme}
             className="p-2 rounded-lg bg-input-bg border border-border hover:border-primary flex items-center justify-center transition-all"

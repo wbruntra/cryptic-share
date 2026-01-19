@@ -17,6 +17,7 @@ import {
 } from '../components/mobile'
 import { Modal } from '../components/Modal'
 import { HintModal } from '../components/HintModal'
+import { usePuzzleTimer } from '../hooks/usePuzzleTimer'
 
 interface SessionData extends PuzzleData {
   sessionState: string[] // Array of rows (strings)
@@ -73,6 +74,9 @@ export function PlaySession() {
   const [isHintModalOpen, setIsHintModalOpen] = useState(false)
   const [hinting, setHinting] = useState(false)
 
+  // Timer
+  const formattedTime = usePuzzleTimer(sessionId)
+
   // Calculate current word state for the modal
   const currentWordState = useMemo(() => {
     if (!cursor || !grid.length) return []
@@ -98,27 +102,6 @@ export function PlaySession() {
     }
     return cells
   }, [cursor, grid, answers])
-
-  const handleFetchHintAnswer = async () => {
-    if (!cursor || !currentClueNumber) throw new Error('No active clue')
-
-    const target = { number: currentClueNumber, direction: cursor.direction }
-
-    const response = await axios.post<{ success: boolean; value: string }>(
-      `/api/sessions/${sessionId}/hint`,
-      {
-        type: 'word',
-        target,
-        dryRun: true,
-      },
-    )
-
-    if (response.data.success) {
-      return response.data.value
-    } else {
-      throw new Error('Hint request failed')
-    }
-  }
 
   const handleOpenHint = () => {
     if (cursor && currentClue) {
@@ -595,6 +578,27 @@ export function PlaySession() {
     return clueList.find((c) => c.number === currentClueNumber) || null
   }, [clues, currentClueNumber, cursor?.direction])
 
+  const handleFetchHintAnswer = useCallback(async () => {
+    if (!cursor || !currentClueNumber) throw new Error('No active clue')
+
+    const target = { number: currentClueNumber, direction: cursor.direction }
+
+    const response = await axios.post<{ success: boolean; value: string }>(
+      `/api/sessions/${sessionId}/hint`,
+      {
+        type: 'word',
+        target,
+        dryRun: true,
+      },
+    )
+
+    if (response.data.success) {
+      return response.data.value
+    } else {
+      throw new Error('Hint request failed')
+    }
+  }, [cursor, currentClueNumber, sessionId])
+
   useEffect(() => {
     setIsClueBarHidden(false)
   }, [currentClue])
@@ -795,6 +799,7 @@ export function PlaySession() {
             direction={cursor?.direction}
             currentWordState={currentWordState}
             onFetchAnswer={handleFetchHintAnswer}
+            timerDisplay={formattedTime}
           />
         )}
       </div>
@@ -959,6 +964,7 @@ export function PlaySession() {
           direction={cursor?.direction}
           currentWordState={currentWordState}
           onFetchAnswer={handleFetchHintAnswer}
+          timerDisplay={formattedTime}
         />
       )}
     </div>
