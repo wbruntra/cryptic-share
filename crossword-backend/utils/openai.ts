@@ -196,6 +196,10 @@ Hint mode behavior:
 
 Final check (required):
 - Verify that the letter_breakdown concatenates exactly to the answer.
+
+Constraints:
+- full_explanation must be at most 4 sentences.
+- Do not restate the clue.
 `
 
   const response = await (openai as any).responses.create({
