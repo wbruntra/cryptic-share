@@ -58,14 +58,17 @@ export class ExplanationService {
     answer: string,
     explanation: ClueExplanation,
   ): Promise<void> {
-    await db('clue_explanations').insert({
-      puzzle_id: puzzleId,
-      clue_number: clueNumber,
-      direction: direction,
-      clue_text: clueText,
-      answer: answer,
-      explanation_json: JSON.stringify(explanation),
-    })
+    await db('clue_explanations')
+      .insert({
+        puzzle_id: puzzleId,
+        clue_number: clueNumber,
+        direction: direction,
+        clue_text: clueText,
+        answer: answer,
+        explanation_json: JSON.stringify(explanation),
+      })
+      .onConflict(['puzzle_id', 'clue_number', 'direction'])
+      .merge() // Update existing record on conflict
   }
 
   /**

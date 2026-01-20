@@ -138,6 +138,34 @@ export const explainCrypticClue = async (input: {
 }) => {
   const { clue, answer, mode = 'full' } = input
 
+  const messages = generateExplanationMessages(clue, answer, mode)
+
+  const requestBody = {
+    model: 'gpt-5-mini',
+    reasoning: { effort: 'medium' },
+    input: messages,
+    text: {
+      format: {
+        type: 'json_object',
+      },
+    },
+  }
+
+  const response = await (openai as any).responses.create(requestBody)
+
+  const outputText = response.output_text
+  if (!outputText) {
+    throw new Error('No content received from OpenAI')
+  }
+
+  return JSON.parse(outputText)
+}
+
+export const generateExplanationMessages = (
+  clue: string,
+  answer: string,
+  mode: 'hint' | 'full' = 'full',
+) => {
   const instructions = `
 You are a cryptic crossword expert explaining a solved clue.
 
@@ -204,38 +232,39 @@ Constraints:
 - Do not restate the clue.
 `
 
-  const response = await (openai as any).responses.create({
-    model: 'gpt-5-mini',
-    reasoning: { effort: 'medium' },
-    input: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'input_text',
-            text: `
+  return [
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'input_text',
+          text: `
 Clue: ${clue}
 Answer: ${answer}
 Mode: ${mode}
-          `.trim(),
-          },
-          { type: 'input_text', text: instructions },
-        ],
-      },
-    ],
+      `.trim(),
+        },
+        { type: 'input_text', text: instructions },
+      ],
+    },
+  ]
+}
+
+export const getRequestBody = (clue: string, answer: string, mode: 'hint' | 'full' = 'full') => {
+  const messages = generateExplanationMessages(clue, answer, mode)
+
+  const requestBody = {
+    model: 'gpt-5-mini',
+    reasoning: { effort: 'medium' },
+    input: messages,
     text: {
       format: {
         type: 'json_object',
       },
     },
-  })
-
-  const outputText = response.output_text
-  if (!outputText) {
-    throw new Error('No content received from OpenAI')
   }
 
-  return JSON.parse(outputText)
+  return requestBody
 }
 
 const test = async () => {

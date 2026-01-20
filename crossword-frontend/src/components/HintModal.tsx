@@ -34,7 +34,7 @@ type TabType = 'letters' | 'explain'
 type RevealedSections = {
   definition: boolean
   wordplayTypes: boolean
-  letterBreakdown: boolean
+  wordplaySteps: boolean
   fullExplanation: boolean
 }
 
@@ -69,7 +69,7 @@ export function HintModal({
   const [revealedSections, setRevealedSections] = useState<RevealedSections>({
     definition: false,
     wordplayTypes: false,
-    letterBreakdown: false,
+    wordplaySteps: false,
     fullExplanation: false,
   })
 
@@ -134,7 +134,7 @@ export function HintModal({
       setRevealedSections({
         definition: false,
         wordplayTypes: false,
-        letterBreakdown: false,
+        wordplaySteps: false,
         fullExplanation: false,
       })
 
@@ -366,20 +366,33 @@ export function HintModal({
                   </div>
                 </ExplanationSection>
 
-                {/* Letter Breakdown */}
+                {/* Wordplay Steps */}
                 <ExplanationSection
-                  title="🔤 Letter Breakdown"
-                  revealed={revealedSections.letterBreakdown}
-                  onReveal={() => revealSection('letterBreakdown')}
+                  title="🛠️ Wordplay Breakdown"
+                  revealed={revealedSections.wordplaySteps}
+                  onReveal={() => revealSection('wordplaySteps')}
                 >
-                  <div className="space-y-2">
-                    {explanation.letter_breakdown.map((item, i) => (
-                      <div key={i} className="flex items-center gap-3">
-                        <span className="font-mono font-bold text-primary bg-primary/10 px-2 py-1 rounded">
-                          {item.letters}
-                        </span>
-                        <span className="text-text-secondary">←</span>
-                        <span className="text-text">{item.source}</span>
+                  <div className="space-y-3">
+                    {explanation.wordplay_steps.map((step, i) => (
+                      <div
+                        key={i}
+                        className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm border-b border-border/50 last:border-0 pb-2 last:pb-0"
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="font-medium text-text truncate" title={step.indicator}>
+                            {step.indicator}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="px-2 py-0.5 bg-secondary/10 text-secondary text-xs rounded uppercase font-bold tracking-wider whitespace-nowrap">
+                            {step.operation}
+                          </span>
+                          <span className="text-text-secondary">→</span>
+                          <span className="font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded whitespace-nowrap">
+                            {step.result}
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>

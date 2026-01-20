@@ -405,8 +405,8 @@ Answer: ${answer}
 
 const test = async () => {
   const input = {
-    clue: "Old king's sign of disapproval (3)",
-    answer: 'TUT',
+    clue: 'America and Germany seized Peru illegally and took over (7)',
+    answer: 'USURPED',
     mode: 'full' as const,
   }
 
