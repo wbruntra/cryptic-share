@@ -377,29 +377,27 @@ export function HintModal({
                   revealed={revealedSections.wordplaySteps}
                   onReveal={() => revealSection('wordplaySteps')}
                 >
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {explanation.wordplay_steps.map((step, i) => (
-                      <div
-                        key={i}
-                        className="flex flex-col sm:flex-row sm:items-start gap-2 text-sm border-b border-border/50 last:border-0 pb-2 last:pb-0"
-                      >
-                        <div className="flex items-start gap-2 min-w-0 flex-1">
-                          <span
-                            className="font-medium text-text line-clamp-2 break-words leading-snug"
-                            title={step.indicator}
-                          >
-                            {step.indicator}
+                      <div key={i} className="flex flex-col gap-2">
+                        {/* Step number and operation type */}
+                        <div className="flex items-center gap-2">
+                          <span className="flex items-center justify-center w-6 h-6 bg-primary/20 text-primary text-xs font-bold rounded-full shrink-0">
+                            {i + 1}
                           </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="px-2 py-0.5 bg-secondary/10 text-secondary text-xs rounded uppercase font-bold tracking-wider whitespace-nowrap">
+                          <span className="px-2 py-1 bg-secondary/10 text-secondary text-xs font-bold rounded uppercase tracking-wide">
                             {step.operation}
                           </span>
-                          <span className="text-text-secondary">→</span>
-                          <span className="font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded whitespace-nowrap">
-                            {step.result}
-                          </span>
+                          {step.indicator !== 'None' && (
+                            <span className="text-xs text-text-secondary">
+                              ("{step.indicator}")
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Result explanation */}
+                        <div className="pl-8">
+                          <p className="text-sm text-text leading-relaxed">{step.result}</p>
                         </div>
                       </div>
                     ))}

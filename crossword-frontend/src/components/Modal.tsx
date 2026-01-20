@@ -44,7 +44,7 @@ export function Modal({ isOpen, onClose, title, children, showCloseButton = true
       role="dialog"
       aria-modal="true"
     >
-      <div className="bg-surface border border-border rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto transform transition-all animate-in zoom-in-95 duration-200">
+      <div className="bg-surface border border-border rounded-xl shadow-2xl max-w-md sm:max-w-2xl lg:max-w-3xl w-full max-h-[90vh] sm:max-h-[92vh] overflow-y-auto transform transition-all animate-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-xl font-bold text-text">{title}</h2>
           {showCloseButton && (
