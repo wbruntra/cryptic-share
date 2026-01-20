@@ -379,25 +379,47 @@ export function HintModal({
                 >
                   <div className="space-y-4">
                     {explanation.wordplay_steps.map((step, i) => (
-                      <div key={i} className="flex flex-col gap-2">
-                        {/* Step number and operation type */}
-                        <div className="flex items-center gap-2">
-                          <span className="flex items-center justify-center w-6 h-6 bg-primary/20 text-primary text-xs font-bold rounded-full shrink-0">
+                      <div
+                        key={i}
+                        className="bg-surface-highlight border border-border/50 rounded-lg p-3"
+                      >
+                        {/* Step number */}
+                        <div className="flex items-start gap-3">
+                          <span className="flex items-center justify-center w-6 h-6 bg-primary/20 text-primary text-xs font-bold rounded-full shrink-0 mt-0.5">
                             {i + 1}
                           </span>
-                          <span className="px-2 py-1 bg-secondary/10 text-secondary text-xs font-bold rounded uppercase tracking-wide">
-                            {step.operation}
-                          </span>
-                          {step.indicator !== 'None' && (
-                            <span className="text-xs text-text-secondary">
-                              ("{step.indicator}")
-                            </span>
-                          )}
-                        </div>
 
-                        {/* Result explanation */}
-                        <div className="pl-8">
-                          <p className="text-sm text-text leading-relaxed">{step.result}</p>
+                          <div className="flex-1 space-y-2">
+                            {/* Indicator (clue text) */}
+                            {step.indicator !== 'None' && (
+                              <div>
+                                <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                                  Clue:
+                                </span>
+                                <p className="text-sm font-medium text-text mt-0.5">
+                                  "{step.indicator}"
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Operation */}
+                            <div>
+                              <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                                Operation:
+                              </span>
+                              <p className="text-sm text-text mt-0.5">{step.operation}</p>
+                            </div>
+
+                            {/* Result */}
+                            <div>
+                              <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                                Result:
+                              </span>
+                              <p className="text-sm font-bold text-primary mt-0.5">
+                                {step.result}
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ))}

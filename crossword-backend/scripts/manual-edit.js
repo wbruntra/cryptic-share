@@ -22,7 +22,7 @@ const run = async () => {
     {
       "indicator": "could make",
       "operation": "Compound Connector",
-      "result": "Establishes the equation: GOSH + ANSWER = NEIGHBOURS"
+      "result": "GOSH + ANSWER = NEIGHBOURS"
     },
     {
       "indicator": "None",
