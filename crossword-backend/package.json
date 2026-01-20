@@ -9,7 +9,8 @@
     "migrate:make": "knex migrate:make -x ts",
     "migrate:latest": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
-    "create-user": "bun run create-user.ts"
+    "create-user": "bun run create-user.ts",
+    "batch-explanations": "bun run scripts/batch-explanation-interactive.ts"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",

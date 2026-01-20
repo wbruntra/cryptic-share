@@ -284,7 +284,7 @@ router.post('/:sessionId/hint', async (req, res) => {
 })
 
 // Get explanation for a clue (uses OpenAI, cached in database)
-router.post('/:sessionId/explain', authenticateUser, async (req, res) => {
+router.post('/:sessionId/explain', optionalAuthenticateUser, async (req, res) => {
   const { sessionId } = req.params
   const { clueNumber, direction } = req.body
 
@@ -307,6 +307,14 @@ router.post('/:sessionId/explain', authenticateUser, async (req, res) => {
 
     if (cached) {
       return res.json({ success: true, explanation: cached, cached: true })
+    }
+
+    // Not cached - require authentication to generate new explanation
+    if (!res.locals.user) {
+      return res.status(401).json({ 
+        error: 'Authentication required to generate new explanations',
+        cached: false 
+      })
     }
 
     // Not cached - return 202 immediately and process in background
