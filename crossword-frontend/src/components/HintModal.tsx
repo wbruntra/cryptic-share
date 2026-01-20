@@ -187,8 +187,13 @@ export function HintModal({
         setExplanation(result as ClueExplanation)
         setExplanationLoading(false)
       }
-    } catch {
-      setExplanationError('Failed to load explanation. Please try again.')
+    } catch (error: any) {
+      // Check if it's a 401 authentication error
+      if (error.response?.status === 401) {
+        setExplanationError('You must be registered and signed in to request new explanations.')
+      } else {
+        setExplanationError('Failed to load explanation. Please try again.')
+      }
       setExplanationLoading(false)
     }
   }
