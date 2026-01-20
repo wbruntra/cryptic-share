@@ -259,7 +259,7 @@ You will be given:
 Your task:
 1. Identify the exact definition in the clue (quote it verbatim).
 2. Identify a single, clean wordplay parse that leads to the answer.
-3. Provide both a hint and a full explanation.
+3. Provide a full explanation.
 
 Core cryptic rules (strict):
 - Each part of the wordplay MUST correspond to one explicit indicator in the clue.
@@ -280,13 +280,9 @@ Style constraints:
 - Avoid hedging or justification language such as “also”, “alternatively”, “supported by”, or “equivalently”.
 - Do not explain basic cryptic conventions unless necessary.
 
-Hint mode behavior:
-- If mode is "hint", keep the explanation non-spoilery.
-- Do not explicitly assemble the answer in the explanation.
-- Still include correct letter accounting internally.
-
 Final check (required):
 - Verify that the letter_breakdown concatenates exactly to the answer.
+- If it does not, revise or simplify the parse.
 
 Constraints:
 - full_explanation must be at most 4 sentences.
@@ -306,7 +302,6 @@ Constraints:
               text: `
 Clue: ${clue}
 Answer: ${answer}
-Mode: ${mode}
           `.trim(),
             },
             { type: 'text', text: instructions },
@@ -410,8 +405,8 @@ Mode: ${mode}
 
 const test = async () => {
   const input = {
-    clue: "Section of Mafia's courting disaster (6)",
-    answer: 'FIASCO',
+    clue: "Old king's sign of disapproval (3)",
+    answer: 'TUT',
     mode: 'full' as const,
   }
 
