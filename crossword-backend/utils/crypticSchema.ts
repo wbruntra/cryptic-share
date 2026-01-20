@@ -1,0 +1,327 @@
+export const crypticInstructions = `
+You are a cryptic crossword expert explaining a solved clue.
+
+You will be given:
+- A cryptic crossword clue
+- The correct answer
+
+Your task:
+1. Identify the clue type: wordplay (standard cryptic with definition + wordplay), double_definition, &lit (entire clue serves as both definition and wordplay), or cryptic_definition (no separable wordplay; the whole clue is a single misleading definition).
+2. For wordplay clues: Identify the exact definition in the clue (quote it verbatim).
+3. For &lit clues: Note that the entire clue is the definition, and provide the wordplay parse.
+4. For double_definition clues: Identify both definitions and their distinct senses.
+5. For cryptic_definition clues: Provide a concise paraphrase of the whole-clue definition; do not invent wordplay.
+6. Provide both a hint and a full explanation appropriate to the clue type.
+
+Core cryptic rules (strict):
+- For wordplay and &lit clues: Each part of the wordplay MUST correspond to one explicit indicator in the clue.
+- Use the simplest valid parse; do not offer alternatives or supporting interpretations.
+- Do NOT mix mechanisms (e.g. hidden letters, charades, containers) unless the clue explicitly indicates them.
+- For wordplay and &lit clues: Every letter in the answer MUST be explicitly justified.
+- Compound/composite anagrams are allowed when the clue explicitly states an algebraic relationship (e.g. “A with/plus [answer] (could) make B”) and provides an anagram indicator for the combined/target fodder.
+- In a compound anagram, the relationship phrase (e.g. “could make”, “with”, “plus”, “added to”) is the indicator for the equation/constraint; do NOT require a separate deletion/subtraction indicator if the relationship is clear and the letter accounting is exact.
+- For cryptic_definition clues: Do NOT fabricate indicators, letter breakdowns, or wordplay steps.
+- Do not invent extra indicators, padding, or explanatory glue.
+- If a clean parse cannot be produced, state that the clue is loose or flawed rather than inventing one.
+
+Letter accounting (mandatory for wordplay and &lit clues):
+- Break the answer into its component letter groups.
+- For each group, state exactly which indicator produced it.
+- The concatenation of all letter groups MUST exactly equal the answer.
+
+For compound/composite anagrams (still mandatory):
+- Show the multiset letter arithmetic explicitly (e.g. “anagram(B) minus A = answer”, or “A + answer = anagram(B)”), and ensure the remaining letters anagram precisely to the answer.
+
+Style constraints:
+- Write like a crossword setter explaining a clue to another setter.
+- Be concise and literal.
+- Avoid hedging or justification language such as “also”, “alternatively”, “supported by”, or “equivalently”.
+- Do not explain basic cryptic conventions unless necessary.
+
+Output format:
+Return ONLY valid JSON.
+
+Final check (required):
+- For wordplay and &lit clues: Verify that the letter_breakdown concatenates exactly to the answer.
+- For double_definition clues: Verify that both definitions legitimately match the answer in different senses.
+- For cryptic_definition clues: Verify that there is no separable wordplay and only a single whole-clue definition.
+
+Constraints:
+- full_explanation must be at most 4 sentences.
+- Do not restate the clue.
+`
+
+export const generateExplanationMessages = (
+  clue: string,
+  answer: string,
+  mode: 'hint' | 'full' = 'full',
+) => {
+  return [
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'input_text',
+          text: `
+Clue: ${clue}
+Answer: ${answer}
+      `.trim(),
+        },
+        { type: 'input_text', text: crypticInstructions },
+      ],
+    },
+  ]
+}
+
+export const crypticSchema = {
+  type: 'json_schema',
+  name: 'cryptic_explanation',
+  strict: true,
+  schema: {
+    type: 'object',
+    properties: {
+      clue_type: {
+        type: 'string',
+        enum: ['wordplay', 'double_definition', '&lit', 'cryptic_definition'],
+        description: 'The structural type of the cryptic clue',
+      },
+
+      explanation: {
+        anyOf: [
+          // =========================
+          // STANDARD WORDPLAY CLUE
+          // =========================
+          {
+            type: 'object',
+            description: 'A standard cryptic clue with definition and wordplay',
+            properties: {
+              clue_type: { type: 'string', const: 'wordplay' },
+
+              definition: {
+                type: 'string',
+                description: 'The exact definition from the clue',
+              },
+
+              letter_breakdown: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    source: { type: 'string' },
+                    letters: { type: 'string' },
+                  },
+                  required: ['source', 'letters'],
+                  additionalProperties: false,
+                },
+              },
+
+              wordplay_steps: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    indicator: { type: 'string' },
+                    operation: { type: 'string' },
+                    result: { type: 'string' },
+                  },
+                  required: ['indicator', 'operation', 'result'],
+                  additionalProperties: false,
+                },
+              },
+
+              hint: {
+                type: 'object',
+                properties: {
+                  definition_location: {
+                    type: 'string',
+                    enum: ['start', 'end'],
+                  },
+                  wordplay_types: {
+                    type: 'array',
+                    items: { type: 'string' },
+                  },
+                },
+                required: ['definition_location', 'wordplay_types'],
+                additionalProperties: false,
+              },
+
+              full_explanation: {
+                type: 'string',
+              },
+            },
+            required: [
+              'clue_type',
+              'definition',
+              'letter_breakdown',
+              'wordplay_steps',
+              'hint',
+              'full_explanation',
+            ],
+            additionalProperties: false,
+          },
+
+          // =========================
+          // DOUBLE DEFINITION CLUE
+          // =========================
+          {
+            type: 'object',
+            description: 'A double definition clue',
+            properties: {
+              clue_type: { type: 'string', const: 'double_definition' },
+
+              definitions: {
+                type: 'array',
+                minItems: 2,
+                items: {
+                  type: 'object',
+                  properties: {
+                    definition: { type: 'string' },
+                    sense: { type: 'string' },
+                  },
+                  required: ['definition', 'sense'],
+                  additionalProperties: false,
+                },
+              },
+
+              hint: {
+                type: 'object',
+                properties: {
+                  definition_count: { type: 'number', const: 2 },
+                },
+                required: ['definition_count'],
+                additionalProperties: false,
+              },
+
+              full_explanation: {
+                type: 'string',
+              },
+            },
+            required: [
+              'clue_type',
+              'definitions',
+              'hint',
+              'full_explanation',
+            ],
+            additionalProperties: false,
+          },
+
+          // =========================
+          // &LIT CLUE
+          // =========================
+          {
+            type: 'object',
+            description: 'An &lit clue where the entire clue is both definition and wordplay',
+            properties: {
+              clue_type: { type: 'string', const: '&lit' },
+
+              definition_scope: {
+                type: 'string',
+                const: 'entire_clue',
+              },
+
+              letter_breakdown: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    source: { type: 'string' },
+                    letters: { type: 'string' },
+                  },
+                  required: ['source', 'letters'],
+                  additionalProperties: false,
+                },
+              },
+
+              wordplay_steps: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    indicator: { type: 'string' },
+                    operation: { type: 'string' },
+                    result: { type: 'string' },
+                  },
+                  required: ['indicator', 'operation', 'result'],
+                  additionalProperties: false,
+                },
+              },
+
+              hint: {
+                type: 'object',
+                properties: {
+                  wordplay_types: {
+                    type: 'array',
+                    items: { type: 'string' },
+                  },
+                },
+                required: ['wordplay_types'],
+                additionalProperties: false,
+              },
+
+              full_explanation: {
+                type: 'string',
+              },
+            },
+            required: [
+              'clue_type',
+              'definition_scope',
+              'letter_breakdown',
+              'wordplay_steps',
+              'hint',
+              'full_explanation',
+            ],
+            additionalProperties: false,
+          },
+
+          // =========================
+          // CRYPTIC DEFINITION CLUE
+          // =========================
+          {
+            type: 'object',
+            description:
+              'A cryptic definition clue: no separable wordplay; the entire clue is a single misleading definition',
+            properties: {
+              clue_type: { type: 'string', const: 'cryptic_definition' },
+
+              definition_scope: {
+                type: 'string',
+                const: 'entire_clue',
+              },
+
+              definition_paraphrase: {
+                type: 'string',
+                description:
+                  'A concise paraphrase of what the whole clue is defining (no wordplay decomposition)',
+              },
+
+              hint: {
+                type: 'object',
+                properties: {
+                  definition_scope: { type: 'string', const: 'entire_clue' },
+                },
+                required: ['definition_scope'],
+                additionalProperties: false,
+              },
+
+              full_explanation: {
+                type: 'string',
+              },
+            },
+            required: [
+              'clue_type',
+              'definition_scope',
+              'definition_paraphrase',
+              'hint',
+              'full_explanation',
+            ],
+            additionalProperties: false,
+          },
+        ],
+      },
+    },
+
+    required: ['clue_type', 'explanation'],
+    additionalProperties: false,
+  },
+}
+

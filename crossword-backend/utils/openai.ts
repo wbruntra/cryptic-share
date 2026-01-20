@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import { mkdir, writeFile } from 'fs/promises'
 import { join } from 'path'
+import { generateExplanationMessages, crypticSchema } from './crypticSchema'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -145,9 +146,7 @@ export const explainCrypticClue = async (input: {
     reasoning: { effort: 'medium' },
     input: messages,
     text: {
-      format: {
-        type: 'json_object',
-      },
+      format: crypticSchema,
     },
   }
 
@@ -161,116 +160,10 @@ export const explainCrypticClue = async (input: {
   return JSON.parse(outputText)
 }
 
-export const generateExplanationMessages = (
-  clue: string,
-  answer: string,
-  mode: 'hint' | 'full' = 'full',
-) => {
-  const instructions = `
-You are a cryptic crossword expert explaining a solved clue.
-
-You will be given:
-- A cryptic crossword clue
-- The correct answer
-
-Your task:
-1. Identify the exact definition in the clue (quote it verbatim).
-2. Identify a single, clean wordplay parse that leads to the answer.
-3. Provide both a hint and a full explanation.
-
-Core cryptic rules (strict):
-- Each part of the wordplay MUST correspond to one explicit indicator in the clue.
-- Use the simplest valid parse; do not offer alternatives or supporting interpretations.
-- Do NOT mix mechanisms (e.g. hidden letters, charades, containers) unless the clue explicitly indicates them.
-- Every letter in the answer MUST be explicitly justified.
-- Do not invent extra indicators, padding, or explanatory glue.
-- If a clean parse cannot be produced, state that the clue is loose or flawed rather than inventing one.
-
-Letter accounting (mandatory):
-- Break the answer into its component letter groups.
-- For each group, state exactly which indicator produced it.
-- The concatenation of all letter groups MUST exactly equal the answer.
-
-Style constraints:
-- Write like a crossword setter explaining a clue to another setter.
-- Be concise and literal.
-- Avoid hedging or justification language such as “also”, “alternatively”, “supported by”, or “equivalently”.
-- Do not explain basic cryptic conventions unless necessary.
-
-Output format:
-Return ONLY valid JSON in the following format:
-
-{
-  "definition": <string>,
-  "letter_breakdown": [
-    { "source": <string>, "letters": <string> }
-  ],
-  "wordplay_steps": [
-    {
-      "indicator": <string>,
-      "operation": <string>,
-      "result": <string>
-    }
-  ],
-  "hint": {
-    "definition_location": "start" | "end",
-    "wordplay_types": <string[]>
-  },
-  "full_explanation": <string>
-}
-
-Hint mode behavior:
-- If mode is "hint", keep the explanation non-spoilery.
-- Do not explicitly assemble the answer in the explanation.
-- Still include correct letter accounting internally.
-
-Final check (required):
-- Verify that the letter_breakdown concatenates exactly to the answer.
-
-Constraints:
-- full_explanation must be at most 4 sentences.
-- Do not restate the clue.
-`
-
-  return [
-    {
-      role: 'user',
-      content: [
-        {
-          type: 'input_text',
-          text: `
-Clue: ${clue}
-Answer: ${answer}
-Mode: ${mode}
-      `.trim(),
-        },
-        { type: 'input_text', text: instructions },
-      ],
-    },
-  ]
-}
-
-export const getRequestBody = (clue: string, answer: string, mode: 'hint' | 'full' = 'full') => {
-  const messages = generateExplanationMessages(clue, answer, mode)
-
-  const requestBody = {
-    model: 'gpt-5-mini',
-    reasoning: { effort: 'medium' },
-    input: messages,
-    text: {
-      format: {
-        type: 'json_object',
-      },
-    },
-  }
-
-  return requestBody
-}
-
 const test = async () => {
   const input = {
-    clue: "Section of Mafia's courting disaster (6)",
-    answer: 'FIASCO',
+    clue: 'America and Germany seized Peru illegally and took over (7)',
+    answer: 'USURPED',
     mode: 'full' as const,
   }
 

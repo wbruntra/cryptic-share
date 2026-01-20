@@ -1,18 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Socket } from 'socket.io-client'
 import { Modal } from './Modal'
-
-// Explanation type matching the backend response
-interface ClueExplanation {
-  definition: string
-  letter_breakdown: Array<{ source: string; letters: string }>
-  wordplay_steps: Array<{ indicator: string; operation: string; result: string }>
-  hint: {
-    definition_location: 'start' | 'end'
-    wordplay_types: string[]
-  }
-  full_explanation: string
-}
+import { ClueExplanationDisplay, type ClueExplanation } from './ClueExplanationDisplay'
 
 interface HintModalProps {
   isOpen: boolean
@@ -31,12 +20,6 @@ interface HintModalProps {
 }
 
 type TabType = 'letters' | 'explain'
-type RevealedSections = {
-  definition: boolean
-  wordplayTypes: boolean
-  wordplaySteps: boolean
-  fullExplanation: boolean
-}
 
 export function HintModal({
   isOpen,
@@ -65,13 +48,6 @@ export function HintModal({
   const [explanationError, setExplanationError] = useState<string | null>(null)
   const [requestId, setRequestId] = useState<string | null>(null)
   const [processingMessage, setProcessingMessage] = useState<string>('')
-
-  const [revealedSections, setRevealedSections] = useState<RevealedSections>({
-    definition: false,
-    wordplayTypes: false,
-    wordplaySteps: false,
-    fullExplanation: false,
-  })
 
   // Use a ref to track the current requestId for the socket listener
   // This avoids race conditions where the listener closure has a stale requestId
@@ -131,12 +107,6 @@ export function HintModal({
       setExplanationLoading(false)
       setExplanationError(null)
       setRequestId(null)
-      setRevealedSections({
-        definition: false,
-        wordplayTypes: false,
-        wordplaySteps: false,
-        fullExplanation: false,
-      })
 
       onFetchAnswer()
         .then((answer) => {
@@ -196,10 +166,6 @@ export function HintModal({
       }
       setExplanationLoading(false)
     }
-  }
-
-  const revealSection = (section: keyof RevealedSections) => {
-    setRevealedSections((prev) => ({ ...prev, [section]: true }))
   }
 
   if (!isOpen) return null
@@ -336,108 +302,8 @@ export function HintModal({
               </div>
             )}
 
-            {/* Explanation Sections */}
-            {explanation && (
-              <div className="flex flex-col gap-3">
-                {/* Definition */}
-                <ExplanationSection
-                  title="📖 Definition"
-                  revealed={revealedSections.definition}
-                  onReveal={() => revealSection('definition')}
-                >
-                  <p className="text-text">
-                    <span className="font-semibold">"{explanation.definition}"</span>
-                    <span className="text-text-secondary ml-2">
-                      (at the {explanation.hint.definition_location} of the clue)
-                    </span>
-                  </p>
-                </ExplanationSection>
-
-                {/* Wordplay Types */}
-                <ExplanationSection
-                  title="🧩 Wordplay Types"
-                  revealed={revealedSections.wordplayTypes}
-                  onReveal={() => revealSection('wordplayTypes')}
-                >
-                  <div className="flex flex-wrap gap-2">
-                    {explanation.hint.wordplay_types.map((type, i) => (
-                      <span
-                        key={i}
-                        className="px-3 py-1 bg-secondary/10 text-secondary text-sm rounded-full"
-                      >
-                        {type}
-                      </span>
-                    ))}
-                  </div>
-                </ExplanationSection>
-
-                {/* Wordplay Steps */}
-                <ExplanationSection
-                  title="🛠️ Wordplay Breakdown"
-                  revealed={revealedSections.wordplaySteps}
-                  onReveal={() => revealSection('wordplaySteps')}
-                >
-                  <div className="space-y-4">
-                    {explanation.wordplay_steps.map((step, i) => (
-                      <div
-                        key={i}
-                        className="bg-surface-highlight border border-border/50 rounded-lg p-3"
-                      >
-                        {/* Step number */}
-                        <div className="flex items-start gap-3">
-                          <span className="flex items-center justify-center w-6 h-6 bg-primary/20 text-primary text-xs font-bold rounded-full shrink-0 mt-0.5">
-                            {i + 1}
-                          </span>
-
-                          <div className="flex-1 space-y-2">
-                            {/* Indicator (clue text) */}
-                            {step.indicator !== 'None' && (
-                              <div>
-                                <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                                  Clue:
-                                </span>
-                                <p className="text-sm font-medium text-text mt-0.5">
-                                  "{step.indicator}"
-                                </p>
-                              </div>
-                            )}
-
-                            {/* Operation */}
-                            <div>
-                              <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                                Operation:
-                              </span>
-                              <p className="text-sm text-text mt-0.5">{step.operation}</p>
-                            </div>
-
-                            {/* Result */}
-                            <div>
-                              <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                                Result:
-                              </span>
-                              <p className="text-sm font-bold text-primary mt-0.5">
-                                {step.result}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </ExplanationSection>
-
-                {/* Full Explanation */}
-                <ExplanationSection
-                  title="📝 Full Explanation"
-                  revealed={revealedSections.fullExplanation}
-                  onReveal={() => revealSection('fullExplanation')}
-                >
-                  <p className="text-text whitespace-pre-line leading-relaxed">
-                    {explanation.full_explanation}
-                  </p>
-                </ExplanationSection>
-              </div>
-            )}
+            {/* Explanation Display */}
+            {explanation && <ClueExplanationDisplay explanation={explanation} />}
           </div>
         )}
 
@@ -452,40 +318,5 @@ export function HintModal({
         </div>
       </div>
     </Modal>
-  )
-}
-
-// Helper component for revealable sections
-function ExplanationSection({
-  title,
-  revealed,
-  onReveal,
-  children,
-}: {
-  title: string
-  revealed: boolean
-  onReveal: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <div className="border border-border rounded-lg overflow-hidden">
-      <div
-        className={`flex justify-between items-center px-4 py-3 ${
-          revealed ? 'bg-surface' : 'bg-surface hover:bg-surface-highlight cursor-pointer'
-        }`}
-        onClick={!revealed ? onReveal : undefined}
-      >
-        <span className="font-medium text-text">{title}</span>
-        {!revealed && (
-          <button
-            onClick={onReveal}
-            className="px-3 py-1 text-sm font-medium text-primary bg-primary/10 rounded hover:bg-primary/20 transition-colors"
-          >
-            Reveal
-          </button>
-        )}
-      </div>
-      {revealed && <div className="px-4 py-3 border-t border-border bg-bg">{children}</div>}
-    </div>
   )
 }

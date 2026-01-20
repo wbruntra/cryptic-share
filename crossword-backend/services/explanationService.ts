@@ -1,7 +1,18 @@
 import db from '../db-knex'
 import { explainCrypticClue } from '../utils/openrouter'
 
+// NEW FORMAT: Top-level structure with clue_type
 export interface ClueExplanation {
+  clue_type: 'wordplay' | 'double_definition' | '&lit' | 'cryptic_definition'
+  explanation:
+    | WordplayExplanation
+    | DoubleDefinitionExplanation
+    | AndLitExplanation
+    | CrypticDefinitionExplanation
+}
+
+export interface WordplayExplanation {
+  clue_type: 'wordplay'
   definition: string
   letter_breakdown: Array<{ source: string; letters: string }>
   wordplay_steps: Array<{ indicator: string; operation: string; result: string }>
@@ -10,6 +21,51 @@ export interface ClueExplanation {
     wordplay_types: string[]
   }
   full_explanation: string
+}
+
+export interface DoubleDefinitionExplanation {
+  clue_type: 'double_definition'
+  definitions: Array<{
+    definition: string
+    sense: string
+  }>
+  hint: {
+    definition_count: 2
+  }
+  full_explanation: string
+}
+
+export interface AndLitExplanation {
+  clue_type: '&lit'
+  definition_scope: 'entire_clue'
+  letter_breakdown: Array<{ source: string; letters: string }>
+  wordplay_steps: Array<{ indicator: string; operation: string; result: string }>
+  hint: {
+    wordplay_types: string[]
+  }
+  full_explanation: string
+}
+
+export interface CrypticDefinitionExplanation {
+  clue_type: 'cryptic_definition'
+  definition_scope: 'entire_clue'
+  definition_paraphrase: string
+  hint: {
+    definition_scope: 'entire_clue'
+  }
+  full_explanation: string
+}
+
+// OLD FORMAT (for backward compatibility)
+interface OldClueExplanation {
+  definition?: string
+  letter_breakdown?: Array<{ source: string; letters: string }>
+  wordplay_steps?: Array<{ indicator: string; operation: string; result: string }>
+  hint?: {
+    definition_location?: 'start' | 'end'
+    wordplay_types?: string[]
+  }
+  full_explanation?: string
 }
 
 interface StoredExplanation {
@@ -44,7 +100,22 @@ export class ExplanationService {
       return null
     }
 
-    return JSON.parse(row.explanation_json) as ClueExplanation
+    const data = JSON.parse(row.explanation_json)
+
+    // Handle old format (backward compatibility)
+    // If data doesn't have clue_type at top level, it's in the old format
+    if (!data.clue_type || !data.explanation) {
+      // Wrap old format in new structure (default to 'wordplay')
+      return {
+        clue_type: 'wordplay',
+        explanation: {
+          clue_type: 'wordplay',
+          ...data,
+        },
+      } as ClueExplanation
+    }
+
+    return data as ClueExplanation
   }
 
   /**

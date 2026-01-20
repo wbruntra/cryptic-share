@@ -1,10 +1,8 @@
 import OpenAI from 'openai'
 import db from '../db-knex'
-import { generateExplanationMessages } from '../utils/openai'
+import { generateExplanationMessages, crypticSchema } from '../utils/crypticSchema'
 import { ExplanationService } from '../services/explanationService'
-import { writeFile } from 'fs/promises'
-import { join } from 'path'
-import fs from 'fs'
+import { Readable } from 'stream'
 import he from 'he'
 import * as readline from 'readline/promises'
 import { stdin as input, stdout as output } from 'process'
@@ -134,8 +132,11 @@ async function createBatch(puzzleId: number, rl: readline.Interface) {
       url: '/v1/responses',
       body: {
         model: 'gpt-5-mini',
+        reasoning: { effort: 'medium' },
         input: messages,
-        text: { format: { type: 'json_object' } },
+        text: {
+          format: crypticSchema,
+        },
       },
     })
   }
@@ -176,18 +177,16 @@ async function createBatch(puzzleId: number, rl: readline.Interface) {
     return
   }
 
-  // Write JSONL file
+  // Create JSONL content in memory
   const jsonlContent = requests.map((r) => JSON.stringify(r)).join('\n')
-  const filename = `batch_input_puzzle_${puzzleId}.jsonl`
-  const filePath = join(process.cwd(), filename)
+  
+  // Convert string to readable stream for upload
+  const stream = Readable.from([jsonlContent])
 
-  await writeFile(filePath, jsonlContent)
-  console.log(`✓ Written batch input to ${filename}`)
-
-  // Upload file
-  console.log('📤 Uploading file to OpenAI...')
+  // Upload directly to OpenAI
+  console.log('📤 Uploading batch to OpenAI...')
   const file = await openai.files.create({
-    file: fs.createReadStream(filePath),
+    file: stream as any,
     purpose: 'batch',
   })
   console.log(`✓ File uploaded. ID: ${file.id}`)
@@ -216,13 +215,14 @@ async function createBatch(puzzleId: number, rl: readline.Interface) {
 async function checkBatch(batchId: string) {
   console.log(`\n🔍 Checking status for batch: ${batchId}`)
   const batch = await openai.batches.retrieve(batchId)
-  
-  const statusEmoji = {
-    pending: '⏳',
-    completed: '✅',
-    failed: '❌',
-    in_progress: '🔄',
-  }[batch.status] || '❓'
+
+  const statusEmoji =
+    {
+      pending: '⏳',
+      completed: '✅',
+      failed: '❌',
+      in_progress: '🔄',
+    }[batch.status] || '❓'
 
   console.log(`${statusEmoji} Status: ${batch.status}`)
   console.log(
@@ -409,7 +409,9 @@ async function showPuzzleStats() {
     const emptyBar = '░'.repeat(20 - Math.floor(stat.completion_percentage / 5))
     const titleTruncated = stat.title.padEnd(30).substring(0, 30)
     console.log(
-      `${String(stat.id).padStart(3)} | ${titleTruncated} | ${progressBar}${emptyBar} ${stat.completion_percentage}% (${stat.explained_clues}/${stat.total_clues})`,
+      `${String(stat.id).padStart(3)} | ${titleTruncated} | ${progressBar}${emptyBar} ${
+        stat.completion_percentage
+      }% (${stat.explained_clues}/${stat.total_clues})`,
     )
   }
 }
@@ -437,30 +439,34 @@ async function showBatchStatus() {
 
   for (let i = 0; i < batches.length; i++) {
     const batch = batches[i]
-    const statusEmoji = {
-      pending: '⏳',
-      completed: '✅',
-      failed: '❌',
-      in_progress: '🔄',
-    }[batch.status] || '❓'
+    const statusEmoji =
+      {
+        pending: '⏳',
+        completed: '✅',
+        failed: '❌',
+        in_progress: '🔄',
+      }[batch.status] || '❓'
 
     const puzzleTitle = (puzzleMap.get(batch.puzzle_id) || 'Unknown').padEnd(25).substring(0, 25)
     const createdDate = new Date(batch.created_at).toISOString().substring(0, 16).replace('T', ' ')
 
     console.log(
-      `${String(i + 1).padStart(2)} | ${statusEmoji} ${batch.status.padEnd(5)} | ${String(batch.puzzle_id).padStart(6)} | ${puzzleTitle} | ${createdDate}`,
+      `${String(i + 1).padStart(2)} | ${statusEmoji} ${batch.status.padEnd(5)} | ${String(
+        batch.puzzle_id,
+      ).padStart(6)} | ${puzzleTitle} | ${createdDate}`,
     )
   }
-  
+
   console.log('\nBatch IDs (for copy/paste):')
   for (let i = 0; i < batches.length; i++) {
     const batch = batches[i]
-    const statusEmoji = {
-      pending: '⏳',
-      completed: '✅',
-      failed: '❌',
-      in_progress: '🔄',
-    }[batch.status] || '❓'
+    const statusEmoji =
+      {
+        pending: '⏳',
+        completed: '✅',
+        failed: '❌',
+        in_progress: '🔄',
+      }[batch.status] || '❓'
     console.log(`  ${i + 1}. ${statusEmoji} ${batch.batch_id}`)
   }
 
@@ -507,27 +513,31 @@ async function mainMenu(rl: readline.Interface) {
         case '4': {
           const batches = await showBatchStatus()
           if (!batches || batches.length === 0) break
-          
-          const input = await rl.question('\nEnter batch number (1-' + batches.length + ') or full batch ID: ')
+
+          const input = await rl.question(
+            '\nEnter batch number (1-' + batches.length + ') or full batch ID: ',
+          )
           if (!input.trim()) {
             console.log('❌ Input is required')
             break
           }
-          
+
           // Check if input is a number (batch selection) or a batch ID
           const num = parseInt(input.trim())
           let batchId: string
-          
+
           if (!isNaN(num) && num >= 1 && num <= batches.length) {
             batchId = batches[num - 1].batch_id
             console.log(`\nUsing batch: ${batchId}`)
           } else if (input.trim().startsWith('batch_')) {
             batchId = input.trim()
           } else {
-            console.log('❌ Invalid input. Enter a number from the list or a full batch ID starting with "batch_"')
+            console.log(
+              '❌ Invalid input. Enter a number from the list or a full batch ID starting with "batch_"',
+            )
             break
           }
-          
+
           await checkBatch(batchId)
           break
         }
@@ -535,27 +545,31 @@ async function mainMenu(rl: readline.Interface) {
         case '5': {
           const batches = await showBatchStatus()
           if (!batches || batches.length === 0) break
-          
-          const input = await rl.question('\nEnter batch number (1-' + batches.length + ') or full batch ID: ')
+
+          const input = await rl.question(
+            '\nEnter batch number (1-' + batches.length + ') or full batch ID: ',
+          )
           if (!input.trim()) {
             console.log('❌ Input is required')
             break
           }
-          
+
           // Check if input is a number (batch selection) or a batch ID
           const num = parseInt(input.trim())
           let batchId: string
-          
+
           if (!isNaN(num) && num >= 1 && num <= batches.length) {
             batchId = batches[num - 1].batch_id
             console.log(`\nUsing batch: ${batchId}`)
           } else if (input.trim().startsWith('batch_')) {
             batchId = input.trim()
           } else {
-            console.log('❌ Invalid input. Enter a number from the list or a full batch ID starting with "batch_"')
+            console.log(
+              '❌ Invalid input. Enter a number from the list or a full batch ID starting with "batch_"',
+            )
             break
           }
-          
+
           await retrieveBatch(batchId)
           break
         }
