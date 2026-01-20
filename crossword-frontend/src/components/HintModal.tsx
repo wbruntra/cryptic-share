@@ -379,7 +379,7 @@ export function HintModal({
                         className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm border-b border-border/50 last:border-0 pb-2 last:pb-0"
                       >
                         <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className="font-medium text-text truncate" title={step.indicator}>
+                          <span className="font-medium text-text" title={step.indicator}>
                             {step.indicator}
                           </span>
                         </div>
