@@ -1,14 +1,10 @@
 import { useState } from 'react'
 
-// Type definitions matching backend
-export interface ClueExplanation {
-  clue_type: 'wordplay' | 'double_definition' | '&lit' | 'cryptic_definition'
-  explanation:
-    | WordplayExplanation
-    | DoubleDefinitionExplanation
-    | AndLitExplanation
-    | CrypticDefinitionExplanation
-}
+export type ClueExplanation =
+  | WordplayExplanation
+  | DoubleDefinitionExplanation
+  | AndLitExplanation
+  | CrypticDefinitionExplanation
 
 export interface WordplayExplanation {
   clue_type: 'wordplay'
@@ -319,18 +315,16 @@ export function ClueExplanationDisplay({ explanation }: ClueExplanationDisplayPr
     <div className="flex flex-col gap-3">
       {/* Render sections based on clue type */}
       {explanation.clue_type === 'wordplay' &&
-        renderWordplayExplanation(explanation.explanation as WordplayExplanation)}
+        renderWordplayExplanation(explanation as WordplayExplanation)}
 
       {explanation.clue_type === 'double_definition' &&
-        renderDoubleDefinitionExplanation(explanation.explanation as DoubleDefinitionExplanation)}
+        renderDoubleDefinitionExplanation(explanation as DoubleDefinitionExplanation)}
 
       {explanation.clue_type === '&lit' &&
-        renderAndLitExplanation(explanation.explanation as AndLitExplanation)}
+        renderAndLitExplanation(explanation as AndLitExplanation)}
 
       {explanation.clue_type === 'cryptic_definition' &&
-        renderCrypticDefinitionExplanation(
-          explanation.explanation as CrypticDefinitionExplanation,
-        )}
+        renderCrypticDefinitionExplanation(explanation as CrypticDefinitionExplanation)}
 
       {/* Full Explanation (common to all types) */}
       <ExplanationSection
@@ -339,9 +333,7 @@ export function ClueExplanationDisplay({ explanation }: ClueExplanationDisplayPr
         onReveal={() => revealSection('fullExplanation')}
       >
         <p className="text-text whitespace-pre-wrap leading-relaxed">
-          {'full_explanation' in explanation.explanation
-            ? explanation.explanation.full_explanation
-            : ''}
+          {'full_explanation' in explanation ? explanation.full_explanation : ''}
         </p>
       </ExplanationSection>
     </div>

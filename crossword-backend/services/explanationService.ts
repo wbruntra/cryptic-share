@@ -1,14 +1,16 @@
 import db from '../db-knex'
 import { explainCrypticClue } from '../utils/openrouter'
 
-// NEW FORMAT: Top-level structure with clue_type
-export interface ClueExplanation {
+export type FlatClueExplanation =
+  | WordplayExplanation
+  | DoubleDefinitionExplanation
+  | AndLitExplanation
+  | CrypticDefinitionExplanation
+
+// Stored format (nested with clue_type + explanation)
+export interface StoredClueExplanation {
   clue_type: 'wordplay' | 'double_definition' | '&lit' | 'cryptic_definition'
-  explanation:
-    | WordplayExplanation
-    | DoubleDefinitionExplanation
-    | AndLitExplanation
-    | CrypticDefinitionExplanation
+  explanation: FlatClueExplanation
 }
 
 export interface WordplayExplanation {
@@ -79,6 +81,47 @@ interface StoredExplanation {
   created_at: string
 }
 
+const normalizeForStorage = (explanation: any): StoredClueExplanation => {
+  if (explanation?.explanation && explanation?.clue_type) {
+    return explanation as StoredClueExplanation
+  }
+
+  const clueType = explanation?.clue_type ?? 'wordplay'
+
+  return {
+    clue_type: clueType,
+    explanation: {
+      clue_type: clueType,
+      ...(explanation ?? {}),
+    } as FlatClueExplanation,
+  }
+}
+
+const normalizeForClient = (data: any): FlatClueExplanation => {
+  if (data?.explanation) {
+    const inner = data.explanation
+    if (inner?.clue_type) {
+      return inner as FlatClueExplanation
+    }
+
+    if (data?.clue_type) {
+      return {
+        clue_type: data.clue_type,
+        ...(inner ?? {}),
+      } as FlatClueExplanation
+    }
+  }
+
+  if (data?.clue_type) {
+    return data as FlatClueExplanation
+  }
+
+  return {
+    clue_type: 'wordplay',
+    ...(data ?? {}),
+  } as FlatClueExplanation
+}
+
 export class ExplanationService {
   /**
    * Get an existing explanation from the cache
@@ -87,7 +130,7 @@ export class ExplanationService {
     puzzleId: number,
     clueNumber: number,
     direction: string,
-  ): Promise<ClueExplanation | null> {
+  ): Promise<FlatClueExplanation | null> {
     const row = await db<StoredExplanation>('clue_explanations')
       .where({
         puzzle_id: puzzleId,
@@ -102,20 +145,7 @@ export class ExplanationService {
 
     const data = JSON.parse(row.explanation_json)
 
-    // Handle old format (backward compatibility)
-    // If data doesn't have clue_type at top level, it's in the old format
-    if (!data.clue_type || !data.explanation) {
-      // Wrap old format in new structure (default to 'wordplay')
-      return {
-        clue_type: 'wordplay',
-        explanation: {
-          clue_type: 'wordplay',
-          ...data,
-        },
-      } as ClueExplanation
-    }
-
-    return data as ClueExplanation
+    return normalizeForClient(data)
   }
 
   /**
@@ -127,8 +157,10 @@ export class ExplanationService {
     direction: string,
     clueText: string,
     answer: string,
-    explanation: ClueExplanation,
+    explanation: StoredClueExplanation | FlatClueExplanation,
   ): Promise<void> {
+    const normalized = normalizeForStorage(explanation)
+
     await db('clue_explanations')
       .insert({
         puzzle_id: puzzleId,
@@ -136,7 +168,7 @@ export class ExplanationService {
         direction: direction,
         clue_text: clueText,
         answer: answer,
-        explanation_json: JSON.stringify(explanation),
+        explanation_json: JSON.stringify(normalized),
       })
       .onConflict(['puzzle_id', 'clue_number', 'direction'])
       .merge() // Update existing record on conflict
@@ -152,7 +184,7 @@ export class ExplanationService {
     direction: string,
     clueText: string,
     answer: string,
-  ): Promise<{ explanation: ClueExplanation; cached: boolean }> {
+  ): Promise<{ explanation: FlatClueExplanation; cached: boolean }> {
     // Check cache first
     const cached = await this.getCachedExplanation(puzzleId, clueNumber, direction)
     if (cached) {
@@ -164,11 +196,11 @@ export class ExplanationService {
       clue: clueText,
       answer: answer,
       mode: 'full',
-    })) as ClueExplanation
+    })) as StoredClueExplanation
 
     // Save to cache
     await this.saveExplanation(puzzleId, clueNumber, direction, clueText, answer, explanation)
 
-    return { explanation, cached: false }
+    return { explanation: normalizeForClient(explanation), cached: false }
   }
 }
