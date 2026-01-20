@@ -381,10 +381,13 @@ export function HintModal({
                     {explanation.wordplay_steps.map((step, i) => (
                       <div
                         key={i}
-                        className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm border-b border-border/50 last:border-0 pb-2 last:pb-0"
+                        className="flex flex-col sm:flex-row sm:items-start gap-2 text-sm border-b border-border/50 last:border-0 pb-2 last:pb-0"
                       >
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className="font-medium text-text" title={step.indicator}>
+                        <div className="flex items-start gap-2 min-w-0 flex-1">
+                          <span
+                            className="font-medium text-text line-clamp-2 break-words leading-snug"
+                            title={step.indicator}
+                          >
                             {step.indicator}
                           </span>
                         </div>
