@@ -104,11 +104,19 @@ export const crypticSchema = {
 
               letter_breakdown: {
                 type: 'array',
+                minItems: 1,
                 items: {
                   type: 'object',
                   properties: {
-                    source: { type: 'string' },
-                    letters: { type: 'string' },
+                    source: {
+                      type: 'string',
+                      description: 'Clue text or fodder used to produce the letters',
+                    },
+                    letters: {
+                      type: 'string',
+                      description: 'Uppercase letters contributed by this part (no spaces)',
+                      pattern: '^[A-Z]+$',
+                    },
                   },
                   required: ['source', 'letters'],
                   additionalProperties: false,
@@ -117,12 +125,22 @@ export const crypticSchema = {
 
               wordplay_steps: {
                 type: 'array',
+                minItems: 1,
                 items: {
                   type: 'object',
                   properties: {
-                    indicator: { type: 'string' },
-                    operation: { type: 'string' },
-                    result: { type: 'string' },
+                    indicator: {
+                      type: 'string',
+                      description: 'Exact indicator text from the clue (or "None")',
+                    },
+                    operation: {
+                      type: 'string',
+                      description: 'The explicit cryptic operation performed',
+                    },
+                    result: {
+                      type: 'string',
+                      description: 'Resulting letters after the operation',
+                    },
                   },
                   required: ['indicator', 'operation', 'result'],
                   additionalProperties: false,
@@ -138,6 +156,7 @@ export const crypticSchema = {
                   },
                   wordplay_types: {
                     type: 'array',
+                    minItems: 1,
                     items: { type: 'string' },
                   },
                 },
@@ -221,11 +240,19 @@ export const crypticSchema = {
 
               letter_breakdown: {
                 type: 'array',
+                minItems: 1,
                 items: {
                   type: 'object',
                   properties: {
-                    source: { type: 'string' },
-                    letters: { type: 'string' },
+                    source: {
+                      type: 'string',
+                      description: 'Clue text or fodder used to produce the letters',
+                    },
+                    letters: {
+                      type: 'string',
+                      description: 'Uppercase letters contributed by this part (no spaces)',
+                      pattern: '^[A-Z]+$',
+                    },
                   },
                   required: ['source', 'letters'],
                   additionalProperties: false,
@@ -234,12 +261,22 @@ export const crypticSchema = {
 
               wordplay_steps: {
                 type: 'array',
+                minItems: 1,
                 items: {
                   type: 'object',
                   properties: {
-                    indicator: { type: 'string' },
-                    operation: { type: 'string' },
-                    result: { type: 'string' },
+                    indicator: {
+                      type: 'string',
+                      description: 'Exact indicator text from the clue (or "None")',
+                    },
+                    operation: {
+                      type: 'string',
+                      description: 'The explicit cryptic operation performed',
+                    },
+                    result: {
+                      type: 'string',
+                      description: 'Resulting letters after the operation',
+                    },
                   },
                   required: ['indicator', 'operation', 'result'],
                   additionalProperties: false,
@@ -251,6 +288,7 @@ export const crypticSchema = {
                 properties: {
                   wordplay_types: {
                     type: 'array',
+                    minItems: 1,
                     items: { type: 'string' },
                   },
                 },
