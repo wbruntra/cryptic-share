@@ -1,7 +1,8 @@
 import { OpenRouter } from '@openrouter/sdk'
-import { resolve } from 'path'
+import { resolve, join } from 'path'
 import * as path from 'path'
 import * as fs from 'fs'
+import { mkdir, writeFile } from 'fs/promises'
 
 const client = new OpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -241,17 +242,206 @@ export const transcribeAnswers = async (input: any) => {
   }
 }
 
+export const explainCrypticClue = async (input: {
+  clue: string
+  answer: string
+  mode?: 'hint' | 'full'
+}) => {
+  const { clue, answer, mode = 'full' } = input
+
+  const instructions = `
+You are a cryptic crossword expert explaining a solved clue.
+
+You will be given:
+- A cryptic crossword clue
+- The correct answer
+
+Your task:
+1. Identify the exact definition in the clue (quote it verbatim).
+2. Identify a single, clean wordplay parse that leads to the answer.
+3. Provide both a hint and a full explanation.
+
+Core cryptic rules (strict):
+- Each part of the wordplay MUST correspond to one explicit indicator in the clue.
+- Use the simplest valid parse; do not offer alternatives or supporting interpretations.
+- Do NOT mix mechanisms (e.g. hidden letters, charades, containers) unless the clue explicitly indicates them.
+- Every letter in the answer MUST be explicitly justified.
+- Do not invent extra indicators, padding, or explanatory glue.
+- If a clean parse cannot be produced, state that the clue is loose or flawed rather than inventing one.
+
+Letter accounting (mandatory):
+- Break the answer into its component letter groups.
+- For each group, state exactly which indicator produced it.
+- The concatenation of all letter groups MUST exactly equal the answer.
+
+Style constraints:
+- Write like a crossword setter explaining a clue to another setter.
+- Be concise and literal.
+- Avoid hedging or justification language such as “also”, “alternatively”, “supported by”, or “equivalently”.
+- Do not explain basic cryptic conventions unless necessary.
+
+Hint mode behavior:
+- If mode is "hint", keep the explanation non-spoilery.
+- Do not explicitly assemble the answer in the explanation.
+- Still include correct letter accounting internally.
+
+Final check (required):
+- Verify that the letter_breakdown concatenates exactly to the answer.
+
+Constraints:
+- full_explanation must be at most 4 sentences.
+- Do not restate the clue.
+`
+
+  try {
+    // @ts-ignore
+    const result = await client.chat.send({
+      model: 'google/gemini-3-flash-preview',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `
+Clue: ${clue}
+Answer: ${answer}
+Mode: ${mode}
+          `.trim(),
+            },
+            { type: 'text', text: instructions },
+          ],
+        },
+      ],
+      responseFormat: {
+        type: 'json_schema',
+        jsonSchema: {
+          name: 'cryptic_explanation',
+          strict: true,
+          schema: {
+            type: 'object',
+            properties: {
+              definition: {
+                type: 'string',
+                description: 'The exact definition from the clue',
+              },
+              letter_breakdown: {
+                type: 'array',
+                description: 'Breakdown of the answer into component letter groups',
+                items: {
+                  type: 'object',
+                  properties: {
+                    source: {
+                      type: 'string',
+                      description: 'The indicator that produced these letters',
+                    },
+                    letters: { type: 'string', description: 'The actual letters produced' },
+                  },
+                  required: ['source', 'letters'],
+                  additionalProperties: false,
+                },
+              },
+              wordplay_steps: {
+                type: 'array',
+                description: 'Steps explaining the wordplay',
+                items: {
+                  type: 'object',
+                  properties: {
+                    indicator: { type: 'string' },
+                    operation: { type: 'string' },
+                    result: { type: 'string' },
+                  },
+                  required: ['indicator', 'operation', 'result'],
+                  additionalProperties: false,
+                },
+              },
+              hint: {
+                type: 'object',
+                properties: {
+                  definition_location: {
+                    type: 'string',
+                    enum: ['start', 'end'],
+                    description: 'Where the definition is located in the clue',
+                  },
+                  wordplay_types: {
+                    type: 'array',
+                    description: 'Types of wordplay used (e.g. charade, anagram)',
+                    items: { type: 'string' },
+                  },
+                },
+                required: ['definition_location', 'wordplay_types'],
+                additionalProperties: false,
+              },
+              full_explanation: {
+                type: 'string',
+                description: 'A full explanation of the clue',
+              },
+            },
+            required: [
+              'definition',
+              'letter_breakdown',
+              'wordplay_steps',
+              'hint',
+              'full_explanation',
+            ],
+            additionalProperties: false,
+          },
+        },
+      },
+      stream: false,
+    })
+
+    const content = result?.choices[0]?.message.content
+
+    if (!content) {
+      throw new Error('No content received from OpenRouter')
+    }
+
+    if (typeof content !== 'string') {
+      throw new Error('Expected string content from OpenRouter')
+    }
+
+    return JSON.parse(content)
+  } catch (error) {
+    console.error('Error explaining clue:', error)
+    throw error
+  }
+}
+
 const test = async () => {
-  const answerImagePath = path.join(__dirname, '..', 'images', 'answers_17_20.jpg')
+  const input = {
+    clue: "Section of Mafia's courting disaster (6)",
+    answer: 'FIASCO',
+    mode: 'full' as const,
+  }
 
-  // as file object
-  const file = Bun.file(answerImagePath)
+  const startTime = performance.now()
+  const explanation = await explainCrypticClue(input)
+  const endTime = performance.now()
+  const durationSeconds = (endTime - startTime) / 1000
 
-  const result = await transcribeAnswers(file)
+  console.log(JSON.stringify(explanation, null, 2))
+  console.log(`\nResponse time: ${durationSeconds.toFixed(2)} seconds`)
 
-  console.log(result)
+  // Save test results to test_data folder
+  const testDataDir = join(__dirname, '../test_data')
+  await mkdir(testDataDir, { recursive: true })
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const filename = `test-openrouter-${timestamp}.json`
+  const filepath = join(testDataDir, filename)
+
+  const testResult = {
+    timestamp: new Date().toISOString(),
+    durationSeconds: parseFloat(durationSeconds.toFixed(3)),
+    input,
+    result: explanation,
+  }
+
+  await writeFile(filepath, JSON.stringify(testResult, null, 2))
+  console.log(`Test result saved to: ${filepath}`)
 }
 
 if (import.meta.main) {
-  console.log(await test())
+  test().catch(console.error)
 }

@@ -1,5 +1,5 @@
 import db from '../db-knex'
-import { explainCrypticClue } from '../utils/openai'
+import { explainCrypticClue } from '../utils/openrouter'
 
 export interface ClueExplanation {
   definition: string
