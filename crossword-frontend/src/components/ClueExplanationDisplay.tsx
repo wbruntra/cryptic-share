@@ -5,6 +5,7 @@ export type ClueExplanation =
   | DoubleDefinitionExplanation
   | AndLitExplanation
   | CrypticDefinitionExplanation
+  | NoCleanParseExplanation
 
 export interface WordplayExplanation {
   clue_type: 'wordplay'
@@ -39,6 +40,15 @@ export interface CrypticDefinitionExplanation {
   definition_scope: 'entire_clue'
   definition_paraphrase: string
   hint: { definition_scope: 'entire_clue' }
+  full_explanation: string
+}
+
+export interface NoCleanParseExplanation {
+  clue_type: 'no_clean_parse'
+  intended_clue_type: 'wordplay' | 'double_definition' | '&lit' | 'cryptic_definition'
+  definition: string
+  issue: string
+  hint: { intended_clue_type: 'wordplay' | 'double_definition' | '&lit' | 'cryptic_definition' }
   full_explanation: string
 }
 
@@ -343,6 +353,25 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
     </>
   )
 
+  const renderNoCleanParseExplanation = (exp: NoCleanParseExplanation) => (
+    <>
+      <ExplanationSection
+        title="📖 Definition"
+        revealed={revealedSections.definition}
+        onReveal={() => revealSection('definition')}
+      >
+        <div className="space-y-2">
+          <p className="text-text">
+            <span className="font-semibold">"{exp.definition}"</span>
+          </p>
+          <p className="text-text-secondary text-sm">
+            Wordplay not shown: {exp.issue}
+          </p>
+        </div>
+      </ExplanationSection>
+    </>
+  )
+
   return (
     <div className="flex flex-col gap-3">
       {/* Render sections based on clue type */}
@@ -357,6 +386,9 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
 
       {explanation.clue_type === 'cryptic_definition' &&
         renderCrypticDefinitionExplanation(explanation as CrypticDefinitionExplanation)}
+
+      {explanation.clue_type === 'no_clean_parse' &&
+        renderNoCleanParseExplanation(explanation as NoCleanParseExplanation)}
 
       {/* Full Explanation (common to all types) */}
       <ExplanationSection
