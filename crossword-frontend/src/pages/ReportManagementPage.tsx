@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useContext, useRef } from 'react'
+import { SocketContext } from '../context/SocketContext'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 
@@ -24,7 +25,49 @@ export function ReportManagementPage() {
   const [selectedReport, setSelectedReport] = useState<Report | null>(null)
   const [regenerating, setRegenerating] = useState(false)
   const [newExplanation, setNewExplanation] = useState<Explanation | null>(null)
+  const [processingMessage, setProcessingMessage] = useState<string>('')
   const [saving, setSaving] = useState(false)
+
+  // Request ID for current operation
+  const [requestId, setRequestId] = useState<string | null>(null)
+  const requestIdRef = useRef<string | null>(null)
+
+  // Sync ref
+  useEffect(() => {
+    requestIdRef.current = requestId
+  }, [requestId])
+
+  const { socket, socketId } = useContext(SocketContext)
+
+  // Listen for socket events
+  useEffect(() => {
+    if (!socket) return
+
+    const handleExplanationReady = (data: any) => {
+      // Check if this explanation matches our current request
+      if (data.requestId && data.requestId !== requestIdRef.current) {
+        return // Ignore events for other requests
+      }
+
+      if (data.success && data.explanation) {
+        setNewExplanation(data.explanation)
+        setRegenerating(false)
+        setProcessingMessage('')
+        setRequestId(null)
+      } else if (!data.success) {
+        alert('Failed to regenerate: ' + data.error)
+        setRegenerating(false)
+        setProcessingMessage('')
+        setRequestId(null)
+      }
+    }
+
+    socket.on('admin_explanation_ready', handleExplanationReady)
+
+    return () => {
+      socket.off('admin_explanation_ready', handleExplanationReady)
+    }
+  }, [socket])
 
   const fetchReports = useCallback(() => {
     setLoading(true)
@@ -44,21 +87,31 @@ export function ReportManagementPage() {
 
     setRegenerating(true)
     setNewExplanation(null)
+    setProcessingMessage('Starting regeneration...')
+    setRequestId(null) // Clear previous ID
 
     try {
-      // Fetch current explanation to pass as context (optional, but good for context)
-      // For now, we'll just pass the clue and answer and feedback
       const res = await axios.post('/api/admin/explanations/regenerate', {
         clue: selectedReport.clue_text,
         answer: selectedReport.answer,
         feedback: selectedReport.feedback,
+        socketId: socketId, // Send socket ID for async processing
       })
 
-      setNewExplanation(res.data)
+      if (res.data.processing) {
+        setProcessingMessage(res.data.message)
+        if (res.data.requestId) {
+          setRequestId(res.data.requestId)
+        }
+        // Keep regenerating true, wait for socket event
+      } else {
+        // Fallback or immediate response
+        setNewExplanation(res.data)
+        setRegenerating(false)
+      }
     } catch (error) {
       console.error('Failed to regenerate:', error)
       alert('Failed to regenerate explanation')
-    } finally {
       setRegenerating(false)
     }
   }
@@ -186,7 +239,14 @@ export function ReportManagementPage() {
                     disabled={regenerating}
                     className="flex-1 py-3 px-6 rounded-xl bg-primary text-white font-bold shadow-md hover:bg-primary-hover active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed border-none cursor-pointer"
                   >
-                    {regenerating ? 'Regenerating...' : '✨ Regenerate Explanation'}
+                    {regenerating ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        {processingMessage || 'Regenerating...'}
+                      </span>
+                    ) : (
+                      '✨ Regenerate Explanation'
+                    )}
                   </button>
                 </div>
               </div>

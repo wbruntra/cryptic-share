@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useContext, useRef } from 'react'
+import { SocketContext } from '../context/SocketContext'
 import { Link, useParams } from 'react-router-dom'
 import axios from 'axios'
 
@@ -30,6 +31,48 @@ export function ExplanationReviewPage() {
   const [reportFeedback, setReportFeedback] = useState('')
   const [reportingClue, setReportingClue] = useState<ClueExplanation | null>(null)
   const [isReporting, setIsReporting] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState<string>('')
+
+  // Request ID for current operation
+  const [requestId, setRequestId] = useState<string | null>(null)
+  const requestIdRef = useRef<string | null>(null)
+
+  // Sync ref
+  useEffect(() => {
+    requestIdRef.current = requestId
+  }, [requestId])
+
+  const { socket, socketId } = useContext(SocketContext)
+
+  // Listen for socket events
+  useEffect(() => {
+    if (!socket) return
+
+    const handleExplanationReady = (data: any) => {
+      // Check if this explanation matches our current request
+      if (data.requestId && data.requestId !== requestIdRef.current) {
+        return // Ignore events for other requests
+      }
+
+      if (data.success && data.explanation) {
+        setNewExplanation(data.explanation)
+        setRegenerating(false)
+        setProcessingMessage('')
+        setRequestId(null)
+      } else if (!data.success) {
+        alert('Failed to regenerate: ' + data.error)
+        setRegenerating(false)
+        setProcessingMessage('')
+        setRequestId(null)
+      }
+    }
+
+    socket.on('admin_explanation_ready', handleExplanationReady)
+
+    return () => {
+      socket.off('admin_explanation_ready', handleExplanationReady)
+    }
+  }, [socket])
 
   const fetchClues = useCallback(() => {
     if (!id) return
@@ -48,6 +91,8 @@ export function ExplanationReviewPage() {
   const handleRegenerate = async (clue: ClueExplanation) => {
     setRegenerating(true)
     setNewExplanation(null)
+    setProcessingMessage('Starting regeneration...')
+    setRequestId(null) // Clear previous ID
 
     try {
       const currentExp = JSON.parse(clue.explanation_json)
@@ -56,12 +101,22 @@ export function ExplanationReviewPage() {
         answer: clue.answer,
         feedback: 'Admin manual regeneration',
         previousExplanation: currentExp,
+        socketId: socketId, // Send socket ID for async processing
       })
-      setNewExplanation(res.data)
+
+      if (res.data.processing) {
+        setProcessingMessage(res.data.message)
+        if (res.data.requestId) {
+          setRequestId(res.data.requestId)
+        }
+        // Keep regenerating true, wait for socket event
+      } else {
+        setNewExplanation(res.data)
+        setRegenerating(false)
+      }
     } catch (error) {
       console.error('Failed to regenerate:', error)
       alert('Failed to regenerate explanation')
-    } finally {
       setRegenerating(false)
     }
   }
@@ -214,7 +269,14 @@ export function ExplanationReviewPage() {
                                     disabled={regenerating}
                                     className="px-4 py-2 bg-primary text-white rounded-lg shadow hover:bg-primary-hover disabled:opacity-50 text-sm font-bold flex-1"
                                   >
-                                    {regenerating ? 'Regenerating...' : 'Regenerate'}
+                                    {regenerating ? (
+                                      <span className="flex items-center justify-center gap-2">
+                                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        {processingMessage || 'Regenerating...'}
+                                      </span>
+                                    ) : (
+                                      'Regenerate'
+                                    )}
                                   </button>
                                   <button
                                     onClick={() => {

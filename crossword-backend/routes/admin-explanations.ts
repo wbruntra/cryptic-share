@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import crypto from 'crypto'
 import db from '../db-knex'
 import { regenerateCrypticClueExplanation } from '../utils/openai'
 import { ExplanationService } from '../services/explanationService'
@@ -51,26 +52,74 @@ router.get('/reports', async (req, res) => {
 })
 
 // POST /api/admin/explanations/regenerate
-// Trigger regeneration of an explanation
+// Trigger regeneration of an explanation (async via socket)
 router.post('/explanations/regenerate', async (req, res) => {
-  const { clue, answer, feedback, previousExplanation } = req.body
+  const { clue, answer, feedback, previousExplanation, socketId } = req.body
 
   if (!clue || !answer) {
     return res.status(400).json({ error: 'Missing clue or answer' })
   }
 
-  try {
-    const newExplanation = await regenerateCrypticClueExplanation({
-      clue,
-      answer,
-      feedback: feedback || 'Admin requested regeneration',
-      previousExplanation,
+  // Generate a unique requestId for this operation
+  const requestId = crypto.randomUUID()
+  console.log(
+    `[Regenerate] Request received. SocketID: ${socketId || 'NONE'}. RequestID: ${requestId}`,
+  )
+
+  // If socketId is provided, process async with requestId
+  if (socketId) {
+    // Return immediately
+    res.status(202).json({
+      processing: true,
+      message: 'Regeneration started...',
+      requestId,
     })
 
-    res.json(newExplanation)
-  } catch (error) {
-    console.error('Error regenerating explanation:', error)
-    res.status(500).json({ error: 'Failed to regenerate explanation' })
+    // Process in background using setImmediate to ensure response is sent first
+    setImmediate(async () => {
+      try {
+        const { io } = await import('../app') // Import dynamically to avoid circular dependency
+
+        const newExplanation = await regenerateCrypticClueExplanation({
+          clue,
+          answer,
+          feedback: feedback || 'Admin requested regeneration',
+          previousExplanation,
+        })
+
+        console.log(`[Regenerate] Completed ${requestId}. Emitting to ${socketId}`)
+        io.to(socketId).emit('admin_explanation_ready', {
+          success: true,
+          explanation: newExplanation,
+          clue,
+          answer,
+          requestId, // Include requestId so frontend can match it
+        })
+      } catch (error) {
+        console.error('Error in async regeneration:', error)
+        const { io } = await import('../app')
+        io.to(socketId).emit('admin_explanation_ready', {
+          success: false,
+          error: 'Failed to regenerate explanation',
+          requestId,
+        })
+      }
+    })
+  } else {
+    // Fallback to sync for scripts/legacy
+    try {
+      const newExplanation = await regenerateCrypticClueExplanation({
+        clue,
+        answer,
+        feedback: feedback || 'Admin requested regeneration',
+        previousExplanation,
+      })
+
+      res.json(newExplanation)
+    } catch (error) {
+      console.error('Error regenerating explanation:', error)
+      res.status(500).json({ error: 'Failed to regenerate explanation' })
+    }
   }
 })
 
