@@ -422,7 +422,7 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
               </button>
               <button
                 onClick={() => {
-                  onReport(feedback)
+                  onReport?.(feedback)
                   setShowFeedbackPopup(false)
                   setFeedback('')
                 }}
