@@ -20,8 +20,8 @@ export interface WordplayExplanation {
 
 export interface DoubleDefinitionExplanation {
   clue_type: 'double_definition'
-  definitions: Array<{ definition: string; sense: string }>
-  hint: { definition_count: 2 }
+  definitions: Array<{ definition: string; sense?: string }> | string[]
+  hint: { definition_count: 2 } | string
   full_explanation: string
 }
 
@@ -67,7 +67,6 @@ export function ClueExplanationDisplay({ explanation }: ClueExplanationDisplayPr
 
   const renderWordplayExplanation = (exp: WordplayExplanation) => (
     <>
-      {/* Definition */}
       <ExplanationSection
         title="📖 Definition"
         revealed={revealedSections.definition}
@@ -83,7 +82,6 @@ export function ClueExplanationDisplay({ explanation }: ClueExplanationDisplayPr
         </p>
       </ExplanationSection>
 
-      {/* Wordplay Types */}
       {typeof exp.hint === 'object' && exp.hint.wordplay_types && exp.hint.wordplay_types.length > 0 && (
         <ExplanationSection
           title="🧩 Wordplay Types"
@@ -100,8 +98,7 @@ export function ClueExplanationDisplay({ explanation }: ClueExplanationDisplayPr
         </ExplanationSection>
       )}
 
-      {/* Letter Breakdown (fallback when no wordplay_steps) */}
-      {(!exp.wordplay_steps || exp.wordplay_steps.length === 0) && exp.letter_breakdown && exp.letter_breakdown.length > 0 && (
+      {(!exp.wordplay_steps || exp.wordplay_steps.length === 0) && exp.letter_breakdown.length > 0 && (
         <ExplanationSection
           title="🔤 Letter Breakdown"
           revealed={revealedSections.wordplaySteps}
@@ -109,10 +106,7 @@ export function ClueExplanationDisplay({ explanation }: ClueExplanationDisplayPr
         >
           <div className="space-y-3">
             {exp.letter_breakdown.map((part, i) => (
-              <div
-                key={i}
-                className="bg-surface-highlight border border-border/50 rounded-lg p-3"
-              >
+              <div key={i} className="bg-surface-highlight border border-border/50 rounded-lg p-3">
                 <div className="flex items-start gap-3">
                   <span className="flex items-center justify-center min-w-[2rem] h-8 bg-primary/20 text-primary text-sm font-bold rounded px-2 shrink-0">
                     {part.letters}
@@ -129,7 +123,6 @@ export function ClueExplanationDisplay({ explanation }: ClueExplanationDisplayPr
         </ExplanationSection>
       )}
 
-      {/* Wordplay Steps */}
       {exp.wordplay_steps && exp.wordplay_steps.length > 0 && (
         <ExplanationSection
           title="🛠️ Wordplay Breakdown"
@@ -138,72 +131,86 @@ export function ClueExplanationDisplay({ explanation }: ClueExplanationDisplayPr
         >
           <div className="space-y-4">
             {exp.wordplay_steps.map((step, i) => (
-            <div
-              key={i}
-              className="bg-surface-highlight border border-border/50 rounded-lg p-3"
-            >
-              <div className="flex items-start gap-3">
-                <span className="flex items-center justify-center w-6 h-6 bg-primary/20 text-primary text-xs font-bold rounded-full shrink-0 mt-0.5">
-                  {i + 1}
-                </span>
+              <div key={i} className="bg-surface-highlight border border-border/50 rounded-lg p-3">
+                <div className="flex items-start gap-3">
+                  <span className="flex items-center justify-center w-6 h-6 bg-primary/20 text-primary text-xs font-bold rounded-full shrink-0 mt-0.5">
+                    {i + 1}
+                  </span>
 
-                <div className="flex-1 space-y-2">
-                  {step.indicator !== 'None' && (
+                  <div className="flex-1 space-y-2">
+                    {step.indicator !== 'None' && (
+                      <div>
+                        <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                          Clue:
+                        </span>
+                        <p className="text-sm font-medium text-text mt-0.5">"{step.indicator}"</p>
+                      </div>
+                    )}
+
                     <div>
                       <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                        Clue:
+                        Operation:
                       </span>
-                      <p className="text-sm font-medium text-text mt-0.5">"{step.indicator}"</p>
+                      <p className="text-sm text-text mt-0.5">{step.operation}</p>
                     </div>
-                  )}
 
-                  <div>
-                    <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                      Operation:
-                    </span>
-                    <p className="text-sm text-text mt-0.5">{step.operation}</p>
-                  </div>
-
-                  <div>
-                    <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                      Result:
-                    </span>
-                    <p className="text-sm font-bold text-primary mt-0.5">{step.result}</p>
+                    <div>
+                      <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                        Result:
+                      </span>
+                      <p className="text-sm font-bold text-primary mt-0.5">{step.result}</p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </ExplanationSection>      )}    </>
+            ))}
+          </div>
+        </ExplanationSection>
+      )}
+    </>
   )
 
   const renderDoubleDefinitionExplanation = (exp: DoubleDefinitionExplanation) => (
     <>
-      {/* Definitions */}
       <ExplanationSection
         title="📖 Two Definitions"
         revealed={revealedSections.definition}
         onReveal={() => revealSection('definition')}
       >
         <div className="space-y-3">
-          {exp.definitions.map((def, i) => (
-            <div key={i} className="border-l-4 border-primary/50 pl-3">
-              <p className="text-sm font-semibold text-text-secondary uppercase tracking-wide mb-1">
-                Definition {i + 1}
-              </p>
-              <p className="text-text font-semibold mb-1">"{def.definition}"</p>
-              <p className="text-sm text-text-secondary">Sense: {def.sense}</p>
-            </div>
-          ))}
+          {(Array.isArray(exp.definitions) ? exp.definitions : []).map((def, i) => {
+            const definition = typeof def === 'string' ? def : def.definition
+            const sense = typeof def === 'string' ? undefined : def.sense
+
+            return (
+              <div key={i} className="flex items-start gap-3">
+                <span className="text-primary font-bold text-sm mt-0.5">{i + 1}.</span>
+                <div>
+                  <p className="text-text font-medium">"{definition}"</p>
+                  {sense && <p className="text-text-secondary text-sm">{sense}</p>}
+                </div>
+              </div>
+            )
+          })}
         </div>
+      </ExplanationSection>
+
+      <ExplanationSection
+        title="💡 Hint"
+        revealed={revealedSections.wordplayTypes}
+        onReveal={() => revealSection('wordplayTypes')}
+      >
+        <p className="text-text">
+          {typeof exp.hint === 'string'
+            ? exp.hint
+            : 'Two distinct definitions point to the same answer.'}
+        </p>
       </ExplanationSection>
     </>
   )
 
   const renderAndLitExplanation = (exp: AndLitExplanation) => (
     <>
-      {/* Definition Scope */}
       <ExplanationSection
         title="📖 Definition"
         revealed={revealedSections.definition}
@@ -217,7 +224,6 @@ export function ClueExplanationDisplay({ explanation }: ClueExplanationDisplayPr
         </p>
       </ExplanationSection>
 
-      {/* Wordplay Types */}
       {typeof exp.hint === 'object' && exp.hint.wordplay_types && exp.hint.wordplay_types.length > 0 && (
         <ExplanationSection
           title="🧩 Wordplay Types"
@@ -234,7 +240,31 @@ export function ClueExplanationDisplay({ explanation }: ClueExplanationDisplayPr
         </ExplanationSection>
       )}
 
-      {/* Wordplay Steps */}
+      {(!exp.wordplay_steps || exp.wordplay_steps.length === 0) && exp.letter_breakdown.length > 0 && (
+        <ExplanationSection
+          title="🔤 Letter Breakdown"
+          revealed={revealedSections.wordplaySteps}
+          onReveal={() => revealSection('wordplaySteps')}
+        >
+          <div className="space-y-3">
+            {exp.letter_breakdown.map((part, i) => (
+              <div key={i} className="bg-surface-highlight border border-border/50 rounded-lg p-3">
+                <div className="flex items-start gap-3">
+                  <span className="flex items-center justify-center min-w-[2rem] h-8 bg-primary/20 text-primary text-sm font-bold rounded px-2 shrink-0">
+                    {part.letters}
+                  </span>
+                  <div className="flex-1">
+                    <p className="text-sm text-text">
+                      <span className="text-text-secondary">from:</span> {part.source}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </ExplanationSection>
+      )}
+
       {exp.wordplay_steps && exp.wordplay_steps.length > 0 && (
         <ExplanationSection
           title="🛠️ Wordplay Breakdown"
@@ -243,51 +273,47 @@ export function ClueExplanationDisplay({ explanation }: ClueExplanationDisplayPr
         >
           <div className="space-y-4">
             {exp.wordplay_steps.map((step, i) => (
-              <div
-                key={i}
-                className="bg-surface-highlight border border-border/50 rounded-lg p-3"
-            >
-              <div className="flex items-start gap-3">
-                <span className="flex items-center justify-center w-6 h-6 bg-primary/20 text-primary text-xs font-bold rounded-full shrink-0 mt-0.5">
-                  {i + 1}
-                </span>
+              <div key={i} className="bg-surface-highlight border border-border/50 rounded-lg p-3">
+                <div className="flex items-start gap-3">
+                  <span className="flex items-center justify-center w-6 h-6 bg-primary/20 text-primary text-xs font-bold rounded-full shrink-0 mt-0.5">
+                    {i + 1}
+                  </span>
 
-                <div className="flex-1 space-y-2">
-                  {step.indicator !== 'None' && (
+                  <div className="flex-1 space-y-2">
+                    {step.indicator !== 'None' && (
+                      <div>
+                        <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                          Clue:
+                        </span>
+                        <p className="text-sm font-medium text-text mt-0.5">"{step.indicator}"</p>
+                      </div>
+                    )}
+
                     <div>
                       <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                        Clue:
+                        Operation:
                       </span>
-                      <p className="text-sm font-medium text-text mt-0.5">"{step.indicator}"</p>
+                      <p className="text-sm text-text mt-0.5">{step.operation}</p>
                     </div>
-                  )}
 
-                  <div>
-                    <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                      Operation:
-                    </span>
-                    <p className="text-sm text-text mt-0.5">{step.operation}</p>
-                  </div>
-
-                  <div>
-                    <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                      Result:
-                    </span>
-                    <p className="text-sm font-bold text-primary mt-0.5">{step.result}</p>
+                    <div>
+                      <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                        Result:
+                      </span>
+                      <p className="text-sm font-bold text-primary mt-0.5">{step.result}</p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </ExplanationSection>
+            ))}
+          </div>
+        </ExplanationSection>
       )}
     </>
   )
 
   const renderCrypticDefinitionExplanation = (exp: CrypticDefinitionExplanation) => (
     <>
-      {/* Definition Paraphrase */}
       <ExplanationSection
         title="📖 Cryptic Definition"
         revealed={revealedSections.definition}

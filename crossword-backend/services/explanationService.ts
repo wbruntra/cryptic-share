@@ -1,5 +1,6 @@
 import db from '../db-knex'
 import { explainCrypticClue } from '../utils/openrouter'
+import { assertValidExplanation } from '../utils/validateExplanation'
 
 export type FlatClueExplanation =
   | WordplayExplanation
@@ -150,6 +151,7 @@ export class ExplanationService {
 
   /**
    * Save an explanation to the database
+   * Validates the explanation before saving to ensure schema conformance
    */
   static async saveExplanation(
     puzzleId: number,
@@ -160,6 +162,19 @@ export class ExplanationService {
     explanation: StoredClueExplanation | FlatClueExplanation,
   ): Promise<void> {
     const normalized = normalizeForStorage(explanation)
+
+    // Validate the normalized explanation before saving
+    try {
+      assertValidExplanation(normalized)
+    } catch (error) {
+      console.error(
+        `❌ Validation failed for puzzle ${puzzleId}, clue ${clueNumber} (${direction}):`,
+      )
+      console.error(`   Clue: "${clueText}"`)  
+      console.error(`   Answer: ${answer}`)
+      console.error(`   ${error}`)
+      throw error // Re-throw to prevent saving invalid data
+    }
 
     await db('clue_explanations')
       .insert({
