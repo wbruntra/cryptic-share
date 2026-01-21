@@ -159,12 +159,20 @@ export function AdminDashboard() {
           <h1 className="text-3xl font-bold text-text italic tracking-tight">Admin Dashboard</h1>
           <p className="text-text-secondary text-sm">Manage and create cryptic crosswords.</p>
         </div>
-        <Link
-          to="/create"
-          className="w-full sm:w-auto px-6 py-3 rounded-xl bg-primary text-white font-bold shadow-md hover:bg-primary-hover hover:shadow-lg active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
-        >
-          <span className="text-xl">+</span> Create New Puzzle
-        </Link>
+        <div className="flex gap-4 w-full sm:w-auto">
+          <Link
+            to="/admin/reports"
+            className="flex-1 sm:flex-none px-6 py-3 rounded-xl bg-surface border-2 border-primary text-primary font-bold shadow-sm hover:bg-primary/5 hover:shadow-md active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
+          >
+            Manage Reports
+          </Link>
+          <Link
+            to="/create"
+            className="flex-1 sm:flex-none px-6 py-3 rounded-xl bg-primary text-white font-bold shadow-md hover:bg-primary-hover hover:shadow-lg active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
+          >
+            <span className="text-xl">+</span> Create New Puzzle
+          </Link>
+        </div>
       </header>
 
       <section>
@@ -193,6 +201,12 @@ export function AdminDashboard() {
                     className="block w-full py-2 px-4 rounded-lg bg-input-bg border border-border text-text font-bold text-center no-underline hover:border-primary hover:text-primary transition-all"
                   >
                     Edit
+                  </Link>
+                  <Link
+                    to={`/admin/puzzles/${puzzle.id}/explanations`}
+                    className="block w-full py-2 px-4 rounded-lg bg-input-bg border border-border text-text-secondary text-sm font-medium text-center no-underline hover:text-text hover:border-text transition-all"
+                  >
+                    Review Explanations
                   </Link>
                   <div className="flex gap-2">
                     <button

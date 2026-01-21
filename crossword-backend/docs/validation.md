@@ -15,7 +15,7 @@ All clue explanations saved to the database are automatically validated against 
    - Prevents invalid explanations from being saved
 
 3. **Schema Format**
-   All explanations must be in **flattened format** (no nested `explanation` wrapper):
+  The database stores only the inner **explanation object** (i.e. the `explanation` property from the model response):
    ```json
    {
      "clue_type": "wordplay",
@@ -32,7 +32,7 @@ All clue explanations saved to the database are automatically validated against 
 ## Validation Rules
 
 ### All Clue Types
-- `clue_type` must be: `"wordplay"`, `"double_definition"`, `"&lit"`, or `"cryptic_definition"`
+- `clue_type` must be: `"wordplay"`, `"double_definition"`, `"&lit"`, `"cryptic_definition"`, or `"no_clean_parse"`
 - No additional properties allowed beyond schema definition
 
 ### Wordplay & &lit
@@ -45,8 +45,12 @@ All clue explanations saved to the database are automatically validated against 
 - `hint` must be: `{ definition_count: 2 }`
 
 ### Cryptic Definition
-- `definition_paraphrase`, `hint` (string), and `full_explanation` required
+- `definition_scope`, `definition_paraphrase`, `hint` (object), and `full_explanation` required
 - No `letter_breakdown` or `wordplay_steps` allowed
+
+### No Clean Parse
+- `intended_clue_type`, `issue`, `hint`, and `full_explanation` required
+- Use this when a clean parse is not possible without inventing indicators or forcing letter accounting
 
 ## Scripts
 

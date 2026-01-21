@@ -7,8 +7,11 @@
 import Ajv from 'ajv'
 import db from '../db-knex'
 
-// Schema definition for flattened format (no nested explanation wrapper)
-const explanationSchema = {
+// Schema definition for stored explanations
+// Accepts either:
+// 1) Stored wrapper format: { clue_type, explanation: <inner> }
+// 2) Inner explanation object: <inner>
+const flatExplanationSchema = {
   anyOf: [
         // WORDPLAY
         {
@@ -148,19 +151,72 @@ const explanationSchema = {
           type: 'object',
           properties: {
             clue_type: { type: 'string', const: 'cryptic_definition' },
+            definition_scope: { type: 'string', const: 'entire_clue' },
             definition_paraphrase: { type: 'string' },
-            hint: { type: 'string' },
+            hint: {
+              type: 'object',
+              properties: {
+                definition_scope: { type: 'string', const: 'entire_clue' },
+              },
+              required: ['definition_scope'],
+              additionalProperties: false,
+            },
             full_explanation: { type: 'string' },
           },
           required: [
             'clue_type',
+            'definition_scope',
             'definition_paraphrase',
             'hint',
             'full_explanation',
           ],
           additionalProperties: false,
         },
+
+        // NO CLEAN PARSE
+        {
+          type: 'object',
+          properties: {
+            clue_type: { type: 'string', const: 'no_clean_parse' },
+            intended_clue_type: {
+              type: 'string',
+              enum: ['wordplay', 'double_definition', '&lit', 'cryptic_definition'],
+            },
+            issue: { type: 'string' },
+            hint: {
+              type: 'object',
+              properties: {
+                intended_clue_type: {
+                  type: 'string',
+                  enum: ['wordplay', 'double_definition', '&lit', 'cryptic_definition'],
+                },
+              },
+              required: ['intended_clue_type'],
+              additionalProperties: false,
+            },
+            full_explanation: { type: 'string' },
+          },
+          required: ['clue_type', 'intended_clue_type', 'issue', 'hint', 'full_explanation'],
+          additionalProperties: false,
+        },
       ],
+}
+
+const storedExplanationSchema = {
+  type: 'object',
+  properties: {
+    clue_type: {
+      type: 'string',
+      enum: ['wordplay', 'double_definition', '&lit', 'cryptic_definition', 'no_clean_parse'],
+    },
+    explanation: flatExplanationSchema,
+  },
+  required: ['clue_type', 'explanation'],
+  additionalProperties: false,
+}
+
+const explanationSchema = {
+  anyOf: [storedExplanationSchema, flatExplanationSchema],
 }
 
 interface ValidationError {

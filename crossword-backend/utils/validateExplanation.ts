@@ -5,8 +5,7 @@
 
 import Ajv, { ValidateFunction } from 'ajv'
 
-// Flattened schema for stored explanations
-const explanationSchema = {
+const flatExplanationSchema = {
   anyOf: [
     // WORDPLAY
     {
@@ -60,6 +59,7 @@ const explanationSchema = {
       ],
       additionalProperties: false,
     },
+
     // DOUBLE DEFINITION
     {
       type: 'object',
@@ -90,6 +90,7 @@ const explanationSchema = {
       required: ['clue_type', 'definitions', 'hint', 'full_explanation'],
       additionalProperties: false,
     },
+
     // &LIT
     {
       type: 'object',
@@ -141,24 +142,80 @@ const explanationSchema = {
       ],
       additionalProperties: false,
     },
+
     // CRYPTIC DEFINITION
     {
       type: 'object',
       properties: {
         clue_type: { type: 'string', const: 'cryptic_definition' },
+        definition_scope: { type: 'string', const: 'entire_clue' },
         definition_paraphrase: { type: 'string' },
-        hint: { type: 'string' },
+        hint: {
+          type: 'object',
+          properties: {
+            definition_scope: { type: 'string', const: 'entire_clue' },
+          },
+          required: ['definition_scope'],
+          additionalProperties: false,
+        },
         full_explanation: { type: 'string' },
       },
       required: [
         'clue_type',
+        'definition_scope',
         'definition_paraphrase',
         'hint',
         'full_explanation',
       ],
       additionalProperties: false,
     },
+
+    // NO CLEAN PARSE
+    {
+      type: 'object',
+      properties: {
+        clue_type: { type: 'string', const: 'no_clean_parse' },
+        intended_clue_type: {
+          type: 'string',
+          enum: ['wordplay', 'double_definition', '&lit', 'cryptic_definition'],
+        },
+        issue: { type: 'string' },
+        hint: {
+          type: 'object',
+          properties: {
+            intended_clue_type: {
+              type: 'string',
+              enum: ['wordplay', 'double_definition', '&lit', 'cryptic_definition'],
+            },
+          },
+          required: ['intended_clue_type'],
+          additionalProperties: false,
+        },
+        full_explanation: { type: 'string' },
+      },
+      required: ['clue_type', 'intended_clue_type', 'issue', 'hint', 'full_explanation'],
+      additionalProperties: false,
+    },
   ],
+}
+
+// Stored schema (nested wrapper)
+const storedExplanationSchema = {
+  type: 'object',
+  properties: {
+    clue_type: {
+      type: 'string',
+      enum: ['wordplay', 'double_definition', '&lit', 'cryptic_definition', 'no_clean_parse'],
+    },
+    explanation: flatExplanationSchema,
+  },
+  required: ['clue_type', 'explanation'],
+  additionalProperties: false,
+}
+
+// Accept either stored wrapper or the inner explanation object
+const explanationSchema = {
+  anyOf: [storedExplanationSchema, flatExplanationSchema],
 }
 
 let validateFunction: ValidateFunction | null = null

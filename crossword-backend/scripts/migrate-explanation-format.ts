@@ -12,14 +12,6 @@ interface OldFormat {
   full_explanation?: string
 }
 
-interface NewFormat {
-  clue_type: string
-  explanation: {
-    clue_type: string
-    [key: string]: any
-  }
-}
-
 async function migrateExplanations() {
   console.log('🔄 Starting explanation_json format migration...\n')
 
@@ -40,24 +32,24 @@ async function migrateExplanations() {
     try {
       const data = JSON.parse(row.explanation_json)
 
-      // Check if already in new format
-      if (data.clue_type && data.explanation) {
-        skipped++
+      // If already in wrapper format, unwrap and store only the inner explanation
+      if (data?.clue_type && data?.explanation && typeof data.explanation === 'object') {
+        await db('clue_explanations').where('id', row.id).update({
+          explanation_json: JSON.stringify(data.explanation),
+        })
+        migrated++
         continue
       }
 
-      // Old format detected - wrap it
+      // Old format detected - store as a flat explanation object
       // Default to 'wordplay' since that was the only type before this migration
-      const newFormat: NewFormat = {
+      const flatExplanation = {
         clue_type: 'wordplay',
-        explanation: {
-          clue_type: 'wordplay',
-          ...data,
-        },
+        ...data,
       }
 
       await db('clue_explanations').where('id', row.id).update({
-        explanation_json: JSON.stringify(newFormat),
+        explanation_json: JSON.stringify(flatExplanation),
       })
 
       migrated++

@@ -7,6 +7,7 @@ You will be given:
 
 Your task:
 1. Identify the clue type: wordplay (standard cryptic with definition + wordplay), double_definition, &lit (entire clue serves as both definition and wordplay), or cryptic_definition (no separable wordplay; the whole clue is a single misleading definition).
+  If (and only if) you cannot produce a clean parse without inventing indicators or forcing letter accounting, set clue_type to no_clean_parse.
 2. For wordplay clues: Identify the exact definition in the clue (quote it verbatim).
 3. For &lit clues: Note that the entire clue is the definition, and provide the wordplay parse.
 4. For double_definition clues: Identify both definitions and their distinct senses.
@@ -23,6 +24,13 @@ Core cryptic rules (strict):
 - For cryptic_definition clues: Do NOT fabricate indicators, letter breakdowns, or wordplay steps.
 - Do not invent extra indicators, padding, or explanatory glue.
 - If a clean parse cannot be produced, state that the clue is loose or flawed rather than inventing one.
+
+No-clean-parse handling:
+- If a clean parse cannot be produced, return clue_type: no_clean_parse.
+- Provide intended_clue_type as your best guess among: wordplay, double_definition, &lit, cryptic_definition.
+- Provide the exact definition from the clue, since usually this can be identified knowing the answer and taking part of the clue, even if the wordplay element is not understood.
+- In issue, state the precise reason you cannot parse cleanly (e.g. missing indicator, letter accounting mismatch).
+- Do NOT fabricate letter breakdowns, indicators, or wordplay steps in this mode.
 
 Letter accounting (mandatory for wordplay and &lit clues):
 - Break the answer into its component letter groups.
@@ -82,7 +90,13 @@ export const crypticSchema = {
     properties: {
       clue_type: {
         type: 'string',
-        enum: ['wordplay', 'double_definition', '&lit', 'cryptic_definition'],
+        enum: [
+          'wordplay',
+          'double_definition',
+          '&lit',
+          'cryptic_definition',
+          'no_clean_parse',
+        ],
         description: 'The structural type of the cryptic clue',
       },
 
@@ -347,6 +361,53 @@ export const crypticSchema = {
               'hint',
               'full_explanation',
             ],
+            additionalProperties: false,
+          },
+
+          // =========================
+          // NO CLEAN PARSE
+          // =========================
+          {
+            type: 'object',
+            description:
+              'Used when no clean parse can be produced without inventing indicators or forcing letter accounting',
+            properties: {
+              clue_type: { type: 'string', const: 'no_clean_parse' },
+
+              intended_clue_type: {
+                type: 'string',
+                enum: ['wordplay', 'double_definition', '&lit', 'cryptic_definition'],
+                description: 'Best-guess clue type if the clue were clued cleanly',
+              },
+
+              definition: {
+                type: 'string',
+                description: 'The exact definition from the clue (best guess)',
+              },
+
+              issue: {
+                type: 'string',
+                description:
+                  'Precise reason a clean parse is not possible (missing indicator, letter accounting mismatch, etc.)',
+              },
+
+              hint: {
+                type: 'object',
+                properties: {
+                  intended_clue_type: {
+                    type: 'string',
+                    enum: ['wordplay', 'double_definition', '&lit', 'cryptic_definition'],
+                  },
+                },
+                required: ['intended_clue_type'],
+                additionalProperties: false,
+              },
+
+              full_explanation: {
+                type: 'string',
+              },
+            },
+            required: ['clue_type', 'intended_clue_type', 'issue', 'hint', 'full_explanation'],
             additionalProperties: false,
           },
         ],

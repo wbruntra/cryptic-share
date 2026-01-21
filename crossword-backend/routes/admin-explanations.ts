@@ -1,0 +1,146 @@
+import { Router } from 'express'
+import db from '../db-knex'
+import { regenerateCrypticClueExplanation } from '../utils/openai'
+import { ExplanationService } from '../services/explanationService'
+
+const router = Router()
+
+// GET /api/admin/explanations/:puzzleId
+// Fetch all explanations for a specific puzzle, including any user reports
+router.get('/explanations/:puzzleId', async (req, res) => {
+  const { puzzleId } = req.params
+
+  try {
+    // Fetch all clues for the puzzle with their current explanations and report counts
+    const explanations = await db('clue_explanations')
+      .where('clue_explanations.puzzle_id', puzzleId)
+      .select(
+        'clue_explanations.*',
+        db.raw(
+          '(SELECT COUNT(*) FROM explanation_reports WHERE explanation_reports.puzzle_id = clue_explanations.puzzle_id AND explanation_reports.clue_number = clue_explanations.clue_number AND explanation_reports.direction = clue_explanations.direction AND explanation_reports.explanation_updated = 0) as pending_reports',
+        ),
+      )
+      .orderBy(['clue_number', 'direction'])
+
+    res.json(explanations)
+  } catch (error) {
+    console.error('Error fetching explanations:', error)
+    res.status(500).json({ error: 'Failed to fetch explanations' })
+  }
+})
+
+// GET /api/admin/reports
+// Fetch all pending reports
+router.get('/reports', async (req, res) => {
+  try {
+    const reports = await db('explanation_reports')
+      .join('clue_explanations', function () {
+        this.on('explanation_reports.puzzle_id', '=', 'clue_explanations.puzzle_id')
+          .andOn('explanation_reports.clue_number', '=', 'clue_explanations.clue_number')
+          .andOn('explanation_reports.direction', '=', 'clue_explanations.direction')
+      })
+      .where('explanation_reports.explanation_updated', 0)
+      .select('explanation_reports.*', 'clue_explanations.answer', 'clue_explanations.clue_text')
+      .orderBy('explanation_reports.reported_at', 'desc')
+
+    res.json(reports)
+  } catch (error) {
+    console.error('Error fetching reports:', error)
+    res.status(500).json({ error: 'Failed to fetch reports' })
+  }
+})
+
+// POST /api/admin/explanations/regenerate
+// Trigger regeneration of an explanation
+router.post('/explanations/regenerate', async (req, res) => {
+  const { clue, answer, feedback, previousExplanation } = req.body
+
+  if (!clue || !answer) {
+    return res.status(400).json({ error: 'Missing clue or answer' })
+  }
+
+  try {
+    const newExplanation = await regenerateCrypticClueExplanation({
+      clue,
+      answer,
+      feedback: feedback || 'Admin requested regeneration',
+      previousExplanation,
+    })
+
+    res.json(newExplanation)
+  } catch (error) {
+    console.error('Error regenerating explanation:', error)
+    res.status(500).json({ error: 'Failed to regenerate explanation' })
+  }
+})
+
+// POST /api/admin/explanations/save
+// Save an explanation and resolve pertinent reports
+router.post('/explanations/save', async (req, res) => {
+  const { puzzleId, clueNumber, direction, clueText, answer, explanation } = req.body
+
+  if (!puzzleId || !clueNumber || !direction || !explanation) {
+    return res.status(400).json({ error: 'Missing required fields' })
+  }
+
+  try {
+    // Extract the inner explanation to avoid nested structure if present
+    const explanationToSave = explanation.explanation || explanation
+
+    // Save directly to db to bypass basic validation if needed, or use service
+    // We'll use direct DB insert similar to the script fix for consistency
+    await db('clue_explanations')
+      .insert({
+        puzzle_id: puzzleId,
+        clue_number: clueNumber,
+        direction: direction,
+        clue_text: clueText,
+        answer: answer,
+        explanation_json: JSON.stringify(explanationToSave),
+      })
+      .onConflict(['puzzle_id', 'clue_number', 'direction'])
+      .merge()
+
+    // Mark pending reports as resolved
+    const updatedCount = await db('explanation_reports')
+      .where({
+        puzzle_id: puzzleId,
+        clue_number: clueNumber,
+        direction: direction,
+        explanation_updated: 0,
+      })
+      .update({ explanation_updated: 1 })
+
+    res.json({ success: true, resolvedReports: updatedCount })
+  } catch (error) {
+    console.error('Error saving explanation:', error)
+    res.status(500).json({ error: 'Failed to save explanation' })
+  }
+})
+
+// POST /api/admin/reports
+// File a manual report
+router.post('/reports', async (req, res) => {
+  const { puzzleId, clueNumber, direction, feedback } = req.body
+
+  if (!puzzleId || !clueNumber || !direction || !feedback) {
+    return res.status(400).json({ error: 'Missing required fields' })
+  }
+
+  try {
+    await db('explanation_reports').insert({
+      puzzle_id: puzzleId,
+      clue_number: clueNumber,
+      direction: direction,
+      feedback: feedback,
+      explanation_updated: 0,
+    })
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Error creating report:', error)
+    res.status(500).json({ error: 'Failed to create report' })
+  }
+})
+
+export default router

@@ -7,10 +7,16 @@ export type FlatClueExplanation =
   | DoubleDefinitionExplanation
   | AndLitExplanation
   | CrypticDefinitionExplanation
+  | NoCleanParseExplanation
 
-// Stored format (nested with clue_type + explanation)
+// Model/API response format (nested with clue_type + explanation)
 export interface StoredClueExplanation {
-  clue_type: 'wordplay' | 'double_definition' | '&lit' | 'cryptic_definition'
+  clue_type:
+    | 'wordplay'
+    | 'double_definition'
+    | '&lit'
+    | 'cryptic_definition'
+    | 'no_clean_parse'
   explanation: FlatClueExplanation
 }
 
@@ -59,6 +65,16 @@ export interface CrypticDefinitionExplanation {
   full_explanation: string
 }
 
+export interface NoCleanParseExplanation {
+  clue_type: 'no_clean_parse'
+  intended_clue_type: 'wordplay' | 'double_definition' | '&lit' | 'cryptic_definition'
+  issue: string
+  hint: {
+    intended_clue_type: 'wordplay' | 'double_definition' | '&lit' | 'cryptic_definition'
+  }
+  full_explanation: string
+}
+
 // OLD FORMAT (for backward compatibility)
 interface OldClueExplanation {
   definition?: string
@@ -82,20 +98,21 @@ interface StoredExplanation {
   created_at: string
 }
 
-const normalizeForStorage = (explanation: any): StoredClueExplanation => {
-  if (explanation?.explanation && explanation?.clue_type) {
-    return explanation as StoredClueExplanation
+const extractInnerExplanationForStorage = (
+  data: StoredClueExplanation | FlatClueExplanation,
+): FlatClueExplanation => {
+  if ((data as any)?.explanation && (data as any)?.clue_type) {
+    return (data as StoredClueExplanation).explanation
   }
 
-  const clueType = explanation?.clue_type ?? 'wordplay'
+  if ((data as any)?.clue_type) {
+    return data as FlatClueExplanation
+  }
 
   return {
-    clue_type: clueType,
-    explanation: {
-      clue_type: clueType,
-      ...(explanation ?? {}),
-    } as FlatClueExplanation,
-  }
+    clue_type: 'wordplay',
+    ...(data as any),
+  } as FlatClueExplanation
 }
 
 const normalizeForClient = (data: any): FlatClueExplanation => {
@@ -161,11 +178,11 @@ export class ExplanationService {
     answer: string,
     explanation: StoredClueExplanation | FlatClueExplanation,
   ): Promise<void> {
-    const normalized = normalizeForStorage(explanation)
+    const explanationToStore = extractInnerExplanationForStorage(explanation)
 
-    // Validate the normalized explanation before saving
+    // Validate the explanation before saving
     try {
-      assertValidExplanation(normalized)
+      assertValidExplanation(explanationToStore)
     } catch (error) {
       console.error(
         `❌ Validation failed for puzzle ${puzzleId}, clue ${clueNumber} (${direction}):`,
@@ -183,7 +200,7 @@ export class ExplanationService {
         direction: direction,
         clue_text: clueText,
         answer: answer,
-        explanation_json: JSON.stringify(normalized),
+        explanation_json: JSON.stringify(explanationToStore),
       })
       .onConflict(['puzzle_id', 'clue_number', 'direction'])
       .merge() // Update existing record on conflict

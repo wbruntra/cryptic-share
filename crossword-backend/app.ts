@@ -8,6 +8,7 @@ import sessionsRouter from './routes/sessions'
 import cluesRouter from './routes/clues'
 import authRouter from './routes/auth'
 import adminSessionsRouter from './routes/admin-sessions'
+import adminExplanationsRouter from './routes/admin-explanations'
 import { SessionService } from './services/sessionService'
 import { PushService } from './services/pushService'
 
@@ -199,5 +200,6 @@ app.use('/api/puzzles', puzzlesRouter)
 app.use('/api/sessions', sessionsRouter)
 app.use('/api/clues', cluesRouter)
 app.use('/api/admin/sessions', adminSessionsRouter)
+app.use('/api/admin', adminExplanationsRouter)
 
 export { app, httpServer, io }

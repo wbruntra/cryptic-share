@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
- * Normalize all stored clue explanations to a consistent flattened format
- * - Removes nested explanation wrappers
+ * Normalize all stored clue explanations to a consistent inner-explanation format
+ * - Removes nested wrapper objects (stores only the inner explanation)
  * - Fixes field names (group → source, etc.)
  * - Uppercases letters in letter_breakdown
  * - Removes extraneous fields
