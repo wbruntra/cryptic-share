@@ -51,15 +51,21 @@ type RevealedSections = {
 
 interface ClueExplanationDisplayProps {
   explanation: ClueExplanation
+  onReport?: (feedback?: string) => void
+  reportLoading?: boolean
+  hasReported?: boolean
 }
 
-export function ClueExplanationDisplay({ explanation }: ClueExplanationDisplayProps) {
+export function ClueExplanationDisplay({ explanation, onReport, reportLoading, hasReported }: ClueExplanationDisplayProps) {
   const [revealedSections, setRevealedSections] = useState<RevealedSections>({
     definition: false,
     wordplayTypes: false,
     wordplaySteps: false,
     fullExplanation: false,
   })
+
+  const [showFeedbackPopup, setShowFeedbackPopup] = useState(false)
+  const [feedback, setFeedback] = useState('')
 
   const revealSection = (section: keyof RevealedSections) => {
     setRevealedSections((prev) => ({ ...prev, [section]: true }))
@@ -362,6 +368,72 @@ export function ClueExplanationDisplay({ explanation }: ClueExplanationDisplayPr
           {'full_explanation' in explanation ? explanation.full_explanation : ''}
         </p>
       </ExplanationSection>
+
+      {/* Report Button */}
+      {onReport && (
+        <div className="mt-3 flex justify-end">
+          <button
+            onClick={() => setShowFeedbackPopup(true)}
+            disabled={reportLoading || hasReported}
+            className={`px-4 py-2 text-sm font-medium rounded transition-colors ${
+              hasReported
+                ? 'bg-surface text-text-secondary cursor-not-allowed'
+                : 'bg-red-500/10 text-red-500 hover:bg-red-500/20 disabled:opacity-50'
+            }`}
+          >
+            {reportLoading ? (
+              <span className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                Reporting...
+              </span>
+            ) : hasReported ? (
+              '✓ Reported'
+            ) : (
+              '⚠️ Report Bad Explanation'
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Feedback Popup */}
+      {showFeedbackPopup && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-bg border border-border rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-bold text-text mb-3">Report Explanation Issue</h3>
+            <p className="text-sm text-text-secondary mb-4">
+              Please describe what's wrong with this explanation (optional):
+            </p>
+            <textarea
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              placeholder="e.g., The wordplay explanation is incorrect, the definition is wrong, etc."
+              className="w-full h-24 px-3 py-2 bg-input-bg border border-border rounded-lg text-text placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+              autoFocus
+            />
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => {
+                  setShowFeedbackPopup(false)
+                  setFeedback('')
+                }}
+                className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text rounded transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  onReport(feedback)
+                  setShowFeedbackPopup(false)
+                  setFeedback('')
+                }}
+                className="px-4 py-2 text-sm font-medium bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+              >
+                Submit Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

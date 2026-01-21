@@ -15,6 +15,8 @@ interface HintModalProps {
   onFetchExplanation?: () => Promise<
     ClueExplanation | { processing: true; requestId: string; message: string }
   >
+  onFetchCachedExplanation?: () => Promise<ClueExplanation | null>
+  onReportExplanation?: (feedback?: string) => Promise<void>
   timerDisplay?: string
   socket?: Socket | null
 }
@@ -31,6 +33,8 @@ export function HintModal({
   currentWordState,
   onFetchAnswer,
   onFetchExplanation,
+  onFetchCachedExplanation,
+  onReportExplanation,
   timerDisplay,
   socket,
 }: HintModalProps) {
@@ -48,6 +52,8 @@ export function HintModal({
   const [explanationError, setExplanationError] = useState<string | null>(null)
   const [requestId, setRequestId] = useState<string | null>(null)
   const [processingMessage, setProcessingMessage] = useState<string>('')
+  const [reportLoading, setReportLoading] = useState(false)
+  const [hasReported, setHasReported] = useState(false)
 
   // Use a ref to track the current requestId for the socket listener
   // This avoids race conditions where the listener closure has a stale requestId
@@ -107,6 +113,8 @@ export function HintModal({
       setExplanationLoading(false)
       setExplanationError(null)
       setRequestId(null)
+      setReportLoading(false)
+      setHasReported(false)
 
       onFetchAnswer()
         .then((answer) => {
@@ -120,6 +128,26 @@ export function HintModal({
         })
     }
   }, [isOpen, currentWordState, onFetchAnswer])
+
+  // Auto-fetch cached explanation when explain tab is opened
+  useEffect(() => {
+    if (activeTab === 'explain' && !explanation && !explanationLoading && onFetchCachedExplanation) {
+      setExplanationLoading(true)
+      onFetchCachedExplanation()
+        .then((cached) => {
+          if (cached) {
+            setExplanation(cached)
+          }
+        })
+        .catch((error: unknown) => {
+          console.log('[HintModal] No cached explanation available:', error)
+          // Silently fail - user can still manually request
+        })
+        .finally(() => {
+          setExplanationLoading(false)
+        })
+    }
+  }, [activeTab, explanation, explanationLoading, onFetchCachedExplanation])
 
   const handleLetterHint = (index: number) => {
     if (!fullAnswer) return
@@ -157,14 +185,34 @@ export function HintModal({
         setExplanation(result as ClueExplanation)
         setExplanationLoading(false)
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Check if it's a 401 authentication error
-      if (error.response?.status === 401) {
-        setExplanationError('You must be registered and signed in to request new explanations.')
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { status?: number } }
+        if (axiosError.response?.status === 401) {
+          setExplanationError('You must be registered and signed in to request new explanations.')
+        } else {
+          setExplanationError('Failed to load explanation. Please try again.')
+        }
       } else {
         setExplanationError('Failed to load explanation. Please try again.')
       }
       setExplanationLoading(false)
+    }
+  }
+
+  const handleReport = async (feedback?: string) => {
+    if (!onReportExplanation || reportLoading || hasReported) return
+
+    setReportLoading(true)
+    try {
+      await onReportExplanation(feedback)
+      setHasReported(true)
+    } catch (error) {
+      console.error('[HintModal] Error reporting explanation:', error)
+      alert('Failed to submit report. Please try again.')
+    } finally {
+      setReportLoading(false)
     }
   }
 
@@ -303,7 +351,14 @@ export function HintModal({
             )}
 
             {/* Explanation Display */}
-            {explanation && <ClueExplanationDisplay explanation={explanation} />}
+            {explanation && (
+              <ClueExplanationDisplay
+                explanation={explanation}
+                onReport={onReportExplanation ? handleReport : undefined}
+                reportLoading={reportLoading}
+                hasReported={hasReported}
+              />
+            )}
           </div>
         )}
 

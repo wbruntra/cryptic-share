@@ -18,6 +18,7 @@ import {
 import { Modal } from '../components/Modal'
 import { HintModal } from '../components/HintModal'
 import { usePuzzleTimer } from '../hooks/usePuzzleTimer'
+import type { ClueExplanation } from '../components/ClueExplanationDisplay'
 
 interface SessionData extends PuzzleData {
   sessionState: string[] // Array of rows (strings)
@@ -392,6 +393,23 @@ export function PlaySession() {
     if (!cursor) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore keyboard events when user is typing in an input field, textarea, or contenteditable
+      const target = e.target as HTMLElement
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable ||
+        target.closest('[role="dialog"]') ||
+        target.closest('[role="textbox"]')
+      ) {
+        return
+      }
+
+      // Also ignore if any modal is open
+      if (isHintModalOpen) {
+        return
+      }
+
       const { r, c, direction } = cursor
 
       if (e.key.match(/^[a-zA-Z]$/)) {
@@ -456,7 +474,7 @@ export function PlaySession() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [cursor, answers, grid, moveCursor, sessionId])
+  }, [cursor, answers, grid, moveCursor, sessionId, isHintModalOpen])
 
   const handleVirtualKeyPress = (key: string) => {
     if (!cursor) return
@@ -645,6 +663,47 @@ export function PlaySession() {
     } else {
       throw new Error('Explanation request failed')
     }
+  }, [cursor, currentClueNumber, sessionId])
+
+  const handleFetchCachedExplanation = useCallback(async () => {
+    if (!cursor || !currentClueNumber) throw new Error('No active clue')
+
+    try {
+      const response = await axios.post<{
+        success: boolean
+        explanation?: ClueExplanation
+        cached?: boolean
+        message?: string
+      }>(`/api/sessions/${sessionId}/explain`, {
+        clueNumber: currentClueNumber,
+        direction: cursor.direction,
+        cachedOnly: true,
+      })
+
+      if (response.data.success && response.data.explanation) {
+        return response.data.explanation
+      }
+      return null
+    } catch (error: unknown) {
+      // 404 means not cached, which is fine
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { status?: number } }
+        if (axiosError.response?.status === 404) {
+          return null
+        }
+      }
+      throw error
+    }
+  }, [cursor, currentClueNumber, sessionId])
+
+  const handleReportExplanation = useCallback(async (feedback?: string) => {
+    if (!cursor || !currentClueNumber) throw new Error('No active clue')
+
+    await axios.post(`/api/sessions/${sessionId}/report-explanation`, {
+      clueNumber: currentClueNumber,
+      direction: cursor.direction,
+      feedback: feedback || undefined,
+    })
   }, [cursor, currentClueNumber, sessionId])
 
   useEffect(() => {
@@ -848,6 +907,8 @@ export function PlaySession() {
             currentWordState={currentWordState}
             onFetchAnswer={handleFetchHintAnswer}
             onFetchExplanation={handleFetchExplanation}
+            onFetchCachedExplanation={handleFetchCachedExplanation}
+            onReportExplanation={handleReportExplanation}
             timerDisplay={formattedTime}
             socket={socket}
           />
@@ -1015,6 +1076,8 @@ export function PlaySession() {
           currentWordState={currentWordState}
           onFetchAnswer={handleFetchHintAnswer}
           onFetchExplanation={handleFetchExplanation}
+          onFetchCachedExplanation={handleFetchCachedExplanation}
+          onReportExplanation={handleReportExplanation}
           timerDisplay={formattedTime}
           socket={socket}
         />

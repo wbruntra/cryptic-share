@@ -7,5 +7,6 @@ CREATE TABLE `explanation_batches` (
   `output_file_id` varchar(255),
   `created_at` datetime default CURRENT_TIMESTAMP,
   `updated_at` datetime default CURRENT_TIMESTAMP,
+  `applied_at` datetime null,
   foreign key(`puzzle_id`) references `puzzles`(`id`) on delete CASCADE
 )

@@ -60,6 +60,7 @@ export const generateExplanationMessages = (
     {
       role: 'user',
       content: [
+        { type: 'input_text', text: crypticInstructions },
         {
           type: 'input_text',
           text: `
@@ -67,7 +68,6 @@ Clue: ${clue}
 Answer: ${answer}
       `.trim(),
         },
-        { type: 'input_text', text: crypticInstructions },
       ],
     },
   ]
@@ -215,12 +215,7 @@ export const crypticSchema = {
                 type: 'string',
               },
             },
-            required: [
-              'clue_type',
-              'definitions',
-              'hint',
-              'full_explanation',
-            ],
+            required: ['clue_type', 'definitions', 'hint', 'full_explanation'],
             additionalProperties: false,
           },
 
@@ -362,4 +357,3 @@ export const crypticSchema = {
     additionalProperties: false,
   },
 }
-

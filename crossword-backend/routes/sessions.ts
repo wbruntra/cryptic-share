@@ -286,7 +286,7 @@ router.post('/:sessionId/hint', async (req, res) => {
 // Get explanation for a clue (uses OpenAI, cached in database)
 router.post('/:sessionId/explain', optionalAuthenticateUser, async (req, res) => {
   const { sessionId } = req.params
-  const { clueNumber, direction } = req.body
+  const { clueNumber, direction, cachedOnly } = req.body
 
   if (!clueNumber || !direction) {
     return res.status(400).json({ error: 'Missing clueNumber or direction' })
@@ -307,6 +307,15 @@ router.post('/:sessionId/explain', optionalAuthenticateUser, async (req, res) =>
 
     if (cached) {
       return res.json({ success: true, explanation: cached, cached: true })
+    }
+
+    // If cachedOnly mode, return not found instead of generating
+    if (cachedOnly) {
+      return res.status(404).json({ 
+        success: false, 
+        cached: false,
+        message: 'Explanation not cached yet'
+      })
     }
 
     // Not cached - require authentication to generate new explanation
@@ -400,6 +409,43 @@ router.post('/:sessionId/explain', optionalAuthenticateUser, async (req, res) =>
     if (!res.headersSent) {
       res.status(500).json({ error: 'Failed to provide explanation' })
     }
+  }
+})
+
+// Report a bad explanation
+router.post('/:sessionId/report-explanation', optionalAuthenticateUser, async (req, res) => {
+  const { sessionId } = req.params
+  const { clueNumber, direction, feedback } = req.body
+
+  if (!clueNumber || !direction) {
+    return res.status(400).json({ error: 'Missing clueNumber or direction' })
+  }
+
+  try {
+    const session = await SessionService.getSessionWithPuzzle(sessionId)
+    if (!session) {
+      return res.status(444).json({ error: 'Session not found' })
+    }
+
+    // Extract user or anonymous ID
+    const userId = res.locals.user?.id || null
+    const anonymousId = session.anonymous_id || null
+
+    // Insert report into database
+    const db = (await import('../db-knex')).default
+    await db('explanation_reports').insert({
+      puzzle_id: session.id,
+      clue_number: clueNumber,
+      direction,
+      user_id: userId,
+      anonymous_id: anonymousId,
+      feedback: feedback || null,
+    })
+
+    res.json({ success: true, message: 'Report submitted successfully' })
+  } catch (error) {
+    console.error('Error reporting explanation:', error)
+    res.status(500).json({ error: 'Failed to submit report' })
   }
 })
 

@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
 import { mkdir, writeFile } from 'fs/promises'
 import { join } from 'path'
-import { generateExplanationMessages, crypticSchema } from './crypticSchema'
+import { generateExplanationMessages, crypticSchema, crypticInstructions } from './crypticSchema'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -151,6 +151,67 @@ export const explainCrypticClue = async (input: {
   }
 
   const response = await (openai as any).responses.create(requestBody)
+
+  const outputText = response.output_text
+  if (!outputText) {
+    throw new Error('No content received from OpenAI')
+  }
+
+  return JSON.parse(outputText)
+}
+
+export const regenerateCrypticClueExplanation = async (input: {
+  clue: string
+  answer: string
+  feedback: string
+  previousExplanation?: any
+}) => {
+  const { clue, answer, feedback, previousExplanation } = input
+
+  const newInstructions = `
+Clue: ${clue}
+Answer: ${answer}
+
+User Feedback on previous explanation:
+"${feedback}"
+
+${
+  previousExplanation
+    ? `Previous Explanation (Flawed):
+${JSON.stringify(previousExplanation, null, 2)}`
+    : ''
+}
+
+Please provide a CORRECTED explanation that addresses this feedback.
+`.trim()
+
+  const messages = [
+    {
+      role: 'user',
+      content: [
+        { type: 'input_text', text: crypticInstructions },
+        {
+          type: 'input_text',
+          text: newInstructions,
+        },
+      ],
+    },
+  ]
+
+  const requestBody = {
+    model: 'gpt-5-mini',
+    reasoning: { effort: 'medium' },
+    input: messages,
+    text: {
+      format: crypticSchema,
+    },
+  }
+
+  console.log('[regenerateCrypticClueExplanation] Sending request to OpenAI (gpt-5-mini)...')
+  const startTime = performance.now()
+  const response = await (openai as any).responses.create(requestBody)
+  const duration = (performance.now() - startTime) / 1000
+  console.log(`[regenerateCrypticClueExplanation] Received response in ${duration.toFixed(2)}s`)
 
   const outputText = response.output_text
   if (!outputText) {
