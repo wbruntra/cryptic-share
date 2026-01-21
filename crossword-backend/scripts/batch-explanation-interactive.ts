@@ -62,6 +62,7 @@ interface BatchRow {
   output_file_id: string | null
   created_at: string
   updated_at: string
+  applied_at: string | null
 }
 
 interface PuzzleWithStats {
@@ -371,6 +372,17 @@ async function retrieveBatch(batchId: string) {
   }
 
   console.log(`\n✅ Finished. Saved: ${successCount}, Failed: ${failCount}`)
+
+  // Mark batch as applied if we successfully saved results
+  if (successCount > 0) {
+    await db('explanation_batches')
+      .where('batch_id', batchId)
+      .update({
+        applied_at: db.fn.now(),
+        updated_at: db.fn.now(),
+      })
+    console.log('✓ Batch marked as applied in database.')
+  }
 }
 
 async function showPuzzleStats() {
@@ -417,15 +429,17 @@ async function showPuzzleStats() {
 }
 
 async function showBatchStatus() {
-  console.log('\n📦 RECENT BATCH JOBS\n')
+  console.log('\n📦 RECENT BATCH JOBS (Not Yet Applied)\n')
 
+  // Only show batches that haven't been applied yet
   const batches = await db<BatchRow>('explanation_batches')
     .select('*')
+    .whereNull('applied_at')
     .orderBy('created_at', 'desc')
     .limit(10)
 
   if (batches.length === 0) {
-    console.log('No batch jobs found.')
+    console.log('No pending batch jobs found. ✓')
     return batches
   }
 
