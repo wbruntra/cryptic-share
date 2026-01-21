@@ -407,7 +407,7 @@ export const crypticSchema = {
                 type: 'string',
               },
             },
-            required: ['clue_type', 'intended_clue_type', 'issue', 'hint', 'full_explanation'],
+            required: ['clue_type', 'intended_clue_type', 'definition', 'issue', 'hint', 'full_explanation'],
             additionalProperties: false,
           },
         ],
