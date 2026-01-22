@@ -65,6 +65,8 @@ router.post('/go', optionalAuthenticateUser, async (req, res) => {
     return res.status(400).json({ error: 'Missing puzzleId' })
   }
 
+  console.log(`[/go] User: ${res.locals.user?.username || 'anonymous'}, AnonymousId: ${anonymousId || 'none'}, PuzzleId: ${puzzleId}`)
+
   try {
     const result = await SessionService.getOrCreateSession(
       res.locals.user?.id || null,

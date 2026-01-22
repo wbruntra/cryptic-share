@@ -9,6 +9,19 @@ const client = new OpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
 })
 
+/**
+ * Strip markdown code blocks from JSON response
+ * Some models wrap JSON in ```json ... ``` even with responseFormat set
+ */
+function stripMarkdownCodeBlocks(content: string): string {
+  // Remove ```json ... ``` or ``` ... ``` blocks
+  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (jsonMatch) {
+    return jsonMatch[1].trim()
+  }
+  return content.trim()
+}
+
 export const generateGrid = async (input: any) => {
   // Prepare the image data
   let base64Data: string
@@ -98,8 +111,20 @@ export const generateGrid = async (input: any) => {
       throw new Error('Expected string content from OpenRouter')
     }
 
+    // Log the raw content for debugging
+    console.log('Raw content from OpenRouter (first 500 chars):', content.slice(0, 500))
+
+    // Strip markdown code blocks if present
+    const cleanedContent = stripMarkdownCodeBlocks(content)
+
     // With responseFormat, the content should already be valid JSON
-    return JSON.parse(content)
+    try {
+      return JSON.parse(cleanedContent)
+    } catch (parseError) {
+      console.error('Failed to parse JSON. Full content:', content)
+      console.error('Cleaned content:', cleanedContent)
+      throw parseError
+    }
   } catch (error) {
     console.error('Error parsing grid:', error)
     throw error
@@ -243,19 +268,28 @@ export const transcribeAnswers = async (input: any) => {
   }
 }
 
+const models = {
+  flash: 'google/gemini-3-flash-preview',
+  gemini: 'google/gemini-3-pro-preview',
+  haiku: 'anthropic/claude-haiku-4.5',
+  sonnet: 'anthropic/claude-sonnet-4.5',
+  deepseek: 'deepseek/deepseek-v3.2',
+}
+
 export const explainCrypticClue = async (input: {
   clue: string
   answer: string
   mode?: 'hint' | 'full'
+  model?: string
 }) => {
-  const { clue, answer, mode = 'full' } = input
+  const { clue, answer, mode = 'full', model = models.flash } = input
 
   const instructions = crypticInstructions
 
   try {
     // @ts-ignore
     const result = await client.chat.send({
-      model: 'google/gemini-3-flash-preview',
+      model: model,
       messages: [
         {
           role: 'user',
@@ -292,7 +326,20 @@ Answer: ${answer}
       throw new Error('Expected string content from OpenRouter')
     }
 
-    return JSON.parse(content)
+    // Log the raw content for debugging
+    console.log('Raw content from OpenRouter (first 500 chars):', content.slice(0, 500))
+
+    // Strip markdown code blocks if present
+    const cleanedContent = stripMarkdownCodeBlocks(content)
+
+    // Parse the JSON
+    try {
+      return JSON.parse(cleanedContent)
+    } catch (parseError) {
+      console.error('Failed to parse JSON. Full content:', content)
+      console.error('Cleaned content:', cleanedContent)
+      throw parseError
+    }
   } catch (error) {
     console.error('Error explaining clue:', error)
     throw error
@@ -301,9 +348,10 @@ Answer: ${answer}
 
 const test = async () => {
   const input = {
-    clue: 'America and Germany seized Peru illegally and took over (7)',
-    answer: 'USURPED',
+    clue: "With Christmas nearly over recall dance's sleepy tune (7)",
+    answer: 'LULLABY',
     mode: 'full' as const,
+    model: models.haiku,
   }
 
   const startTime = performance.now()

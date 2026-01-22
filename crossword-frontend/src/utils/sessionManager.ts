@@ -63,7 +63,10 @@ export const getAnonymousId = (): string => {
     console.error('Failed to read anonymous id from localStorage', e)
   }
 
-  if (anonId) return anonId
+  if (anonId) {
+    console.log('[getAnonymousId] Reusing existing ID from localStorage:', anonId)
+    return anonId
+  }
 
   try {
     anonId = sessionStorage.getItem(ANON_ID_KEY)
@@ -71,19 +74,26 @@ export const getAnonymousId = (): string => {
     console.error('Failed to read anonymous id from sessionStorage', e)
   }
 
-  if (anonId) return anonId
+  if (anonId) {
+    console.log('[getAnonymousId] Reusing existing ID from sessionStorage:', anonId)
+    return anonId
+  }
 
   const generatedId =
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID()
       : `anon-${Date.now()}-${Math.random()}`
 
+  console.log('[getAnonymousId] Generated new anonymous ID:', generatedId)
+
   try {
     localStorage.setItem(ANON_ID_KEY, generatedId)
+    console.log('[getAnonymousId] Persisted to localStorage')
   } catch (e) {
     console.error('Failed to persist anonymous id to localStorage', e)
     try {
       sessionStorage.setItem(ANON_ID_KEY, generatedId)
+      console.log('[getAnonymousId] Persisted to sessionStorage instead')
     } catch (sessionError) {
       console.error('Failed to persist anonymous id to sessionStorage', sessionError)
     }

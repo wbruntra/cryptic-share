@@ -18,6 +18,7 @@ import {
 import { Modal } from '../components/Modal'
 import { HintModal } from '../components/HintModal'
 import { usePuzzleTimer } from '../hooks/usePuzzleTimer'
+import { useSocket } from '../context/SocketContext'
 import type { ClueExplanation } from '../components/ClueExplanationDisplay'
 
 interface SessionData extends PuzzleData {
@@ -32,8 +33,9 @@ export function PlaySession() {
   const [title, setTitle] = useState('')
 
   // Socket
-  const socketRef = useRef<Socket | null>(null)
-  const [socket, setSocket] = useState<Socket | null>(null)
+  const { socket } = useSocket()
+  // const socketRef = useRef<Socket | null>(null) // No longer needed
+  // const [socket, setSocket] = useState<Socket | null>(null) // No longer needed
 
   // Grid structure (static)
   const [grid, setGrid] = useState<CellType[][]>([])
@@ -153,44 +155,37 @@ export function PlaySession() {
 
   // When user subscribes while already on a session page, link this session
   useEffect(() => {
-    if (isPushSubscribed && sessionId && socketRef.current) {
+    if (isPushSubscribed && sessionId && socket) {
       const endpoint = getEndpoint()
       if (endpoint) {
-        socketRef.current.emit('link_push_session', { sessionId, endpoint })
+        socket.emit('link_push_session', { sessionId, endpoint })
       }
     }
-  }, [isPushSubscribed, sessionId, getEndpoint])
+  }, [isPushSubscribed, sessionId, getEndpoint, socket])
 
   // --- Data Loading & Socket Setup ---
   useEffect(() => {
-    if (!sessionId) return
-
-    // Initialize Socket
-    const newSocket = io()
-    socketRef.current = newSocket
-    setSocket(newSocket)
+    if (!sessionId || !socket) return
 
     // Join session on connect (and reconnect)
     const handleConnect = () => {
       console.log('[PlaySession] Socket connected, joining session:', sessionId)
-      socketRef.current?.emit('join_session', sessionId, getEndpoint())
+      socket.emit('join_session', sessionId, getEndpoint())
     }
 
     // If already connected, join immediately
-    if (socketRef.current.connected) {
+    if (socket.connected) {
       handleConnect()
     }
 
     // Also listen for connect event (for initial connect and reconnects)
-    socketRef.current.on('connect', handleConnect)
+    socket.on('connect', handleConnect)
 
-    socketRef.current.on('puzzle_updated', (newState: string[]) => {
+    const handlePuzzleUpdated = (newState: string[]) => {
       setAnswers(newState)
-    })
+    }
 
-    socketRef.current.on(
-      'cell_updated',
-      ({ r, c, value }: { r: number; c: number; value: string }) => {
+    const handleCellUpdated = ({ r, c, value }: { r: number; c: number; value: string }) => {
         setAnswers((prev) => {
           const newAnswers = [...prev]
           if (newAnswers[r]) {
@@ -208,8 +203,10 @@ export function PlaySession() {
           return newSet
         })
         setShowChangeNotification(true)
-      },
-    )
+      }
+
+    socket.on('puzzle_updated', handlePuzzleUpdated)
+    socket.on('cell_updated', handleCellUpdated)
 
     const fetchSession = async () => {
       setLoading(true)
@@ -294,10 +291,47 @@ export function PlaySession() {
     fetchSession()
 
     return () => {
-      socketRef.current?.disconnect()
-      setSocket(null)
+      // Clean up listeners, but do NOT disconnect the global socket
+      socket.off('connect', handleConnect)
+      socket.off('puzzle_updated', handlePuzzleUpdated)
+      socket.off('cell_updated', handleCellUpdated)
+    }
+  }, [sessionId, socket])
+
+  // --- Polling Backup ---
+  const syncSession = useCallback(async () => {
+    if (!sessionId) return
+
+    // Check socket status and reconnect if needed
+    if (socket && !socket.connected) {
+      console.log('[PlaySession] Socket disconnected, attempting reconnect...')
+      socket.connect()
+    }
+
+    try {
+      // Fetch latest state without loading spinner
+      const response = await axios.get<SessionData>(`/api/sessions/${sessionId}`)
+      const { sessionState } = response.data
+
+      if (sessionState) {
+        setAnswers((prev) => {
+          if (JSON.stringify(prev) === JSON.stringify(sessionState)) {
+            return prev
+          }
+          console.log('[PlaySession] Polling found changes, syncing state.')
+          return sessionState
+        })
+      }
+    } catch (error) {
+      console.error('[PlaySession] Sync failed:', error)
     }
   }, [sessionId])
+
+  useEffect(() => {
+    // Poll every 90 seconds
+    const intervalId = setInterval(syncSession, 90000)
+    return () => clearInterval(intervalId)
+  }, [syncSession])
 
   // --- Helpers ---
   const isPlayable = (r: number, c: number) => {
@@ -421,8 +455,8 @@ export function PlaySession() {
         updateLocalState(newAnswers)
 
         // Emit granular update
-        if (socketRef.current) {
-          socketRef.current.emit('update_cell', { sessionId, r, c, value: char })
+        if (socket) {
+          socket.emit('update_cell', { sessionId, r, c, value: char })
         }
 
         // Clear error for this cell if it exists
@@ -442,8 +476,8 @@ export function PlaySession() {
         updateLocalState(newAnswers)
 
         // Emit granular update
-        if (socketRef.current) {
-          socketRef.current.emit('update_cell', { sessionId, r, c, value: '' })
+        if (socket) {
+          socket.emit('update_cell', { sessionId, r, c, value: '' })
         }
 
         // Clear error for this cell
@@ -486,8 +520,8 @@ export function PlaySession() {
     updateLocalState(newAnswers)
 
     // Emit granular update
-    if (socketRef.current) {
-      socketRef.current.emit('update_cell', { sessionId, r, c, value: key })
+    if (socket) {
+      socket.emit('update_cell', { sessionId, r, c, value: key })
     }
 
     moveCursor(r, c, direction, 1)
@@ -504,8 +538,8 @@ export function PlaySession() {
     updateLocalState(newAnswers)
 
     // Emit granular update
-    if (socketRef.current) {
-      socketRef.current.emit('update_cell', { sessionId, r, c, value: '' })
+    if (socket) {
+      socket.emit('update_cell', { sessionId, r, c, value: '' })
     }
 
     if (currentVal === '') {
