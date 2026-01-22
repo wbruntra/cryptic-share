@@ -182,6 +182,7 @@ const flatExplanationSchema = {
               type: 'string',
               enum: ['wordplay', 'double_definition', '&lit', 'cryptic_definition'],
             },
+            definition: { type: 'string' },
             issue: { type: 'string' },
             hint: {
               type: 'object',
@@ -196,7 +197,7 @@ const flatExplanationSchema = {
             },
             full_explanation: { type: 'string' },
           },
-          required: ['clue_type', 'intended_clue_type', 'issue', 'hint', 'full_explanation'],
+          required: ['clue_type', 'intended_clue_type', 'definition', 'issue', 'hint', 'full_explanation'],
           additionalProperties: false,
         },
       ],

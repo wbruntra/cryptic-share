@@ -68,6 +68,7 @@ export interface CrypticDefinitionExplanation {
 export interface NoCleanParseExplanation {
   clue_type: 'no_clean_parse'
   intended_clue_type: 'wordplay' | 'double_definition' | '&lit' | 'cryptic_definition'
+  definition: string
   issue: string
   hint: {
     intended_clue_type: 'wordplay' | 'double_definition' | '&lit' | 'cryptic_definition'
