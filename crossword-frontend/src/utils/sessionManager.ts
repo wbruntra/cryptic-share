@@ -55,16 +55,39 @@ export const removeLocalSession = (sessionId: string) => {
 const ANON_ID_KEY = 'cryptic_share_anon_id'
 
 export const getAnonymousId = (): string => {
+  let anonId: string | null = null
+
   try {
-    let anonId = localStorage.getItem(ANON_ID_KEY)
-    if (!anonId) {
-      anonId = crypto.randomUUID()
-      localStorage.setItem(ANON_ID_KEY, anonId)
-    }
-    return anonId
+    anonId = localStorage.getItem(ANON_ID_KEY)
   } catch (e) {
-    console.error('Failed to get/set anonymous id', e)
-    // Fallback for very old browsers or restrictive environments
-    return `anon-${Date.now()}-${Math.random()}`
+    console.error('Failed to read anonymous id from localStorage', e)
   }
+
+  if (anonId) return anonId
+
+  try {
+    anonId = sessionStorage.getItem(ANON_ID_KEY)
+  } catch (e) {
+    console.error('Failed to read anonymous id from sessionStorage', e)
+  }
+
+  if (anonId) return anonId
+
+  const generatedId =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `anon-${Date.now()}-${Math.random()}`
+
+  try {
+    localStorage.setItem(ANON_ID_KEY, generatedId)
+  } catch (e) {
+    console.error('Failed to persist anonymous id to localStorage', e)
+    try {
+      sessionStorage.setItem(ANON_ID_KEY, generatedId)
+    } catch (sessionError) {
+      console.error('Failed to persist anonymous id to sessionStorage', sessionError)
+    }
+  }
+
+  return generatedId
 }
