@@ -36,11 +36,34 @@ export function ExplanationReviewPage() {
   // Request ID for current operation
   const [requestId, setRequestId] = useState<string | null>(null)
   const requestIdRef = useRef<string | null>(null)
+  const storageKey = id
+    ? `adminExplanationReviewRegeneration:${id}`
+    : 'adminExplanationReviewRegeneration'
 
   // Sync ref
   useEffect(() => {
     requestIdRef.current = requestId
   }, [requestId])
+
+  useEffect(() => {
+    const storedValue = localStorage.getItem(storageKey)
+    if (!storedValue || requestId) return
+
+    try {
+      const parsed = JSON.parse(storedValue)
+      if (parsed?.requestId) {
+        setRequestId(parsed.requestId)
+        if (parsed.clueKey) {
+          setExpandedClue(parsed.clueKey)
+        }
+      }
+    } catch {
+      setRequestId(storedValue)
+    }
+
+    setRegenerating(true)
+    setProcessingMessage('Checking regeneration status...')
+  }, [storageKey, requestId])
 
   const { socket, socketId } = useContext(SocketContext)
 
@@ -59,11 +82,13 @@ export function ExplanationReviewPage() {
         setRegenerating(false)
         setProcessingMessage('')
         setRequestId(null)
+        localStorage.removeItem(storageKey)
       } else if (!data.success) {
         alert('Failed to regenerate: ' + data.error)
         setRegenerating(false)
         setProcessingMessage('')
         setRequestId(null)
+        localStorage.removeItem(storageKey)
       }
     }
 
@@ -88,6 +113,45 @@ export function ExplanationReviewPage() {
     fetchClues()
   }, [fetchClues])
 
+  useEffect(() => {
+    if (!requestId) return
+
+    let isActive = true
+
+    const pollStatus = async () => {
+      try {
+        const res = await axios.get(`/api/admin/explanations/regenerate/${requestId}`)
+        if (!isActive) return
+
+        if (res.data.status === 'success' && res.data.explanation) {
+          setNewExplanation(res.data.explanation)
+          setRegenerating(false)
+          setProcessingMessage('')
+          setRequestId(null)
+          localStorage.removeItem(storageKey)
+        } else if (res.data.status === 'error') {
+          alert('Failed to regenerate: ' + (res.data.error || 'Unknown error'))
+          setRegenerating(false)
+          setProcessingMessage('')
+          setRequestId(null)
+          localStorage.removeItem(storageKey)
+        } else {
+          setProcessingMessage(res.data.message || 'Regeneration in progress...')
+        }
+      } catch (error) {
+        if (!isActive) return
+      }
+    }
+
+    pollStatus()
+    const interval = setInterval(pollStatus, 4000)
+
+    return () => {
+      isActive = false
+      clearInterval(interval)
+    }
+  }, [requestId, storageKey])
+
   const handleRegenerate = async (clue: ClueExplanation) => {
     setRegenerating(true)
     setNewExplanation(null)
@@ -108,16 +172,25 @@ export function ExplanationReviewPage() {
         setProcessingMessage(res.data.message)
         if (res.data.requestId) {
           setRequestId(res.data.requestId)
+          localStorage.setItem(
+            storageKey,
+            JSON.stringify({
+              requestId: res.data.requestId,
+              clueKey: `${clue.clue_number}-${clue.direction}`,
+            }),
+          )
         }
         // Keep regenerating true, wait for socket event
       } else {
         setNewExplanation(res.data)
         setRegenerating(false)
+        localStorage.removeItem(storageKey)
       }
     } catch (error) {
       console.error('Failed to regenerate:', error)
       alert('Failed to regenerate explanation')
       setRegenerating(false)
+      localStorage.removeItem(storageKey)
     }
   }
 

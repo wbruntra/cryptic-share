@@ -51,6 +51,47 @@ router.get('/reports', async (req, res) => {
   }
 })
 
+// GET /api/admin/explanations/regenerate/:requestId
+// Check regeneration status (for polling fallback)
+router.get('/explanations/regenerate/:requestId', async (req, res) => {
+  const { requestId } = req.params
+
+  try {
+    const record = await db('explanation_regenerations')
+      .where({ request_id: requestId })
+      .first()
+
+    if (!record) {
+      return res.status(404).json({ error: 'Request not found' })
+    }
+
+    if (record.status === 'success' && record.explanation_json) {
+      return res.json({
+        requestId,
+        status: 'success',
+        explanation: JSON.parse(record.explanation_json),
+      })
+    }
+
+    if (record.status === 'error') {
+      return res.json({
+        requestId,
+        status: 'error',
+        error: record.error_message || 'Failed to regenerate explanation',
+      })
+    }
+
+    return res.json({
+      requestId,
+      status: 'pending',
+      message: 'Regeneration in progress...',
+    })
+  } catch (error) {
+    console.error('Error checking regeneration status:', error)
+    res.status(500).json({ error: 'Failed to check regeneration status' })
+  }
+})
+
 // POST /api/admin/explanations/regenerate
 // Trigger regeneration of an explanation (async via socket)
 router.post('/explanations/regenerate', async (req, res) => {
@@ -65,6 +106,21 @@ router.post('/explanations/regenerate', async (req, res) => {
   console.log(
     `[Regenerate] Request received. SocketID: ${socketId || 'NONE'}. RequestID: ${requestId}`,
   )
+
+  try {
+    await db('explanation_regenerations').insert({
+      request_id: requestId,
+      clue_text: clue,
+      answer,
+      feedback: feedback || null,
+      previous_explanation_json: previousExplanation
+        ? JSON.stringify(previousExplanation)
+        : null,
+      status: 'pending',
+    })
+  } catch (error) {
+    console.error('Error recording regeneration request:', error)
+  }
 
   // If socketId is provided, process async with requestId
   if (socketId) {
@@ -87,6 +143,18 @@ router.post('/explanations/regenerate', async (req, res) => {
           previousExplanation,
         })
 
+        try {
+          await db('explanation_regenerations')
+            .where({ request_id: requestId })
+            .update({
+              status: 'success',
+              explanation_json: JSON.stringify(newExplanation),
+              updated_at: db.fn.now(),
+            })
+        } catch (updateError) {
+          console.error('Error updating regeneration record (success):', updateError)
+        }
+
         console.log(`[Regenerate] Completed ${requestId}. Emitting to ${socketId}`)
         io.to(socketId).emit('admin_explanation_ready', {
           success: true,
@@ -97,6 +165,17 @@ router.post('/explanations/regenerate', async (req, res) => {
         })
       } catch (error) {
         console.error('Error in async regeneration:', error)
+        try {
+          await db('explanation_regenerations')
+            .where({ request_id: requestId })
+            .update({
+              status: 'error',
+              error_message: (error as Error)?.message || 'Failed to regenerate explanation',
+              updated_at: db.fn.now(),
+            })
+        } catch (updateError) {
+          console.error('Error updating regeneration record (error):', updateError)
+        }
         const { io } = await import('../app')
         io.to(socketId).emit('admin_explanation_ready', {
           success: false,
@@ -115,9 +194,34 @@ router.post('/explanations/regenerate', async (req, res) => {
         previousExplanation,
       })
 
+      try {
+        await db('explanation_regenerations')
+          .where({ request_id: requestId })
+          .update({
+            status: 'success',
+            explanation_json: JSON.stringify(newExplanation),
+            updated_at: db.fn.now(),
+          })
+      } catch (updateError) {
+        console.error('Error updating regeneration record (sync success):', updateError)
+      }
+
       res.json(newExplanation)
     } catch (error) {
       console.error('Error regenerating explanation:', error)
+
+      try {
+        await db('explanation_regenerations')
+          .where({ request_id: requestId })
+          .update({
+            status: 'error',
+            error_message: (error as Error)?.message || 'Failed to regenerate explanation',
+            updated_at: db.fn.now(),
+          })
+      } catch (updateError) {
+        console.error('Error updating regeneration record (sync error):', updateError)
+      }
+
       res.status(500).json({ error: 'Failed to regenerate explanation' })
     }
   }
