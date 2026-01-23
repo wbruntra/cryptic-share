@@ -156,8 +156,11 @@ async function createBatch(puzzleId: number, rl: readline.Interface) {
       url: '/v1/responses',
       body: {
         model: 'gpt-5-mini',
+        reasoning: { effort: 'medium' },
         input: messages,
-        text: { format: { type: 'json_object' } },
+        text: {
+          format: crypticSchema,
+        },
       },
     })
   }
