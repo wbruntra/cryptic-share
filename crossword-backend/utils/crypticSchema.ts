@@ -1,3 +1,175 @@
+import { z } from 'zod'
+
+// =========================
+// ZOD SCHEMA DEFINITIONS
+// =========================
+
+// Shared schemas for letter breakdown and wordplay steps
+const LetterBreakdownItemSchema = z
+  .object({
+    source: z.string().describe('Clue text or fodder used to produce the letters'),
+    letters: z
+      .string()
+      .regex(/^[A-Z]+$/)
+      .describe('Uppercase letters contributed by this part (no spaces)'),
+  })
+  .strict()
+
+const WordplayStepSchema = z
+  .object({
+    indicator: z.string().describe('Exact indicator text from the clue (or "None")'),
+    operation: z.string().describe('The explicit cryptic operation performed'),
+    result: z.string().describe('Resulting letters after the operation'),
+  })
+  .strict()
+
+// Standard wordplay clue
+const WordplayExplanationSchema = z
+  .object({
+    clue_type: z.literal('wordplay'),
+    definition: z.string().describe('The exact definition from the clue'),
+    letter_breakdown: z.array(LetterBreakdownItemSchema).min(1),
+    wordplay_steps: z.array(WordplayStepSchema).min(1),
+    hint: z
+      .object({
+        definition_location: z.enum(['start', 'end']),
+        wordplay_types: z.array(z.string()).min(1),
+      })
+      .strict(),
+    full_explanation: z.string(),
+  })
+  .strict()
+
+// Double definition clue
+const DoubleDefinitionExplanationSchema = z
+  .object({
+    clue_type: z.literal('double_definition'),
+    definitions: z
+      .array(
+        z
+          .object({
+            definition: z.string(),
+            sense: z.string(),
+          })
+          .strict(),
+      )
+      .min(2),
+    hint: z
+      .object({
+        definition_count: z.literal(2),
+      })
+      .strict(),
+    full_explanation: z.string(),
+  })
+  .strict()
+
+// &lit clue
+const AndLitExplanationSchema = z
+  .object({
+    clue_type: z.literal('&lit'),
+    definition_scope: z.literal('entire_clue'),
+    letter_breakdown: z.array(LetterBreakdownItemSchema).min(1),
+    wordplay_steps: z.array(WordplayStepSchema).min(1),
+    hint: z
+      .object({
+        wordplay_types: z.array(z.string()).min(1),
+      })
+      .strict(),
+    full_explanation: z.string(),
+  })
+  .strict()
+
+// Cryptic definition clue
+const CrypticDefinitionExplanationSchema = z
+  .object({
+    clue_type: z.literal('cryptic_definition'),
+    definition_scope: z.literal('entire_clue'),
+    definition_paraphrase: z
+      .string()
+      .describe(
+        'A concise paraphrase of what the whole clue is defining (no wordplay decomposition)',
+      ),
+    hint: z
+      .object({
+        definition_scope: z.literal('entire_clue'),
+      })
+      .strict(),
+    full_explanation: z.string(),
+  })
+  .strict()
+
+// No clean parse
+const NoCleanParseExplanationSchema = z
+  .object({
+    clue_type: z.literal('no_clean_parse'),
+    intended_clue_type: z
+      .enum(['wordplay', 'double_definition', '&lit', 'cryptic_definition'])
+      .describe('Best-guess clue type if the clue were clued cleanly'),
+    definition: z.string().describe('The exact definition from the clue (best guess)'),
+    issue: z
+      .string()
+      .describe(
+        'Precise reason a clean parse is not possible (missing indicator, letter accounting mismatch, etc.)',
+      ),
+    hint: z
+      .object({
+        intended_clue_type: z.enum(['wordplay', 'double_definition', '&lit', 'cryptic_definition']),
+      })
+      .strict(),
+    full_explanation: z.string(),
+  })
+  .strict()
+
+// Discriminated union for all explanation types
+export const ExplanationSchema = z.discriminatedUnion('clue_type', [
+  WordplayExplanationSchema,
+  DoubleDefinitionExplanationSchema,
+  AndLitExplanationSchema,
+  CrypticDefinitionExplanationSchema,
+  NoCleanParseExplanationSchema,
+])
+
+// Top-level cryptic explanation schema with refinement to ensure consistency
+export const CrypticExplanationZodSchema = z
+  .object({
+    clue_type: z.enum([
+      'wordplay',
+      'double_definition',
+      '&lit',
+      'cryptic_definition',
+      'no_clean_parse',
+    ]),
+    explanation: ExplanationSchema,
+  })
+  .strict()
+  .refine((data) => data.clue_type === data.explanation.clue_type, {
+    message: 'Top-level clue_type must match explanation.clue_type',
+    path: ['clue_type'],
+  })
+
+// Convert to JSON Schema for OpenAI API
+const crypticJsonSchema = z.toJSONSchema(CrypticExplanationZodSchema)
+
+// Export the JSON Schema format for OpenAI API (Zod version)
+export const crypticSchemaFromZod = {
+  type: 'json_schema',
+  name: 'cryptic_explanation_zod',
+  strict: true,
+  schema: crypticJsonSchema,
+}
+
+// Type inference
+export type CrypticExplanation = z.infer<typeof CrypticExplanationZodSchema>
+export type WordplayExplanation = z.infer<typeof WordplayExplanationSchema>
+export type DoubleDefinitionExplanation = z.infer<typeof DoubleDefinitionExplanationSchema>
+export type AndLitExplanation = z.infer<typeof AndLitExplanationSchema>
+export type CrypticDefinitionExplanation = z.infer<typeof CrypticDefinitionExplanationSchema>
+export type NoCleanParseExplanation = z.infer<typeof NoCleanParseExplanationSchema>
+
+// =========================
+// ORIGINAL JSON SCHEMA (PRESERVED)
+// =========================
+
 export const crypticInstructions = `
 You are a cryptic crossword expert explaining a solved clue.
 

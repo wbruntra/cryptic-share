@@ -155,7 +155,7 @@ export const regenerateCrypticClueExplanation = async (input: {
   feedback: string
   previousExplanation?: any
 }) => {
-  const { clue, answer, feedback, previousExplanation } = input
+  const { clue, answer, feedback } = input
 
   const newInstructions = `
 Clue: ${clue}
@@ -163,13 +163,6 @@ Answer: ${answer}
 
 User Feedback on previous explanation:
 "${feedback}"
-
-${
-  previousExplanation
-    ? `Previous Explanation (Flawed):
-${JSON.stringify(previousExplanation, null, 2)}`
-    : ''
-}
 
 Please provide a CORRECTED explanation that addresses this feedback.
 `.trim()

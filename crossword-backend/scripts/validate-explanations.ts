@@ -4,221 +4,8 @@
  * Reports any explanations that don't conform to the expected structure
  */
 
-import Ajv from 'ajv'
+import { ExplanationSchema } from '../utils/crypticSchema'
 import db from '../db-knex'
-
-// Schema definition for stored explanations
-// Accepts either:
-// 1) Stored wrapper format: { clue_type, explanation: <inner> }
-// 2) Inner explanation object: <inner>
-const flatExplanationSchema = {
-  anyOf: [
-        // WORDPLAY
-        {
-          type: 'object',
-          properties: {
-            clue_type: { type: 'string', const: 'wordplay' },
-            definition: { type: 'string' },
-            letter_breakdown: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  source: { type: 'string' },
-                  letters: { type: 'string', pattern: '^[A-Z]+$' },
-                },
-                required: ['source', 'letters'],
-                additionalProperties: false,
-              },
-            },
-            wordplay_steps: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  indicator: { type: 'string' },
-                  operation: { type: 'string' },
-                  result: { type: 'string' },
-                },
-                required: ['indicator', 'operation', 'result'],
-                additionalProperties: false,
-              },
-            },
-            hint: {
-              type: 'object',
-              properties: {
-                definition_location: { type: 'string', enum: ['start', 'end'] },
-                wordplay_types: { type: 'array', items: { type: 'string' } },
-              },
-              required: ['definition_location', 'wordplay_types'],
-              additionalProperties: false,
-            },
-            full_explanation: { type: 'string' },
-          },
-          required: [
-            'clue_type',
-            'definition',
-            'letter_breakdown',
-            'wordplay_steps',
-            'hint',
-            'full_explanation',
-          ],
-          additionalProperties: false,
-        },
-        // DOUBLE DEFINITION
-        {
-          type: 'object',
-          properties: {
-            clue_type: { type: 'string', const: 'double_definition' },
-            definitions: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  definition: { type: 'string' },
-                  sense: { type: 'string' },
-                },
-                required: ['definition', 'sense'],
-                additionalProperties: false,
-              },
-            },
-            hint: {
-              type: 'object',
-              properties: {
-                definition_count: { type: 'number', const: 2 },
-              },
-              required: ['definition_count'],
-              additionalProperties: false,
-            },
-            full_explanation: { type: 'string' },
-          },
-          required: ['clue_type', 'definitions', 'hint', 'full_explanation'],
-          additionalProperties: false,
-        },
-        // &LIT
-        {
-          type: 'object',
-          properties: {
-            clue_type: { type: 'string', const: '&lit' },
-            definition_scope: { type: 'string', const: 'entire_clue' },
-            letter_breakdown: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  source: { type: 'string' },
-                  letters: { type: 'string', pattern: '^[A-Z]+$' },
-                },
-                required: ['source', 'letters'],
-                additionalProperties: false,
-              },
-            },
-            wordplay_steps: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  indicator: { type: 'string' },
-                  operation: { type: 'string' },
-                  result: { type: 'string' },
-                },
-                required: ['indicator', 'operation', 'result'],
-                additionalProperties: false,
-              },
-            },
-            hint: {
-              type: 'object',
-              properties: {
-                wordplay_types: { type: 'array', items: { type: 'string' } },
-              },
-              required: ['wordplay_types'],
-              additionalProperties: false,
-            },
-            full_explanation: { type: 'string' },
-          },
-          required: [
-            'clue_type',
-            'definition_scope',
-            'letter_breakdown',
-            'wordplay_steps',
-            'hint',
-            'full_explanation',
-          ],
-          additionalProperties: false,
-        },
-        // CRYPTIC DEFINITION
-        {
-          type: 'object',
-          properties: {
-            clue_type: { type: 'string', const: 'cryptic_definition' },
-            definition_scope: { type: 'string', const: 'entire_clue' },
-            definition_paraphrase: { type: 'string' },
-            hint: {
-              type: 'object',
-              properties: {
-                definition_scope: { type: 'string', const: 'entire_clue' },
-              },
-              required: ['definition_scope'],
-              additionalProperties: false,
-            },
-            full_explanation: { type: 'string' },
-          },
-          required: [
-            'clue_type',
-            'definition_scope',
-            'definition_paraphrase',
-            'hint',
-            'full_explanation',
-          ],
-          additionalProperties: false,
-        },
-
-        // NO CLEAN PARSE
-        {
-          type: 'object',
-          properties: {
-            clue_type: { type: 'string', const: 'no_clean_parse' },
-            intended_clue_type: {
-              type: 'string',
-              enum: ['wordplay', 'double_definition', '&lit', 'cryptic_definition'],
-            },
-            definition: { type: 'string' },
-            issue: { type: 'string' },
-            hint: {
-              type: 'object',
-              properties: {
-                intended_clue_type: {
-                  type: 'string',
-                  enum: ['wordplay', 'double_definition', '&lit', 'cryptic_definition'],
-                },
-              },
-              required: ['intended_clue_type'],
-              additionalProperties: false,
-            },
-            full_explanation: { type: 'string' },
-          },
-          required: ['clue_type', 'intended_clue_type', 'definition', 'issue', 'hint', 'full_explanation'],
-          additionalProperties: false,
-        },
-      ],
-}
-
-const storedExplanationSchema = {
-  type: 'object',
-  properties: {
-    clue_type: {
-      type: 'string',
-      enum: ['wordplay', 'double_definition', '&lit', 'cryptic_definition', 'no_clean_parse'],
-    },
-    explanation: flatExplanationSchema,
-  },
-  required: ['clue_type', 'explanation'],
-  additionalProperties: false,
-}
-
-const explanationSchema = {
-  anyOf: [storedExplanationSchema, flatExplanationSchema],
-}
 
 interface ValidationError {
   puzzle_id: number
@@ -229,9 +16,6 @@ interface ValidationError {
 }
 
 async function validateExplanations() {
-  const ajv = new Ajv({ allErrors: true, strict: false })
-  const validate = ajv.compile(explanationSchema)
-
   console.log('Fetching all clue explanations from database...\n')
 
   const explanations = await db('clue_explanations')
@@ -252,36 +36,57 @@ async function validateExplanations() {
   for (const row of explanations) {
     const clueText = row.clue_text || `Clue ${row.clue_number}`
     
+    let explanation: any
     try {
-      const explanation = JSON.parse(row.explanation_json)
+      explanation = JSON.parse(row.explanation_json)
+    } catch (jsonError) {
+      // JSON parsing itself failed
+      validationErrors.push({
+        puzzle_id: row.puzzle_id,
+        clue_number: row.clue_number,
+        clue_text: clueText,
+        clue_type: 'json_parse_error',
+        errors: [`Failed to parse JSON: ${jsonError instanceof Error ? jsonError.message : String(jsonError)}`],
+      })
+      continue
+    }
 
-      const isValid = validate(explanation)
+    try {
+      // Use Zod safeParse to validate the inner explanation format
+      const result = ExplanationSchema.safeParse(explanation)
 
-      if (!isValid && validate.errors) {
-        const errorMessages = validate.errors.map((err) => {
-          const path = err.instancePath || '(root)'
-          const message = err.message || 'unknown error'
-          const params = err.params ? JSON.stringify(err.params) : ''
-          return `  ${path}: ${message} ${params}`.trim()
-        })
+      if (!result.success) {
+        let errorMessages: string[]
+        // Zod v4 stores errors in error.message as JSON string
+        try {
+          const zodErrors = JSON.parse(result.error.message)
+          errorMessages = zodErrors.map((err: any) => {
+            const path = err.path?.join('.') || '(root)'
+            return `  ${path}: ${err.message}`
+          })
+        } catch {
+          // Fallback to showing the raw message
+          errorMessages = [`Validation failed: ${result.error.message}`]
+        }
 
         validationErrors.push({
           puzzle_id: row.puzzle_id,
           clue_number: row.clue_number,
           clue_text: clueText,
-          clue_type: explanation.clue_type,
+          clue_type: explanation.clue_type || 'unknown',
           errors: errorMessages,
         })
       } else {
         validCount++
       }
-    } catch (error) {
+    } catch (zodError) {
+      // Zod validation threw an error
       validationErrors.push({
         puzzle_id: row.puzzle_id,
         clue_number: row.clue_number,
         clue_text: clueText,
-        clue_type: 'unknown',
-        errors: [`Failed to parse JSON: ${error}`],
+        clue_type: explanation?.clue_type || 'validation_error',
+        errors: [`Validation error: ${zodError instanceof Error ? zodError.message : String(zodError)}`],
       })
     }
   }

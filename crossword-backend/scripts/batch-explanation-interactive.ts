@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 import db from '../db-knex'
-import { generateExplanationMessages, crypticSchema } from '../utils/crypticSchema'
+import { generateExplanationMessages, crypticSchema, ExplanationSchema } from '../utils/crypticSchema'
 import { ExplanationService } from '../services/explanationService'
 import { Readable } from 'stream'
 import he from 'he'
@@ -281,6 +281,7 @@ async function retrieveBatch(batchId: string) {
 
   let successCount = 0
   let failCount = 0
+  let validationFailCount = 0
 
   for (const result of results) {
     try {
@@ -324,14 +325,41 @@ async function retrieveBatch(batchId: string) {
         continue
       }
 
-      const explanation = JSON.parse(content)
+      // Parse and decode the response
+      let parsed = JSON.parse(content)
+      parsed = decodeEntities(parsed)
 
-      // Unescape text fields
-      if (typeof explanation.full_explanation === 'string') {
-        explanation.full_explanation = decodeEntities(explanation.full_explanation)
+      // Extract inner explanation - API returns { clue_type, explanation: {...} }
+      // but we need just the inner object for validation and storage
+      let explanation: any
+      if (parsed.explanation && typeof parsed.explanation === 'object') {
+        // Nested format from API
+        explanation = parsed.explanation
+      } else if (parsed.clue_type) {
+        // Already flat format
+        explanation = parsed
+      } else {
+        console.error(`❌ Unexpected explanation structure for ${customId}`)
+        failCount++
+        continue
       }
-      if (explanation.definition) {
-        explanation.definition = decodeEntities(explanation.definition)
+
+      // VALIDATE WITH ZOD SCHEMA
+      const validationResult = ExplanationSchema.safeParse(explanation)
+      if (!validationResult.success) {
+        console.error(`❌ Validation failed for ${customId}`)
+        try {
+          const zodErrors = JSON.parse(validationResult.error.message)
+          const errorMessages = zodErrors.map((err: any) => {
+            const path = err.path?.join('.') || '(root)'
+            return `${path}: ${err.message}`
+          })
+          console.error(`   Errors: ${errorMessages.join(', ')}`)
+        } catch {
+          console.error(`   Error: ${validationResult.error.message}`)
+        }
+        validationFailCount++
+        continue
       }
 
       // Fetch puzzle data
@@ -371,7 +399,7 @@ async function retrieveBatch(batchId: string) {
     }
   }
 
-  console.log(`\n✅ Finished. Saved: ${successCount}, Failed: ${failCount}`)
+  console.log(`\n✅ Finished. Saved: ${successCount}, Failed: ${failCount}, Validation failed: ${validationFailCount}`)
 
   // Mark batch as applied if we successfully saved results
   if (successCount > 0) {
