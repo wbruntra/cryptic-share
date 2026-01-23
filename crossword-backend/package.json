@@ -45,6 +45,8 @@
     "openai": "^6.15.0",
     "socket.io": "^4.8.3",
     "sqlite3": "^5.1.7",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.23.0"
   }
 }

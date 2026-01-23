@@ -2,6 +2,7 @@ import OpenAI from 'openai'
 import { mkdir, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { generateExplanationMessages, crypticSchema, crypticInstructions } from './crypticSchema'
+import { transcribeAnswersJsonSchema, TranscribeAnswersResponse } from './answerSchema'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -84,23 +85,13 @@ export const transcribeAnswers = async (input: any) => {
   }
 
   const promptText = `
-  Transcribe these cryptic crossword answers. Each section represents a different numbered puzzle, and within each section there are "Across" and "Down" sub-sections.
-  Return a JSON object containing a single property "puzzles".
-  "puzzles" should be an array of objects, where each object represents one puzzle.
-
-  Each puzzle object should have the following properties:
-  - "puzzle_id": The ID of the puzzle (numbered)
-  - "across": An array of objects, where each object represents one across answer
-  - "down": An array of objects, where each object represents one down answer
-
-  Each across and down object should have the following properties:
-  - "number": The number of the answer
-  - "answer": The answer text
+Transcribe these cryptic crossword answers. Each section represents a different numbered puzzle, and within each section there are "Across" and "Down" sub-sections.
+Extract all puzzle IDs, across clues with their numbers and answers, and down clues with their numbers and answers.
 `
 
   try {
     const response = await (openai as any).responses.create({
-      model: 'gpt-5-mini', // Using the same model as getCrosswordClues
+      model: 'gpt-5-mini',
       input: [
         {
           role: 'user',
@@ -114,9 +105,7 @@ export const transcribeAnswers = async (input: any) => {
         },
       ],
       text: {
-        format: {
-          type: 'json_object',
-        },
+        format: transcribeAnswersJsonSchema,
       },
     })
 
@@ -125,7 +114,7 @@ export const transcribeAnswers = async (input: any) => {
       throw new Error('No content received from OpenAI')
     }
 
-    return JSON.parse(outputText)
+    return JSON.parse(outputText) as TranscribeAnswersResponse
   } catch (error) {
     console.error('Error parsing grid:', error)
     throw error
