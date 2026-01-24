@@ -2,11 +2,8 @@ import OpenAI from 'openai'
 import db from '../db-knex'
 import { generateExplanationMessages, crypticSchema, ExplanationSchema } from '../utils/crypticSchema'
 import { ExplanationService } from '../services/explanationService'
-import { Readable } from 'stream'
 import he from 'he'
-import * as readline from 'readline/promises'
-import { stdin as input, stdout as output } from 'process'
-import { select } from '@inquirer/prompts'
+import { select, confirm, input } from '@inquirer/prompts'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -88,7 +85,7 @@ function decodeEntities(value: unknown): unknown {
   return value
 }
 
-async function createBatch(puzzleId: number, rl: readline.Interface) {
+async function createBatch(puzzleId: number) {
   console.log(`\n📋 Fetching data for puzzle ID: ${puzzleId}`)
   const puzzle = await db<PuzzleRow>('puzzles').where('id', puzzleId).first()
 
@@ -174,11 +171,12 @@ async function createBatch(puzzleId: number, rl: readline.Interface) {
 
   console.log(`✓ Generated ${requests.length} requests.`)
 
-  const confirm = await rl.question(
-    `\n⚠️  This will create a batch job with ${requests.length} clue explanations. Continue? (y/n): `,
-  )
+  const proceed = await confirm({
+    message: `⚠️ Create a batch job with ${requests.length} clue explanations?`,
+    default: false,
+  })
 
-  if (confirm.toLowerCase() !== 'y') {
+  if (!proceed) {
     console.log('❌ Batch creation cancelled.')
     return
   }
@@ -186,13 +184,16 @@ async function createBatch(puzzleId: number, rl: readline.Interface) {
   // Create JSONL content in memory
   const jsonlContent = requests.map((r) => JSON.stringify(r)).join('\n')
   
-  // Convert string to readable stream for upload
-  const stream = Readable.from([jsonlContent])
+  // Use Blob/File for Bun compatibility to avoid stream hangs
+  const filename = `batch_p${puzzleId}_${Date.now()}.jsonl`
+  const blobOrFile: any = typeof (globalThis as any).File !== 'undefined'
+    ? new (globalThis as any).File([jsonlContent], filename, { type: 'application/jsonl' })
+    : new Blob([jsonlContent], { type: 'application/jsonl' })
 
   // Upload directly to OpenAI
   console.log('📤 Uploading batch to OpenAI...')
   const file = await openai.files.create({
-    file: stream as any,
+    file: blobOrFile,
     purpose: 'batch',
   })
   console.log(`✓ File uploaded. ID: ${file.id}`)
@@ -476,13 +477,13 @@ async function showBatchStatus() {
     return batches
   }
 
-  // Get puzzle titles
+  // Get puzzle titles and numbers
   const puzzleIds = [...new Set(batches.map((b) => b.puzzle_id))]
-  const puzzles = await db<PuzzleRow>('puzzles').select('id', 'title').whereIn('id', puzzleIds)
-  const puzzleMap = new Map(puzzles.map((p) => [p.id, p.title]))
+  const puzzles = await db<PuzzleRow>('puzzles').select('id', 'title', 'puzzle_number').whereIn('id', puzzleIds)
+  const puzzleMap = new Map(puzzles.map((p) => [p.id, { title: p.title, puzzle_number: p.puzzle_number }]))
 
-  console.log('#  | Status  | Puzzle | Puzzle Title              | Created')
-  console.log('---+---------+--------+---------------------------+-------------------')
+  console.log('#  | Status  | P#   | Puzzle ID | Puzzle Title              | Created')
+  console.log('---+---------+------+-----------+---------------------------+-------------------')
 
   for (let i = 0; i < batches.length; i++) {
     const batch = batches[i]
@@ -494,13 +495,15 @@ async function showBatchStatus() {
         in_progress: '🔄',
       }[batch.status] || '❓'
 
-    const puzzleTitle = (puzzleMap.get(batch.puzzle_id) || 'Unknown').padEnd(25).substring(0, 25)
+    const puzzleInfo = puzzleMap.get(batch.puzzle_id) || { title: 'Unknown', puzzle_number: null }
+    const pn = puzzleInfo.puzzle_number ?? '—'
+    const puzzleTitle = puzzleInfo.title.padEnd(25).substring(0, 25)
     const createdDate = new Date(batch.created_at).toISOString().substring(0, 16).replace('T', ' ')
 
     console.log(
       `${String(i + 1).padStart(2)} | ${statusEmoji} ${batch.status.padEnd(5)} | ${String(
-        batch.puzzle_id,
-      ).padStart(6)} | ${puzzleTitle} | ${createdDate}`,
+        pn,
+      ).padStart(4)} | ${String(batch.puzzle_id).padStart(9)} | ${puzzleTitle} | ${createdDate}`,
     )
   }
 
@@ -549,15 +552,18 @@ async function mainMenu(rl: readline.Interface) {
     console.log('\n' + '='.repeat(60))
     console.log('🔤 BATCH EXPLANATION MANAGER')
     console.log('='.repeat(60))
-    console.log('\n1. View puzzle explanation status')
-    console.log('2. View recent batch jobs')
-    console.log('3. Create new batch job')
-    console.log('4. Check batch status')
-    console.log('5. Retrieve completed batch results')
-    console.log('6. Exit')
-    console.log('')
-
-    const choice = await rl.question('Select an option (1-6): ')
+    const choice = await select<string>({
+      message: 'Select an option',
+      choices: [
+        { name: '1. View puzzle explanation status', value: '1' },
+        { name: '2. View recent batch jobs', value: '2' },
+        { name: '3. Create new batch job', value: '3' },
+        { name: '4. Check batch status', value: '4' },
+        { name: '5. Retrieve completed batch results', value: '5' },
+        { name: '6. Delete an unapplied batch', value: '6' },
+        { name: '7. Exit', value: '7' },
+      ],
+    })
 
     try {
       switch (choice.trim()) {
@@ -581,75 +587,146 @@ async function mainMenu(rl: readline.Interface) {
             choices,
           })
 
-          await createBatch(Number(selectedPuzzleId), rl)
+          await createBatch(Number(selectedPuzzleId))
           break
         }
 
         case '4': {
           const batches = await showBatchStatus()
-          if (!batches || batches.length === 0) break
-
-          const input = await rl.question(
-            '\nEnter batch number (1-' + batches.length + ') or full batch ID: ',
-          )
-          if (!input.trim()) {
-            console.log('❌ Input is required')
+          if (!batches || batches.length === 0) {
+            const manualId = await input({ message: 'Enter full batch ID (starts with batch_)' })
+            if (manualId && manualId.trim().startsWith('batch_')) {
+              await checkBatch(manualId.trim())
+            } else {
+              console.log('❌ Invalid batch ID')
+            }
             break
           }
 
-          // Check if input is a number (batch selection) or a batch ID
-          const num = parseInt(input.trim())
-          let batchId: string
+          // Fetch puzzle info to include puzzle_number in choices
+          const puzzleIds = [...new Set(batches.map((b) => b.puzzle_id))]
+          const puzzles = await db<PuzzleRow>('puzzles').select('id', 'puzzle_number').whereIn('id', puzzleIds)
+          const puzzleMap = new Map(puzzles.map((p) => [p.id, p.puzzle_number]))
 
-          if (!isNaN(num) && num >= 1 && num <= batches.length) {
-            batchId = batches[num - 1].batch_id
-            console.log(`\nUsing batch: ${batchId}`)
-          } else if (input.trim().startsWith('batch_')) {
-            batchId = input.trim()
+          const batchChoice = await select<string>({
+            message: 'Select a batch to check status',
+            choices: [
+              ...batches.map((b, i) => {
+                const pn = puzzleMap.get(b.puzzle_id) ?? '—'
+                return { name: `${i + 1}. P#${pn} ${b.batch_id} (${b.status})`, value: b.batch_id }
+              }),
+              { name: 'Enter batch ID manually...', value: '__manual__' },
+            ],
+          })
+
+          if (batchChoice === '__manual__') {
+            const manualId = await input({ message: 'Enter full batch ID (starts with batch_)' })
+            if (manualId && manualId.trim().startsWith('batch_')) {
+              await checkBatch(manualId.trim())
+            } else {
+              console.log('❌ Invalid batch ID')
+            }
           } else {
-            console.log(
-              '❌ Invalid input. Enter a number from the list or a full batch ID starting with "batch_"',
-            )
-            break
+            await checkBatch(batchChoice)
           }
-
-          await checkBatch(batchId)
           break
         }
 
         case '5': {
           const batches = await showBatchStatus()
-          if (!batches || batches.length === 0) break
-
-          const input = await rl.question(
-            '\nEnter batch number (1-' + batches.length + ') or full batch ID: ',
-          )
-          if (!input.trim()) {
-            console.log('❌ Input is required')
+          if (!batches || batches.length === 0) {
+            const manualId = await input({ message: 'Enter full batch ID (starts with batch_)' })
+            if (manualId && manualId.trim().startsWith('batch_')) {
+              await retrieveBatch(manualId.trim())
+            } else {
+              console.log('❌ Invalid batch ID')
+            }
             break
           }
 
-          // Check if input is a number (batch selection) or a batch ID
-          const num = parseInt(input.trim())
-          let batchId: string
+          // Fetch puzzle info to include puzzle_number in choices
+          const puzzleIds2 = [...new Set(batches.map((b) => b.puzzle_id))]
+          const puzzles2 = await db<PuzzleRow>('puzzles').select('id', 'puzzle_number').whereIn('id', puzzleIds2)
+          const puzzleMap2 = new Map(puzzles2.map((p) => [p.id, p.puzzle_number]))
 
-          if (!isNaN(num) && num >= 1 && num <= batches.length) {
-            batchId = batches[num - 1].batch_id
-            console.log(`\nUsing batch: ${batchId}`)
-          } else if (input.trim().startsWith('batch_')) {
-            batchId = input.trim()
+          const batchChoice = await select<string>({
+            message: 'Select a batch to retrieve results',
+            choices: [
+              ...batches.map((b, i) => {
+                const pn = puzzleMap2.get(b.puzzle_id) ?? '—'
+                return { name: `${i + 1}. P#${pn} ${b.batch_id} (${b.status})`, value: b.batch_id }
+              }),
+              { name: 'Enter batch ID manually...', value: '__manual__' },
+            ],
+          })
+
+          if (batchChoice === '__manual__') {
+            const manualId = await input({ message: 'Enter full batch ID (starts with batch_)' })
+            if (manualId && manualId.trim().startsWith('batch_')) {
+              await retrieveBatch(manualId.trim())
+            } else {
+              console.log('❌ Invalid batch ID')
+            }
           } else {
-            console.log(
-              '❌ Invalid input. Enter a number from the list or a full batch ID starting with "batch_"',
-            )
-            break
+            await retrieveBatch(batchChoice)
           }
-
-          await retrieveBatch(batchId)
           break
         }
 
-        case '6':
+        case '6': {
+          const batches = await showBatchStatus()
+          if (!batches || batches.length === 0) {
+            console.log('No pending batches to delete.')
+            break
+          }
+
+          // Fetch puzzle info to include puzzle_number in choices
+          const puzzleIds3 = [...new Set(batches.map((b) => b.puzzle_id))]
+          const puzzles3 = await db<PuzzleRow>('puzzles').select('id', 'puzzle_number').whereIn('id', puzzleIds3)
+          const puzzleMap3 = new Map(puzzles3.map((p) => [p.id, p.puzzle_number]))
+
+          const batchChoice = await select<string>({
+            message: 'Select an unapplied batch to delete',
+            choices: batches.map((b, i) => {
+              const pn = puzzleMap3.get(b.puzzle_id) ?? '—'
+              return { name: `${i + 1}. P#${pn} ${b.batch_id} (${b.status})`, value: b.batch_id }
+            }),
+          })
+
+          const proceedDelete = await confirm({
+            message: `🗑️ Delete batch ${batchChoice}? This will remove it from the database${' '}
+${' '.repeat(0)}and attempt to cancel it with OpenAI if still pending/in-progress.`,
+            default: false,
+          })
+
+          if (!proceedDelete) {
+            console.log('❌ Delete cancelled.')
+            break
+          }
+
+          try {
+            // Attempt to cancel on OpenAI (best effort)
+            try {
+              await openai.batches.cancel(batchChoice)
+              console.log('✓ Requested cancellation with OpenAI.')
+            } catch (err) {
+              console.log('⚠️ Could not cancel with OpenAI or already finalized. Proceeding to delete record.')
+            }
+
+            // Delete from DB
+            const deleted = await db('explanation_batches').where('batch_id', batchChoice).del()
+            if (deleted) {
+              console.log(`✅ Deleted batch ${batchChoice} from database.`)
+            } else {
+              console.log('⚠️ Batch not found in database.')
+            }
+          } catch (err) {
+            console.error('❌ Error deleting batch:', err)
+          }
+          break
+        }
+
+        case '7':
           console.log('\n👋 Goodbye!')
           return
 
@@ -663,12 +740,9 @@ async function mainMenu(rl: readline.Interface) {
 }
 
 async function main() {
-  const rl = readline.createInterface({ input, output })
-
   try {
-    await mainMenu(rl)
+    await mainMenu(undefined as any)
   } finally {
-    rl.close()
     process.exit(0)
   }
 }
