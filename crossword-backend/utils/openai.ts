@@ -1,7 +1,13 @@
 import OpenAI from 'openai'
 import { mkdir, writeFile } from 'fs/promises'
 import { join } from 'path'
-import { generateExplanationMessages, crypticSchema, crypticInstructions } from './crypticSchema'
+import {
+  generateExplanationMessages,
+  crypticSchema,
+  crypticInstructions,
+  crypticSchemaFromZod,
+  openaiCrypticSchema,
+} from './crypticSchema'
 import { transcribeAnswersJsonSchema, TranscribeAnswersResponse } from './answerSchema'
 
 const openai = new OpenAI({
@@ -135,7 +141,7 @@ export const explainCrypticClue = async (input: {
     reasoning: { effort: 'medium' },
     input: messages,
     text: {
-      format: crypticSchema,
+      format: crypticSchemaFromZod,
     },
   }
 
@@ -205,8 +211,8 @@ Please provide a CORRECTED explanation that addresses this feedback.
 
 const test = async () => {
   const input = {
-    clue: 'America and Germany seized Peru illegally and took over (7)',
-    answer: 'USURPED',
+    clue: 'I bet this girl dressed up as Elizabeth (5)',
+    answer: 'HAZEL',
     mode: 'full' as const,
   }
 

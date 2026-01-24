@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { zodTextFormat } from 'openai/helpers/zod'
 
 // =========================
 // ZOD SCHEMA DEFINITIONS
@@ -121,7 +122,8 @@ const NoCleanParseExplanationSchema = z
   .strict()
 
 // Discriminated union for all explanation types
-export const ExplanationSchema = z.discriminatedUnion('clue_type', [
+// switched to z.union to produce 'anyOf' for OpenAI compatibility
+export const ExplanationSchema = z.union([
   WordplayExplanationSchema,
   DoubleDefinitionExplanationSchema,
   AndLitExplanationSchema,
@@ -158,6 +160,8 @@ export const crypticSchemaFromZod = {
   schema: crypticJsonSchema,
 }
 
+export const openaiCrypticSchema = zodTextFormat(CrypticExplanationZodSchema, 'cryptic_explanation')
+
 // Type inference
 export type CrypticExplanation = z.infer<typeof CrypticExplanationZodSchema>
 export type WordplayExplanation = z.infer<typeof WordplayExplanationSchema>
@@ -191,8 +195,13 @@ Core cryptic rules (strict):
 - Use the simplest valid parse; do not offer alternatives or supporting interpretations.
 - Do NOT mix mechanisms (e.g. hidden letters, charades, containers) unless the clue explicitly indicates them.
 - For wordplay and &lit clues: Every letter in the answer MUST be explicitly justified.
-- Compound/composite anagrams are allowed when the clue explicitly states an algebraic relationship (e.g. “A with/plus [answer] (could) make B”) and provides an anagram indicator for the combined/target fodder.
-- In a compound anagram, the relationship phrase (e.g. “could make”, “with”, “plus”, “added to”) is the indicator for the equation/constraint; do NOT require a separate deletion/subtraction indicator if the relationship is clear and the letter accounting is exact.
+- Compound Anagram Logic (Priority Check):
+  If a standard parse fails, before determining that there is no clean parse possible, you must specifically check for "Answer-Participating" anagrams. Test this algebraic relationship: "(Visible Clue Part A + Answer) = Visible Clue Part B".
+  1. Identify the Target (Part B) and the Remainder (Part A) in the clue.
+  2. Identify the Indicator (e.g., "makes", "dressed as", "becomes", "is", "forms").
+  3. Verify: Does "Anagram(Part A + Answer)" exactly equal "Part B"?
+  4. If yes, this IS a valid parse - accept it immediately. Do not invent additional requirements or reasons to reject it. The definition is the part of the clue not involved in the algebra.
+  CRITICAL: If the algebraic relationship holds perfectly (all letters accounted for), you MUST accept it as valid wordplay. Do not reject it for contiguity concerns, word boundaries, or any other reason. A valid compound anagram is a complete and correct parse.
 - For cryptic_definition clues: Do NOT fabricate indicators, letter breakdowns, or wordplay steps.
 - Do not invent extra indicators, padding, or explanatory glue.
 - If a clean parse cannot be produced, state that the clue is loose or flawed rather than inventing one.

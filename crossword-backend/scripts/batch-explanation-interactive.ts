@@ -6,6 +6,7 @@ import { Readable } from 'stream'
 import he from 'he'
 import * as readline from 'readline/promises'
 import { stdin as input, stdout as output } from 'process'
+import { select } from '@inquirer/prompts'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -25,6 +26,7 @@ interface PuzzleRow {
   grid: string
   clues: string // JSON
   answers_encrypted: string // JSON
+  puzzle_number: number | null
 }
 
 interface Clue {
@@ -518,6 +520,30 @@ async function showBatchStatus() {
   return batches
 }
 
+// Build puzzle choices for inquirer selection with puzzle_number and explanation count
+async function getPuzzleChoices() {
+  const puzzles = await db<PuzzleRow>('puzzles')
+    .select('id', 'title', 'clues', 'puzzle_number')
+    .orderBy('puzzle_number', 'asc')
+    .orderBy('id', 'asc')
+
+  const choices: Array<{ name: string; value: number }> = []
+
+  for (const puzzle of puzzles) {
+    const explainedCountRow = await db('clue_explanations')
+      .where('puzzle_id', puzzle.id)
+      .count('* as count')
+      .first()
+
+    const explained = Number((explainedCountRow as any)?.count ?? 0)
+    const pn = puzzle.puzzle_number ?? '—'
+    const label = `#${pn} (explanations: ${explained})`
+    choices.push({ name: label, value: puzzle.id })
+  }
+
+  return choices
+}
+
 async function mainMenu(rl: readline.Interface) {
   while (true) {
     console.log('\n' + '='.repeat(60))
@@ -544,14 +570,18 @@ async function mainMenu(rl: readline.Interface) {
           break
 
         case '3': {
-          await showPuzzleStats()
-          const puzzleIdStr = await rl.question('\nEnter puzzle ID to create batch for: ')
-          const puzzleId = parseInt(puzzleIdStr.trim())
-          if (isNaN(puzzleId)) {
-            console.log('❌ Invalid puzzle ID')
+          const choices = await getPuzzleChoices()
+          if (!choices.length) {
+            console.log('❌ No puzzles found.')
             break
           }
-          await createBatch(puzzleId, rl)
+
+          const selectedPuzzleId = await select<number>({
+            message: 'Select a puzzle to create a batch for',
+            choices,
+          })
+
+          await createBatch(Number(selectedPuzzleId), rl)
           break
         }
 
