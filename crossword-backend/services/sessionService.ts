@@ -407,6 +407,7 @@ export class SessionService {
       .leftJoin('puzzles', 'puzzle_sessions.puzzle_id', 'puzzles.id')
       .select(
         'puzzle_sessions.session_id',
+        'puzzle_sessions.state',
         'puzzle_sessions.user_id',
         'puzzle_sessions.anonymous_id',
         'puzzle_sessions.puzzle_id',
@@ -415,9 +416,25 @@ export class SessionService {
         'users.username',
         'puzzles.title as puzzle_title',
       )
-      .orderBy('puzzle_sessions.session_id', 'desc')
+      .orderBy('puzzle_sessions.created_at', 'desc')
 
-    return sessions
+    return sessions.map((s) => {
+      let filled_letters = 0
+      try {
+        const parsed = JSON.parse(s.state)
+        const migrated = migrateLegacyState(parsed)
+        filled_letters = countFilledLetters(migrated)
+      } catch (e) {
+        // ignore parsing errors
+      }
+
+      // Return session without the full state object to save bandwidth
+      const { state, ...rest } = s
+      return {
+        ...rest,
+        filled_letters,
+      }
+    })
   }
 
   static async deleteSession(sessionId: string): Promise<boolean> {
