@@ -11,6 +11,7 @@ type PuzzleStatus = 'complete' | 'in-progress' | null
 export function HomePage() {
   const [puzzles, setPuzzles] = useState<PuzzleSummary[]>([])
   const [puzzleStatus, setPuzzleStatus] = useState<Map<number, PuzzleStatus>>(new Map())
+  const [showCompleted, setShowCompleted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [navigating, setNavigating] = useState<number | null>(null)
   const navigate = useNavigate()
@@ -72,12 +73,29 @@ export function HomePage() {
     }
   }
 
+  const visiblePuzzles = puzzles.filter((puzzle) => {
+    if (showCompleted) return true
+    const status = puzzleStatus.get(puzzle.id)
+    return status !== 'complete'
+  })
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 pb-12">
       <section>
-        <h2 className="text-2xl font-bold mb-6 text-text border-l-4 border-primary pl-4">
-          Puzzles
-        </h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-text border-l-4 border-primary pl-4">
+            Puzzles
+          </h2>
+          <label className="flex items-center gap-2 cursor-pointer select-none text-text-secondary hover:text-text transition-colors">
+            <input
+              type="checkbox"
+              checked={showCompleted}
+              onChange={(e) => setShowCompleted(e.target.checked)}
+              className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+            />
+            <span className="text-sm font-medium">Show completed</span>
+          </label>
+        </div>
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {[1, 2, 3, 4].map((i) => (
@@ -86,7 +104,7 @@ export function HomePage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {puzzles.map((puzzle) => {
+            {visiblePuzzles.map((puzzle) => {
               const status = puzzleStatus.get(puzzle.id)
               const isNavigating = navigating === puzzle.id
 
@@ -123,9 +141,11 @@ export function HomePage() {
                 </div>
               )
             })}
-            {puzzles.length === 0 && (
+            {visiblePuzzles.length === 0 && (
               <div className="col-span-full py-16 text-center bg-surface rounded-2xl border-2 border-dashed border-border shadow-inner">
-                <p className="text-text-secondary italic">No puzzles found. Create one!</p>
+                <p className="text-text-secondary italic">
+                  {puzzles.length > 0 ? 'No active puzzles found.' : 'No puzzles found. Create one!'}
+                </p>
               </div>
             )}
           </div>
