@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getLocalSessions } from '../utils/sessionManager';
+import { getLocalSessions, clearLocalSessions } from '../utils/sessionManager';
 
 const API_URL = '/api/auth';
 const TOKEN_KEY = 'cryptic_share_token';
@@ -57,6 +57,7 @@ export const syncSessions = async () => {
   if (sessionIds.length === 0) return;
 
   await axios.post('/api/sessions/sync', { sessionIds });
+  clearLocalSessions();
 };
 
 export const fetchUserSessions = async () => {

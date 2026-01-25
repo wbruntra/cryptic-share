@@ -52,6 +52,14 @@ export const removeLocalSession = (sessionId: string) => {
   }
 }
 
+export const clearLocalSessions = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch (e) {
+    console.error('Failed to clear local sessions', e)
+  }
+}
+
 const ANON_ID_KEY = 'cryptic_share_anon_id'
 
 export const getAnonymousId = (): string => {
