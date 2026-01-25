@@ -1,17 +1,10 @@
-import { useState, useEffect, useCallback, useContext, useRef } from 'react'
+import { useState, useEffect, useContext, useRef } from 'react'
 import { SocketContext } from '../context/SocketContext'
 import { Link, useParams } from 'react-router-dom'
 import axios from 'axios'
-
-interface ClueExplanation {
-  puzzle_id: number
-  clue_number: number
-  direction: string
-  clue_text: string
-  answer: string
-  explanation_json: string
-  pending_reports: number
-}
+import { useAppDispatch, useAppSelector } from '../store/hooks'
+import { fetchClueExplanations } from '../store/slices/adminSlice'
+import type { ClueExplanation } from '../store/slices/adminSlice'
 
 interface NewExplanation {
   clue_type: string
@@ -20,8 +13,9 @@ interface NewExplanation {
 
 export function ExplanationReviewPage() {
   const { id } = useParams<{ id: string }>()
-  const [clues, setClues] = useState<ClueExplanation[]>([])
-  const [loading, setLoading] = useState(false)
+  const dispatch = useAppDispatch()
+  const { clueExplanations, explanationStatus } = useAppSelector((state) => state.admin)
+
   const [expandedClue, setExpandedClue] = useState<string | null>(null) // "number-direction"
   const [regenerating, setRegenerating] = useState(false)
   const [newExplanation, setNewExplanation] = useState<NewExplanation | null>(null)
@@ -99,19 +93,11 @@ export function ExplanationReviewPage() {
     }
   }, [socket])
 
-  const fetchClues = useCallback(() => {
-    if (!id) return
-    setLoading(true)
-    axios
-      .get(`/api/admin/explanations/${id}`)
-      .then((res) => setClues(res.data))
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [id])
-
   useEffect(() => {
-    fetchClues()
-  }, [fetchClues])
+    if (id) {
+      dispatch(fetchClueExplanations(id))
+    }
+  }, [dispatch, id])
 
   useEffect(() => {
     if (!requestId) return
@@ -209,7 +195,7 @@ export function ExplanationReviewPage() {
 
       alert('Explanation saved.')
       setNewExplanation(null)
-      fetchClues()
+      if (id) dispatch(fetchClueExplanations(id))
     } catch (error) {
       console.error('Failed to save:', error)
       alert('Failed to save explanation')
@@ -232,7 +218,7 @@ export function ExplanationReviewPage() {
       setShowReportModal(false)
       setReportFeedback('')
       setReportingClue(null)
-      fetchClues()
+      if (id) dispatch(fetchClueExplanations(id))
     } catch (error) {
       console.error('Failed to report:', error)
       alert('Failed to file report')
@@ -252,7 +238,7 @@ export function ExplanationReviewPage() {
         </h1>
       </header>
 
-      {loading ? (
+      {explanationStatus === 'loading' ? (
         <div className="flex justify-center p-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
@@ -269,7 +255,7 @@ export function ExplanationReviewPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {clues.map((clue) => {
+                {clueExplanations.map((clue) => {
                   const key = `${clue.clue_number}-${clue.direction}`
                   const isExpanded = expandedClue === key
                   const hasReports = clue.pending_reports > 0

@@ -1,18 +1,9 @@
-import { useState, useEffect, useCallback, useContext, useRef } from 'react'
+import { useState, useEffect, useContext, useRef } from 'react'
 import { SocketContext } from '../context/SocketContext'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
-
-interface Report {
-  id: number
-  puzzle_id: number
-  clue_number: number
-  direction: string
-  feedback: string
-  reported_at: string
-  answer: string
-  clue_text: string
-}
+import { useGetReportsQuery } from '../store/api/adminApi'
+import type { Report } from '../store/slices/adminSlice'
 
 interface Explanation {
   clue_type: string
@@ -20,8 +11,8 @@ interface Explanation {
 }
 
 export function ReportManagementPage() {
-  const [reports, setReports] = useState<Report[]>([])
-  const [loading, setLoading] = useState(false)
+  const { data: reports = [], isLoading, refetch } = useGetReportsQuery()
+
   const [selectedReport, setSelectedReport] = useState<Report | null>(null)
   const [regenerating, setRegenerating] = useState(false)
   const [newExplanation, setNewExplanation] = useState<Explanation | null>(null)
@@ -92,19 +83,6 @@ export function ReportManagementPage() {
       socket.off('admin_explanation_ready', handleExplanationReady)
     }
   }, [socket])
-
-  const fetchReports = useCallback(() => {
-    setLoading(true)
-    axios
-      .get('/api/admin/reports')
-      .then((res) => setReports(res.data))
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
-
-  useEffect(() => {
-    fetchReports()
-  }, [fetchReports])
 
   useEffect(() => {
     if (!pendingReportId || reports.length === 0) return
@@ -214,7 +192,7 @@ export function ReportManagementPage() {
       alert('Explanation saved and reports resolved.')
       setSelectedReport(null)
       setNewExplanation(null)
-      fetchReports() // Refresh list
+      refetch() // Refresh list
     } catch (error) {
       console.error('Failed to save:', error)
       alert('Failed to save explanation')
@@ -242,7 +220,7 @@ export function ReportManagementPage() {
             <h2 className="font-bold text-lg text-text">Pending Reports ({reports.length})</h2>
           </div>
           <div className="overflow-y-auto flex-1 p-2 space-y-2">
-            {loading ? (
+            {isLoading ? (
               <div className="p-4 text-center text-text-secondary">Loading...</div>
             ) : reports.length === 0 ? (
               <div className="p-8 text-center text-text-secondary italic">No pending reports.</div>

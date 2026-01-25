@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import axios from 'axios'
+import { useGetPuzzleByIdQuery, useUpdatePuzzleMutation } from '../store/api/adminApi'
 import type { CellType } from '../types'
 import { CrosswordGrid } from '../CrosswordGrid'
 import { EditOutput } from '../EditOutput'
@@ -10,12 +10,15 @@ import { validateClues } from '../utils/clueHelpers'
 export function EditPuzzle() {
   const { puzzleId } = useParams<{ puzzleId: string }>()
 
-  const [loading, setLoading] = useState(true)
+  const { data: puzzle, isLoading: loading, error } = useGetPuzzleByIdQuery(puzzleId!)
+  const [updatePuzzle, { isLoading: isSaving }] = useUpdatePuzzleMutation()
+
+  // Local state for editing
   const [title, setTitle] = useState('')
   const [grid, setGrid] = useState<CellType[][]>([])
   const [cluesJson, setCluesJson] = useState('')
   const [answersJson, setAnswersJson] = useState('')
-  const [saving, setSaving] = useState(false)
+  // saving state is now isSaving from hook
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [isJsonValid, setIsJsonValid] = useState(true)
   const [replaceGridInput, setReplaceGridInput] = useState('')
@@ -60,42 +63,27 @@ export function EditPuzzle() {
     setGrid(candidate)
   }
 
+  // Sync query data to local state
   useEffect(() => {
-    if (!puzzleId) return
+    if (puzzle) {
+      setTitle(puzzle.title)
+      const parsedGrid = puzzle.grid
+        .split('\n')
+        .map((row: string) => row.trim().split(' ') as CellType[])
+      setGrid(parsedGrid)
+      prevGridStringRef.current = puzzle.grid
 
-    const fetchPuzzle = async () => {
-      setLoading(true)
-      try {
-        const response = await axios.get(`/api/puzzles/${puzzleId}`)
-        const { title, grid: gridString, clues, answers } = response.data
-        setTitle(title)
+      if (puzzle.clues) {
+        setCluesJson(JSON.stringify(puzzle.clues, null, 2))
+      } else {
+        setCluesJson(JSON.stringify({ across: [], down: [] }, null, 2))
+      }
 
-        const parsedGrid = gridString
-          .split('\n')
-          .map((row: string) => row.trim().split(' ') as CellType[])
-        setGrid(parsedGrid)
-        prevGridStringRef.current = gridString
-
-        // Initialize clues JSON
-        if (clues) {
-          setCluesJson(JSON.stringify(clues, null, 2))
-        } else {
-          setCluesJson(JSON.stringify({ across: [], down: [] }, null, 2))
-        }
-
-        if (answers) {
-          setAnswersJson(JSON.stringify(answers, null, 2))
-        }
-      } catch (error) {
-        console.error('Failed to fetch puzzle:', error)
-        alert('Failed to load puzzle.')
-      } finally {
-        setLoading(false)
+      if (puzzle.answers) {
+        setAnswersJson(JSON.stringify(puzzle.answers, null, 2))
       }
     }
-
-    fetchPuzzle()
-  }, [puzzleId])
+  }, [puzzle])
 
   // Validate clues when grid or json changes
   useEffect(() => {
@@ -124,7 +112,7 @@ export function EditPuzzle() {
       }
     }
 
-    setSaving(true)
+    // setSaving(true) handled by hook
     try {
       const outputString = grid.map((row) => row.join(' ')).join('\n')
       // cluesJson is already a string, but we want to send it as an object
@@ -136,23 +124,24 @@ export function EditPuzzle() {
           answersObj = JSON.parse(answersJson)
         } catch (e) {
           if (!confirm('Answers JSON is invalid. Save without updating answers?')) {
-            setSaving(false)
             return
           }
         }
       }
 
-      await axios.put(`/api/puzzles/${puzzleId}`, {
-        grid: outputString,
-        clues: cluesObj,
-        answers: answersObj,
-      })
+      await updatePuzzle({
+        id: puzzleId,
+        data: {
+          grid: outputString,
+          clues: cluesObj,
+          answers: answersObj,
+        },
+      }).unwrap()
+
       alert('Puzzle saved successfully!')
     } catch (error) {
       console.error('Failed to save puzzle:', error)
       alert('Failed to save puzzle.')
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -187,7 +176,7 @@ export function EditPuzzle() {
       </div>
     )
 
-  if (!grid.length)
+  if (error)
     return (
       <div className="max-w-md mx-auto mt-12 p-8 bg-error/10 border border-error/20 rounded-2xl text-error text-center font-medium">
         Failed to load puzzle.
@@ -214,10 +203,10 @@ export function EditPuzzle() {
           </Link>
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={isSaving}
             className="px-6 py-2.5 rounded-xl bg-primary text-white font-bold shadow-md hover:bg-primary-hover hover:shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed border-none cursor-pointer"
           >
-            {saving ? 'Saving...' : 'Save Changes'}
+            {isSaving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </header>
@@ -261,7 +250,7 @@ export function EditPuzzle() {
               )}
             </div>
 
-            <EditOutput outputString={outputString} onSave={handleSave} saving={saving} />
+            <EditOutput outputString={outputString} onSave={handleSave} saving={isSaving} />
           </div>
         </div>
 

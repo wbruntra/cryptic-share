@@ -1,46 +1,16 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import axios from 'axios'
-
-interface Session {
-  session_id: string
-  user_id: number | null
-  anonymous_id: string | null
-  puzzle_id: number
-  username: string | null
-  puzzle_title: string
-  filled_letters: number
-  created_at: string
-}
+import { useGetSessionsQuery, useDeleteSessionMutation } from '../store/api/adminApi'
 
 export function SessionListPage() {
-  const [sessions, setSessions] = useState<Session[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: sessions = [], isLoading, refetch } = useGetSessionsQuery()
+  const [deleteSession] = useDeleteSessionMutation()
   const [userFilter, setUserFilter] = useState<string>('all')
 
-  const fetchSessions = useCallback(() => {
-    setLoading(true)
-    axios
-      .get('/api/admin/sessions')
-      .then((res) => setSessions(res.data))
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
-
-  useEffect(() => {
-    fetchSessions()
-  }, [fetchSessions])
-
-  const handleDeleteSession = async (sessionId: string) => {
+  const handleDeleteSession = (sessionId: string) => {
     if (!confirm('Are you sure you want to delete this session? This action cannot be undone.'))
       return
-    try {
-      await axios.delete(`/api/admin/sessions/${sessionId}`)
-      fetchSessions()
-    } catch (error) {
-      console.error('Failed to delete session:', error)
-      alert('Failed to delete session.')
-    }
+    deleteSession(sessionId)
   }
 
   const formatTime = (isoString: string) => {
@@ -70,14 +40,14 @@ export function SessionListPage() {
           </p>
         </div>
         <div className="flex gap-4">
-           <Link
+          <Link
             to="/admin"
             className="px-6 py-3 rounded-xl bg-surface border-2 border-border text-text font-bold shadow-sm hover:border-primary hover:text-primary active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
           >
             Back to Dashboard
           </Link>
           <button
-            onClick={fetchSessions}
+            onClick={() => refetch()}
             className="px-6 py-3 rounded-xl bg-primary text-white font-bold shadow-md hover:bg-primary-hover active:scale-95 transition-all border-none cursor-pointer"
           >
             Refresh
@@ -87,33 +57,33 @@ export function SessionListPage() {
 
       <div className="mb-6 flex justify-end">
         <div className="w-full sm:w-auto">
-            <label className="block text-sm font-semibold mb-2 text-text-secondary">
-              Filter by User
-            </label>
-            <select
-              value={userFilter}
-              onChange={(e) => setUserFilter(e.target.value)}
-              className="w-full sm:w-64 px-4 py-2 rounded-lg bg-input-bg border border-border text-text focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
-            >
-              <option value="all">All Users ({sessions.length})</option>
-              <option value="registered">
-                Registered Users ({sessions.filter((s) => s.username).length})
-              </option>
-              <option value="anonymous">
-                Anonymous Users ({sessions.filter((s) => !s.username && s.anonymous_id).length})
-              </option>
-              {Array.from(new Set(sessions.filter((s) => s.username).map((s) => s.username))).map(
-                (username) => (
-                  <option key={username} value={`user:${username}`}>
-                    {username} ({sessions.filter((s) => s.username === username).length})
-                  </option>
-                ),
-              )}
-            </select>
-          </div>
+          <label className="block text-sm font-semibold mb-2 text-text-secondary">
+            Filter by User
+          </label>
+          <select
+            value={userFilter}
+            onChange={(e) => setUserFilter(e.target.value)}
+            className="w-full sm:w-64 px-4 py-2 rounded-lg bg-input-bg border border-border text-text focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+          >
+            <option value="all">All Users ({sessions.length})</option>
+            <option value="registered">
+              Registered Users ({sessions.filter((s) => s.username).length})
+            </option>
+            <option value="anonymous">
+              Anonymous Users ({sessions.filter((s) => !s.username && s.anonymous_id).length})
+            </option>
+            {Array.from(new Set(sessions.filter((s) => s.username).map((s) => s.username))).map(
+              (username) => (
+                <option key={username} value={`user:${username}`}>
+                  {username} ({sessions.filter((s) => s.username === username).length})
+                </option>
+              ),
+            )}
+          </select>
+        </div>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div className="flex items-center justify-center py-12 text-text-secondary gap-2">
           <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
           Loading sessions...
@@ -128,21 +98,23 @@ export function SessionListPage() {
                   <th className="px-6 py-4 text-left text-sm font-bold text-text">Session ID</th>
                   <th className="px-6 py-4 text-left text-sm font-bold text-text">User</th>
                   <th className="px-6 py-4 text-left text-sm font-bold text-text">Puzzle</th>
-                  <th className="px-6 py-4 text-center text-sm font-bold text-text">Filled Letters</th>
+                  <th className="px-6 py-4 text-center text-sm font-bold text-text">
+                    Filled Letters
+                  </th>
                   <th className="px-6 py-4 text-right text-sm font-bold text-text">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredSessions.map((session) => (
-                  <tr
-                    key={session.session_id}
-                    className="hover:bg-input-bg/30 transition-colors"
-                  >
-                     <td className="px-6 py-4 text-sm text-text-secondary whitespace-nowrap">
+                  <tr key={session.session_id} className="hover:bg-input-bg/30 transition-colors">
+                    <td className="px-6 py-4 text-sm text-text-secondary whitespace-nowrap">
                       {formatTime(session.created_at)}
                     </td>
                     <td className="px-6 py-4 text-sm font-mono text-text-secondary">
-                      <Link to={`/play/${session.session_id}`} className="hover:text-primary underline">
+                      <Link
+                        to={`/play/${session.session_id}`}
+                        className="hover:text-primary underline"
+                      >
                         {session.session_id}
                       </Link>
                     </td>
@@ -168,7 +140,7 @@ export function SessionListPage() {
                         <span className="text-text-secondary italic">Unknown</span>
                       )}
                     </td>
-                     <td className="px-6 py-4 text-sm text-text text-center font-mono">
+                    <td className="px-6 py-4 text-sm text-text text-center font-mono">
                       {session.filled_letters}
                     </td>
                     <td className="px-6 py-4 text-right">

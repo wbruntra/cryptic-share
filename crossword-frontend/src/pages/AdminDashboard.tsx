@@ -1,75 +1,48 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import axios from 'axios'
-import type { PuzzleSummary } from '../types'
 import { SkeletonPuzzleCard } from '../components/SkeletonLoader'
+import { useAppDispatch, useAppSelector } from '../store/hooks'
+import { checkAuth, login, clearError } from '../store/slices/adminSlice'
+import {
+  useGetPuzzlesQuery,
+  useDeletePuzzleMutation,
+  useRenamePuzzleMutation,
+} from '../store/api/adminApi'
 
 export function AdminDashboard() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const dispatch = useAppDispatch()
+  const { isAuthenticated, error } = useAppSelector((state) => state.admin)
+  const { data: puzzles = [], isLoading: isPuzzlesLoading } = useGetPuzzlesQuery(undefined, {
+    skip: !isAuthenticated,
+  })
+  const [deletePuzzle] = useDeletePuzzleMutation()
+  const [renamePuzzle] = useRenamePuzzleMutation()
+
   const [password, setPassword] = useState('')
-  const [loginError, setLoginError] = useState('')
-  const [puzzles, setPuzzles] = useState<PuzzleSummary[]>([])
-  const [loading, setLoading] = useState(false)
-
-  const fetchPuzzles = useCallback(() => {
-    setLoading(true)
-    axios
-      .get('/api/puzzles')
-      .then((res) => setPuzzles(res.data))
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
-
-  const checkAuth = useCallback(async () => {
-    try {
-      await axios.get('/api/check-auth')
-      setIsAuthenticated(true)
-      fetchPuzzles()
-    } catch {
-      setIsAuthenticated(false)
-    }
-  }, [fetchPuzzles])
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    checkAuth()
-  }, [checkAuth])
+    dispatch(clearError())
+    if (isAuthenticated === null) {
+      dispatch(checkAuth())
+    }
+  }, [dispatch, isAuthenticated])
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = (id: number) => {
     if (!confirm('Are you sure you want to delete this puzzle? This action cannot be undone.'))
       return
-    try {
-      await axios.delete(`/api/puzzles/${id}`)
-      fetchPuzzles()
-    } catch (error) {
-      console.error('Failed to delete puzzle:', error)
-      alert('Failed to delete puzzle.')
-    }
+    deletePuzzle(id)
   }
 
-  const handleRename = async (id: number, currentTitle: string) => {
+  const handleRename = (id: number, currentTitle: string) => {
     const newTitle = prompt('Enter new title:', currentTitle)
     if (!newTitle || newTitle === currentTitle) return
 
-    try {
-      await axios.put(`/api/puzzles/${id}`, { title: newTitle })
-      fetchPuzzles()
-    } catch (error) {
-      console.error('Failed to rename puzzle:', error)
-      alert('Failed to rename puzzle.')
-    }
+    renamePuzzle({ id, title: newTitle })
   }
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
-    setLoginError('')
-    try {
-      await axios.post('/api/login', { password })
-      setIsAuthenticated(true)
-      fetchPuzzles()
-    } catch {
-      setLoginError('Invalid password')
-    }
+    dispatch(login(password))
   }
 
   if (isAuthenticated === null)
@@ -100,9 +73,9 @@ export function AdminDashboard() {
                 className="w-full px-4 py-3 rounded-xl bg-input-bg border border-border text-text focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
               />
             </div>
-            {loginError && (
+            {error && (
               <div className="p-3 bg-error/10 border border-error/20 rounded-lg text-error text-sm text-center font-medium">
-                {loginError}
+                {error}
               </div>
             )}
             <button
@@ -131,7 +104,7 @@ export function AdminDashboard() {
           >
             Manage Reports
           </Link>
-           <Link
+          <Link
             to="/admin/sessions"
             className="flex-1 sm:flex-none px-6 py-3 rounded-xl bg-surface border-2 border-primary text-primary font-bold shadow-sm hover:bg-primary/5 hover:shadow-md active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
           >
@@ -150,7 +123,7 @@ export function AdminDashboard() {
         <h2 className="text-2xl font-bold mb-6 text-text border-l-4 border-primary pl-4">
           Manage Puzzles
         </h2>
-        {loading ? (
+        {isPuzzlesLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {[1, 2, 3, 4].map((i) => (
               <SkeletonPuzzleCard key={i} />
