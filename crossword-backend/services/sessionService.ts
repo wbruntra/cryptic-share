@@ -92,14 +92,22 @@ export class SessionService {
           }
 
           // Update user session with merged state
+          const filledCount = countFilledLetters(mergedState)
+          
+          // Get puzzle's letter_count for completion check
+          const puzzle = await db('puzzles')
+            .where({ id: anonymousSession.puzzle_id })
+            .select('letter_count')
+            .first()
+            
+          const isComplete = puzzle?.letter_count != null && filledCount >= puzzle.letter_count
+
           await db('puzzle_sessions')
             .where({ session_id: userSession.session_id })
             .update({
               state: JSON.stringify(mergedState),
               updated_at: now,
-              // We could also update is_complete here but it requires checking letter counts again.
-              // For simplicity, let's assume if they are merging, they might trigger a save later or we verify next load.
-              // actually, let's trust the FE/save logic to eventually fix is_complete, or we could calculate it.
+              is_complete: isComplete
             })
 
           // Invalidate cache for user session if it exists so next load gets merged state
