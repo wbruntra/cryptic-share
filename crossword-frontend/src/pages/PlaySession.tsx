@@ -34,8 +34,10 @@ export function PlaySession() {
 
   // Socket
   const { socket } = useSocket()
-  // const socketRef = useRef<Socket | null>(null) // No longer needed
-  // const [socket, setSocket] = useState<Socket | null>(null) // No longer needed
+
+  // Local edit timestamps for optimistic locking/grace period
+  const localEditTimestamps = useRef<Map<string, number>>(new Map())
+  const GRACE_PERIOD_MS = 2000
 
   // Grid structure (static)
   const [grid, setGrid] = useState<CellType[][]>([])
@@ -185,25 +187,46 @@ export function PlaySession() {
       setAnswers(newState)
     }
 
-    const handleCellUpdated = ({ r, c, value }: { r: number; c: number; value: string }) => {
-        setAnswers((prev) => {
-          const newAnswers = [...prev]
-          if (newAnswers[r]) {
-            // String manipulation
-            const row = newAnswers[r]
-            newAnswers[r] = row.substring(0, c) + (value || ' ') + row.substring(c + 1)
-          }
-          return newAnswers
-        })
+    const handleCellUpdated = ({
+      r,
+      c,
+      value,
+      senderId,
+    }: {
+      r: number
+      c: number
+      value: string
+      senderId?: string
+    }) => {
+      // Ignore own updates if senderId matches our socket ID
+      if (socket && senderId === socket.id) return
 
-        // Track changes from collaborators
-        setChangedCells((prev) => {
-          const newSet = new Set(prev)
-          newSet.add(`${r}-${c}`)
-          return newSet
-        })
-        setShowChangeNotification(true)
+      // Check grace period for this cell to avoid overwriting recent local edits
+      const cellKey = `${r}-${c}`
+      const lastEdit = localEditTimestamps.current.get(cellKey)
+      if (lastEdit && Date.now() - lastEdit < GRACE_PERIOD_MS) {
+        console.log('[PlaySession] Ignoring cell_updated during grace period:', cellKey)
+        return
       }
+
+      setAnswers((prev) => {
+        const newAnswers = [...prev]
+        if (newAnswers[r]) {
+          // String manipulation
+          const row = newAnswers[r]
+          newAnswers[r] = row.substring(0, c) + (value || ' ') + row.substring(c + 1)
+        }
+        return newAnswers
+      })
+
+      // Track changes from collaborators
+      setChangedCells((prev) => {
+        const newSet = new Set(prev)
+        newSet.add(`${r}-${c}`)
+        return newSet
+      })
+      setShowChangeNotification(true)
+    }
 
     socket.on('puzzle_updated', handlePuzzleUpdated)
     socket.on('cell_updated', handleCellUpdated)
@@ -328,10 +351,14 @@ export function PlaySession() {
   }, [sessionId])
 
   useEffect(() => {
+    // Only poll if socket is NOT connected or we have no socket
+    // This prevents polling from overwriting real-time state when connection is healthy
+    if (socket?.connected) return
+
     // Poll every 90 seconds
     const intervalId = setInterval(syncSession, 90000)
     return () => clearInterval(intervalId)
-  }, [syncSession])
+  }, [syncSession, socket?.connected])
 
   // --- Helpers ---
   const isPlayable = (r: number, c: number) => {
@@ -452,6 +479,7 @@ export function PlaySession() {
         const row = newAnswers[r] || ' '
         newAnswers[r] = row.substring(0, c) + char + row.substring(c + 1)
         setAnswers(newAnswers)
+        localEditTimestamps.current.set(`${r}-${c}`, Date.now())
         updateLocalState(newAnswers)
 
         // Emit granular update
@@ -473,6 +501,7 @@ export function PlaySession() {
         const row = newAnswers[r] || ' '
         newAnswers[r] = row.substring(0, c) + ' ' + row.substring(c + 1)
         setAnswers(newAnswers)
+        localEditTimestamps.current.set(`${r}-${c}`, Date.now())
         updateLocalState(newAnswers)
 
         // Emit granular update
@@ -517,6 +546,7 @@ export function PlaySession() {
     const row = newAnswers[r] || ' '
     newAnswers[r] = row.substring(0, c) + key + row.substring(c + 1)
     setAnswers(newAnswers)
+    localEditTimestamps.current.set(`${r}-${c}`, Date.now())
     updateLocalState(newAnswers)
 
     // Emit granular update
@@ -535,6 +565,7 @@ export function PlaySession() {
     const row = newAnswers[r] || ' '
     newAnswers[r] = row.substring(0, c) + ' ' + row.substring(c + 1)
     setAnswers(newAnswers)
+    localEditTimestamps.current.set(`${r}-${c}`, Date.now())
     updateLocalState(newAnswers)
 
     // Emit granular update
@@ -730,15 +761,18 @@ export function PlaySession() {
     }
   }, [cursor, currentClueNumber, sessionId])
 
-  const handleReportExplanation = useCallback(async (feedback?: string) => {
-    if (!cursor || !currentClueNumber) throw new Error('No active clue')
+  const handleReportExplanation = useCallback(
+    async (feedback?: string) => {
+      if (!cursor || !currentClueNumber) throw new Error('No active clue')
 
-    await axios.post(`/api/sessions/${sessionId}/report-explanation`, {
-      clueNumber: currentClueNumber,
-      direction: cursor.direction,
-      feedback: feedback || undefined,
-    })
-  }, [cursor, currentClueNumber, sessionId])
+      await axios.post(`/api/sessions/${sessionId}/report-explanation`, {
+        clueNumber: currentClueNumber,
+        direction: cursor.direction,
+        feedback: feedback || undefined,
+      })
+    },
+    [cursor, currentClueNumber, sessionId],
+  )
 
   useEffect(() => {
     setIsClueBarHidden(false)
