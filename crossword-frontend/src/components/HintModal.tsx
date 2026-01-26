@@ -2,21 +2,24 @@ import { useState, useEffect, useRef } from 'react'
 import { Socket } from 'socket.io-client'
 import { Modal } from './Modal'
 import { ClueExplanationDisplay, type ClueExplanation } from './ClueExplanationDisplay'
+import {
+  useGetCachedExplanationQuery,
+  useRequestExplanationMutation,
+  useReportExplanationMutation,
+} from '../store/api/sessionApi'
+import { useAppDispatch, useAppSelector } from '../store/hooks'
+import { addPendingExplanation, removePendingExplanation } from '../store/slices/sessionSlice'
 
 interface HintModalProps {
   isOpen: boolean
   onClose: () => void
+  sessionId: string
   wordLength: number
   clue: string
   clueNumber: number | null
   direction: 'across' | 'down' | undefined
   currentWordState: string[] // The characters currently in the grid for this word
   onFetchAnswer: () => Promise<string>
-  onFetchExplanation?: () => Promise<
-    ClueExplanation | { processing: true; requestId: string; message: string }
-  >
-  onFetchCachedExplanation?: () => Promise<ClueExplanation | null>
-  onReportExplanation?: (feedback?: string) => Promise<void>
   timerDisplay?: string
   socket?: Socket | null
 }
@@ -26,18 +29,17 @@ type TabType = 'letters' | 'explain'
 export function HintModal({
   isOpen,
   onClose,
+  sessionId,
   wordLength,
   clue,
   clueNumber,
   direction,
   currentWordState,
   onFetchAnswer,
-  onFetchExplanation,
-  onFetchCachedExplanation,
-  onReportExplanation,
   timerDisplay,
   socket,
 }: HintModalProps) {
+  const dispatch = useAppDispatch()
   const [activeTab, setActiveTab] = useState<TabType>('letters')
 
   // Letters tab state
@@ -46,47 +48,100 @@ export function HintModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Explain tab state
+  // RTK Query hooks for explanations
+  const shouldFetchCached =
+    isOpen && activeTab === 'explain' && clueNumber !== null && direction !== undefined
+  const {
+    data: cachedExplanation,
+    isLoading: isCachedLoading,
+    isFetching: isCachedFetching,
+  } = useGetCachedExplanationQuery(
+    {
+      sessionId,
+      clueNumber: clueNumber!,
+      direction: direction!,
+    },
+    {
+      skip: !shouldFetchCached,
+    }
+  )
+
+  const [requestExplanation, { isLoading: isRequestLoading }] = useRequestExplanationMutation()
+  const [reportExplanation, { isLoading: isReportLoading }] = useReportExplanationMutation()
+
+  // Local state for explanation UI
   const [explanation, setExplanation] = useState<ClueExplanation | null>(null)
-  const [explanationLoading, setExplanationLoading] = useState(false)
   const [explanationError, setExplanationError] = useState<string | null>(null)
-  const [requestId, setRequestId] = useState<string | null>(null)
   const [processingMessage, setProcessingMessage] = useState<string>('')
-  const [reportLoading, setReportLoading] = useState(false)
   const [hasReported, setHasReported] = useState(false)
 
-  // Use a ref to track the current requestId for the socket listener
-  // This avoids race conditions where the listener closure has a stale requestId
-  const requestIdRef = useRef<string | null>(null)
+  // Track pending async explanations
+  const pendingExplanations = useAppSelector((state) => state.session.pendingExplanations)
+  const currentPendingKey =
+    clueNumber !== null && direction ? `${clueNumber}-${direction}` : null
+  const pendingExplanation = currentPendingKey ? pendingExplanations[currentPendingKey] : null
 
-  // Keep ref in sync with state
+  // Use a ref to track the current clue for the socket listener
+  const currentClueRef = useRef<{ clueNumber: number; direction: 'across' | 'down' } | null>(null)
+
+  // Keep ref in sync
   useEffect(() => {
-    requestIdRef.current = requestId
-  }, [requestId])
+    if (clueNumber !== null && direction) {
+      currentClueRef.current = { clueNumber, direction }
+    }
+  }, [clueNumber, direction])
+
+  // Update explanation when cached data is available
+  useEffect(() => {
+    if (cachedExplanation) {
+      setExplanation(cachedExplanation)
+      setExplanationError(null)
+    }
+  }, [cachedExplanation])
+
+  // Update processing message from pending state
+  useEffect(() => {
+    if (pendingExplanation) {
+      setProcessingMessage(pendingExplanation.message)
+    }
+  }, [pendingExplanation])
 
   // Listen for socket events for async explanation
-  // Set up listener once when socket is available, not dependent on requestId
   useEffect(() => {
     if (!socket) return
 
-    const handleExplanationReady = (data: any) => {
+    const handleExplanationReady = (data: {
+      requestId: string
+      clueNumber: number
+      direction: 'across' | 'down'
+      success: boolean
+      explanation?: ClueExplanation
+      error?: string
+    }) => {
       console.log('[HintModal] Received explanation_ready event:', data)
-      console.log('[HintModal] Current requestIdRef:', requestIdRef.current)
 
-      // Check if this explanation is for our current request using the ref
-      if (data.requestId === requestIdRef.current) {
-        console.log('[HintModal] RequestId matches! Processing...')
+      // Check if this is for our current clue
+      if (
+        currentClueRef.current &&
+        data.clueNumber === currentClueRef.current.clueNumber &&
+        data.direction === currentClueRef.current.direction
+      ) {
+        console.log('[HintModal] Event matches current clue')
+
+        // Remove from pending
+        dispatch(
+          removePendingExplanation({
+            clueNumber: data.clueNumber,
+            direction: data.direction,
+          })
+        )
+
         if (data.success && data.explanation) {
           setExplanation(data.explanation)
-          setExplanationLoading(false)
-          setRequestId(null)
+          setExplanationError(null)
         } else {
           setExplanationError(data.error || 'Failed to generate explanation')
-          setExplanationLoading(false)
-          setRequestId(null)
         }
-      } else {
-        console.log('[HintModal] RequestId mismatch, ignoring event')
       }
     }
 
@@ -97,7 +152,7 @@ export function HintModal({
       console.log('[HintModal] Removing explanation_ready listener')
       socket.off('explanation_ready', handleExplanationReady)
     }
-  }, [socket]) // Only depend on socket, not requestId
+  }, [socket, dispatch])
 
   // Reset state when modal opens
   useEffect(() => {
@@ -110,10 +165,8 @@ export function HintModal({
 
       // Reset explanation state
       setExplanation(null)
-      setExplanationLoading(false)
       setExplanationError(null)
-      setRequestId(null)
-      setReportLoading(false)
+      setProcessingMessage('')
       setHasReported(false)
 
       onFetchAnswer()
@@ -128,26 +181,6 @@ export function HintModal({
         })
     }
   }, [isOpen, currentWordState, onFetchAnswer])
-
-  // Auto-fetch cached explanation when explain tab is opened
-  useEffect(() => {
-    if (activeTab === 'explain' && !explanation && !explanationLoading && onFetchCachedExplanation) {
-      setExplanationLoading(true)
-      onFetchCachedExplanation()
-        .then((cached) => {
-          if (cached) {
-            setExplanation(cached)
-          }
-        })
-        .catch((error: unknown) => {
-          console.log('[HintModal] No cached explanation available:', error)
-          // Silently fail - user can still manually request
-        })
-        .finally(() => {
-          setExplanationLoading(false)
-        })
-    }
-  }, [activeTab, explanation, explanationLoading, onFetchCachedExplanation])
 
   const handleLetterHint = (index: number) => {
     if (!fullAnswer) return
@@ -164,55 +197,60 @@ export function HintModal({
   }
 
   const handleFetchExplanation = async () => {
-    if (!onFetchExplanation || explanation) return
+    if (!clueNumber || !direction || explanation) return
 
-    setExplanationLoading(true)
     setExplanationError(null)
     setProcessingMessage('Requesting explanation...')
 
     try {
-      const result = await onFetchExplanation()
-      console.log('[HintModal] Fetch explanation result:', result)
+      const result = await requestExplanation({
+        sessionId,
+        clueNumber,
+        direction,
+      }).unwrap()
+
+      console.log('[HintModal] Request explanation result:', result)
 
       // Check if it's a processing response (202 Accepted)
       if ('processing' in result && result.processing) {
         console.log('[HintModal] Got processing response, requestId:', result.requestId)
-        setRequestId(result.requestId)
+        dispatch(
+          addPendingExplanation({
+            requestId: result.requestId,
+            clueNumber,
+            direction,
+            message: result.message || 'AI is thinking...',
+          })
+        )
         setProcessingMessage(result.message || 'AI is thinking...')
-        // Keep loading true, waiting for socket
       } else {
         // Immediate result (cached)
         setExplanation(result as ClueExplanation)
-        setExplanationLoading(false)
       }
-    } catch (error: unknown) {
+    } catch (error: any) {
       // Check if it's a 401 authentication error
-      if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as { response?: { status?: number } }
-        if (axiosError.response?.status === 401) {
-          setExplanationError('You must be registered and signed in to request new explanations.')
-        } else {
-          setExplanationError('Failed to load explanation. Please try again.')
-        }
+      if (error?.status === 401) {
+        setExplanationError('You must be registered and signed in to request new explanations.')
       } else {
         setExplanationError('Failed to load explanation. Please try again.')
       }
-      setExplanationLoading(false)
     }
   }
 
   const handleReport = async (feedback?: string) => {
-    if (!onReportExplanation || reportLoading || hasReported) return
+    if (!clueNumber || !direction || hasReported) return
 
-    setReportLoading(true)
     try {
-      await onReportExplanation(feedback)
+      await reportExplanation({
+        sessionId,
+        clueNumber,
+        direction,
+        feedback,
+      }).unwrap()
       setHasReported(true)
     } catch (error) {
       console.error('[HintModal] Error reporting explanation:', error)
       alert('Failed to submit report. Please try again.')
-    } finally {
-      setReportLoading(false)
     }
   }
 
@@ -248,18 +286,16 @@ export function HintModal({
           >
             🔤 Letters
           </button>
-          {onFetchExplanation && (
-            <button
-              onClick={() => setActiveTab('explain')}
-              className={`px-4 py-2 rounded-t-lg font-medium transition-colors ${
-                activeTab === 'explain'
-                  ? 'bg-primary/10 text-primary border-b-2 border-primary'
-                  : 'text-text-secondary hover:text-text hover:bg-surface'
-              }`}
-            >
-              📖 Explain
-            </button>
-          )}
+          <button
+            onClick={() => setActiveTab('explain')}
+            className={`px-4 py-2 rounded-t-lg font-medium transition-colors ${
+              activeTab === 'explain'
+                ? 'bg-primary/10 text-primary border-b-2 border-primary'
+                : 'text-text-secondary hover:text-text hover:bg-surface'
+            }`}
+          >
+            📖 Explain
+          </button>
         </div>
 
         {/* Tab Content */}
@@ -312,22 +348,26 @@ export function HintModal({
         {activeTab === 'explain' && (
           <div className="flex flex-col gap-3">
             {/* Request Explanation Button */}
-            {!explanation && !explanationLoading && (
-              <div className="text-center py-4">
-                <button
-                  onClick={handleFetchExplanation}
-                  className="px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-colors"
-                >
-                  🧠 Get AI Explanation
-                </button>
-                <p className="text-xs text-text-secondary mt-2">
-                  Uses AI to explain the wordplay. May take 20-30 seconds.
-                </p>
-              </div>
-            )}
+            {!explanation &&
+              !isCachedLoading &&
+              !isRequestLoading &&
+              !pendingExplanation &&
+              !isCachedFetching && (
+                <div className="text-center py-4">
+                  <button
+                    onClick={handleFetchExplanation}
+                    className="px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-colors"
+                  >
+                    🧠 Get AI Explanation
+                  </button>
+                  <p className="text-xs text-text-secondary mt-2">
+                    Uses AI to explain the wordplay. May take 20-30 seconds.
+                  </p>
+                </div>
+              )}
 
             {/* Loading State */}
-            {explanationLoading && (
+            {(isCachedLoading || isRequestLoading || pendingExplanation) && (
               <div className="text-center py-8">
                 <div className="w-12 h-12 mx-auto border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4" />
                 <p className="text-text-secondary font-medium">
@@ -354,8 +394,8 @@ export function HintModal({
             {explanation && (
               <ClueExplanationDisplay
                 explanation={explanation}
-                onReport={onReportExplanation ? handleReport : undefined}
-                reportLoading={reportLoading}
+                onReport={handleReport}
+                reportLoading={isReportLoading}
                 hasReported={hasReported}
               />
             )}

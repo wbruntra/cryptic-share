@@ -19,7 +19,6 @@ import { Modal } from '../components/Modal'
 import { HintModal } from '../components/HintModal'
 import { usePuzzleTimer } from '../hooks/usePuzzleTimer'
 import { useSocket } from '../context/SocketContext'
-import type { ClueExplanation } from '../components/ClueExplanationDisplay'
 
 interface SessionData extends PuzzleData {
   sessionState: string[] // Array of rows (strings)
@@ -669,76 +668,7 @@ export function PlaySession() {
     }
   }, [cursor, currentClueNumber, sessionId])
 
-  const handleFetchExplanation = useCallback(async () => {
-    if (!cursor || !currentClueNumber) throw new Error('No active clue')
-
-    const response = await axios.post<{
-      success: boolean
-      explanation?: any
-      cached?: boolean
-      processing?: boolean
-      requestId?: string
-      message?: string
-    }>(`/api/sessions/${sessionId}/explain`, {
-      clueNumber: currentClueNumber,
-      direction: cursor.direction,
-    })
-
-    if (response.data.success) {
-      // Return the whole object if processing, or explanation if done
-      if (response.data.processing) {
-        return {
-          processing: true,
-          requestId: response.data.requestId,
-          message: response.data.message,
-        }
-      }
-      return response.data.explanation
-    } else {
-      throw new Error('Explanation request failed')
-    }
-  }, [cursor, currentClueNumber, sessionId])
-
-  const handleFetchCachedExplanation = useCallback(async () => {
-    if (!cursor || !currentClueNumber) throw new Error('No active clue')
-
-    try {
-      const response = await axios.post<{
-        success: boolean
-        explanation?: ClueExplanation
-        cached?: boolean
-        message?: string
-      }>(`/api/sessions/${sessionId}/explain`, {
-        clueNumber: currentClueNumber,
-        direction: cursor.direction,
-        cachedOnly: true,
-      })
-
-      if (response.data.success && response.data.explanation) {
-        return response.data.explanation
-      }
-      return null
-    } catch (error: unknown) {
-      // 404 means not cached, which is fine
-      if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as { response?: { status?: number } }
-        if (axiosError.response?.status === 404) {
-          return null
-        }
-      }
-      throw error
-    }
-  }, [cursor, currentClueNumber, sessionId])
-
-  const handleReportExplanation = useCallback(async (feedback?: string) => {
-    if (!cursor || !currentClueNumber) throw new Error('No active clue')
-
-    await axios.post(`/api/sessions/${sessionId}/report-explanation`, {
-      clueNumber: currentClueNumber,
-      direction: cursor.direction,
-      feedback: feedback || undefined,
-    })
-  }, [cursor, currentClueNumber, sessionId])
+  // Explanation handlers are now managed by Redux in HintModal
 
   useEffect(() => {
     setIsClueBarHidden(false)
@@ -930,19 +860,17 @@ export function PlaySession() {
           onDelete={handleVirtualDelete}
         />
 
-        {currentClue && (
+        {currentClue && sessionId && (
           <HintModal
             isOpen={isHintModalOpen}
             onClose={() => setIsHintModalOpen(false)}
+            sessionId={sessionId}
             wordLength={currentWordState.length}
             clue={currentClue.clue}
             clueNumber={currentClue.number}
             direction={cursor?.direction}
             currentWordState={currentWordState}
             onFetchAnswer={handleFetchHintAnswer}
-            onFetchExplanation={handleFetchExplanation}
-            onFetchCachedExplanation={handleFetchCachedExplanation}
-            onReportExplanation={handleReportExplanation}
             timerDisplay={formattedTime}
             socket={socket}
           />
@@ -1099,19 +1027,17 @@ export function PlaySession() {
         </div>
       </Modal>
 
-      {currentClue && (
+      {currentClue && sessionId && (
         <HintModal
           isOpen={isHintModalOpen}
           onClose={() => setIsHintModalOpen(false)}
+          sessionId={sessionId}
           wordLength={currentWordState.length}
           clue={currentClue.clue}
           clueNumber={currentClue.number}
           direction={cursor?.direction}
           currentWordState={currentWordState}
           onFetchAnswer={handleFetchHintAnswer}
-          onFetchExplanation={handleFetchExplanation}
-          onFetchCachedExplanation={handleFetchCachedExplanation}
-          onReportExplanation={handleReportExplanation}
           timerDisplay={formattedTime}
           socket={socket}
         />
