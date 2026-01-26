@@ -98,7 +98,7 @@ io.on('connection', (socket) => {
 
   socket.on('update_cell', async ({ sessionId, r, c, value }) => {
     // Broadcast to others immediately
-    socket.to(sessionId).emit('cell_updated', { r, c, value })
+    socket.to(sessionId).emit('cell_updated', { r, c, value, senderId: socket.id })
 
     try {
       // Use Service to update cache and schedule DB save
@@ -108,9 +108,8 @@ io.on('connection', (socket) => {
       const session = await SessionService.getSessionWithPuzzle(sessionId)
       if (session) {
         // Get all socket IDs currently connected to this session
-        const connectedSessionSockets = connectedSockets.get(sessionId) || new Set()
-
-        console.log(`[Push] Checking push for session ${sessionId}`)
+        // const connectedSessionSockets = connectedSockets.get(sessionId) || new Set()
+        // console.log(`[Push] Checking push for session ${sessionId}`)
         // await PushService.notifySessionParticipants(sessionId, session.title)
       }
     } catch (error) {
