@@ -12,6 +12,16 @@ export interface Clue {
   clue: string
 }
 
+export interface AnswerEntry {
+  number: number
+  answer: string
+}
+
+export interface PuzzleAnswers {
+  across: AnswerEntry[]
+  down: AnswerEntry[]
+}
+
 export interface PuzzleData {
   id: number
   title: string

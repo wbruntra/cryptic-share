@@ -380,6 +380,16 @@ export class SessionService {
 
     puzzle.clues = JSON.parse(puzzle.clues)
 
+    // Parse encrypted answers for frontend answer checking
+    let answersEncrypted = null
+    if (puzzle.answers_encrypted) {
+      try {
+        answersEncrypted = JSON.parse(puzzle.answers_encrypted)
+      } catch (e) {
+        console.error('Failed to parse answers_encrypted', e)
+      }
+    }
+
     // Use cached state if available (it might be newer than DB)
     const cached = this.cache.get(sessionId)
     let sessionState
@@ -396,6 +406,7 @@ export class SessionService {
     return {
       ...puzzle,
       sessionState,
+      answersEncrypted,
     }
   }
 

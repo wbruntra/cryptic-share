@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
-import { io, Socket } from 'socket.io-client'
-import type { CellType, Direction, Clue, PuzzleData } from '../types'
+import type { CellType, Direction, Clue, PuzzleData, PuzzleAnswers } from '../types'
 import { ClueList } from '../ClueList'
 import { CrosswordGrid } from '../CrosswordGrid'
 import { saveLocalSession, getLocalSessionById } from '../utils/sessionManager'
@@ -19,9 +18,11 @@ import { Modal } from '../components/Modal'
 import { HintModal } from '../components/HintModal'
 import { usePuzzleTimer } from '../hooks/usePuzzleTimer'
 import { useSocket } from '../context/SocketContext'
+import { checkSessionAnswers } from '../utils/answerChecker'
 
 interface SessionData extends PuzzleData {
   sessionState: string[] // Array of rows (strings)
+  answersEncrypted?: PuzzleAnswers
 }
 
 export function PlaySession() {
@@ -44,6 +45,9 @@ export function PlaySession() {
 
   // User answers (dynamic)
   const [answers, setAnswers] = useState<string[]>([])
+
+  // Encrypted answers for local checking
+  const [answersEncrypted, setAnswersEncrypted] = useState<PuzzleAnswers | null>(null)
 
   // Cursor
   const [cursor, setCursor] = useState<{ r: number; c: number; direction: Direction } | null>(null)
@@ -114,35 +118,34 @@ export function PlaySession() {
     }
   }
 
-  const handleCheckAnswers = async () => {
+  const handleCheckAnswers = useCallback(() => {
+    if (!answersEncrypted || grid.length === 0) {
+      console.warn('Cannot check answers: answers not loaded or grid empty')
+      return
+    }
+
     setChecking(true)
     try {
       // Clear previous errors first
       setErrorCells(new Set())
 
-      const response = await axios.post<{
-        success: boolean
-        incorrectCount: number
-        errorCells: string[]
-        totalClues: number
-        checkedCount: number
-        totalLetters: number
-        filledLetters: number
-      }>(`/api/sessions/${sessionId}/check`)
+      // Perform local answer checking
+      const checkResult = checkSessionAnswers(grid, answers, answersEncrypted)
 
-      if (response.data.success) {
-        if (response.data.errorCells.length > 0) {
-          setErrorCells(new Set(response.data.errorCells))
-        } else if (response.data.incorrectCount === 0) {
-          // All checked answers are correct
-          if (response.data.filledLetters === response.data.totalLetters) {
-            // Puzzle is entirely filled and checked correct -> Success Modal
-            setShowSuccessModal(true)
-          } else {
-            // Partial success
-            alert(`Good job! All ${response.data.checkedCount} checked answers are correct.`)
-          }
+      if (checkResult.errorCells.length > 0) {
+        setErrorCells(new Set(checkResult.errorCells))
+      } else if (checkResult.results.length > 0) {
+        // All checked answers are correct
+        if (checkResult.filledLetters === checkResult.totalLetters) {
+          // Puzzle is entirely filled and checked correct -> Success Modal
+          setShowSuccessModal(true)
+        } else {
+          // Partial success
+          alert(`Good job! All ${checkResult.results.length} checked answers are correct.`)
         }
+      } else {
+        // No complete words to check yet
+        alert('No complete words to check yet. Fill in some answers first!')
       }
     } catch (error) {
       console.error('Error checking answers:', error)
@@ -150,7 +153,7 @@ export function PlaySession() {
     } finally {
       setChecking(false)
     }
-  }
+  }, [answersEncrypted, grid, answers])
 
   const clearErrors = () => setErrorCells(new Set())
 
@@ -234,10 +237,15 @@ export function PlaySession() {
       setLoading(true)
       try {
         const response = await axios.get<SessionData>(`/api/sessions/${sessionId}`)
-        const { title, grid: gridString, clues, sessionState, id: puzzleId } = response.data
+        const { title, grid: gridString, clues, sessionState, id: puzzleId, answersEncrypted } = response.data
 
         setTitle(title)
         setClues(clues)
+
+        // Store encrypted answers for local checking
+        if (answersEncrypted) {
+          setAnswersEncrypted(answersEncrypted)
+        }
 
         // Update local session timestamp
         // MOVED: logic to below to handle conditional lastKnownState update
