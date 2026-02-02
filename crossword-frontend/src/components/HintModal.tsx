@@ -63,7 +63,7 @@ export function HintModal({
     },
     {
       skip: !shouldFetchCached,
-    }
+    },
   )
 
   const [requestExplanation, { isLoading: isRequestLoading }] = useRequestExplanationMutation()
@@ -77,8 +77,7 @@ export function HintModal({
 
   // Track pending async explanations
   const pendingExplanations = useAppSelector((state) => state.session.pendingExplanations)
-  const currentPendingKey =
-    clueNumber !== null && direction ? `${clueNumber}-${direction}` : null
+  const currentPendingKey = clueNumber !== null && direction ? `${clueNumber}-${direction}` : null
   const pendingExplanation = currentPendingKey ? pendingExplanations[currentPendingKey] : null
 
   // Use a ref to track the current clue for the socket listener
@@ -118,22 +117,18 @@ export function HintModal({
       explanation?: ClueExplanation
       error?: string
     }) => {
-      console.log('[HintModal] Received explanation_ready event:', data)
-
       // Check if this is for our current clue
       if (
         currentClueRef.current &&
         data.clueNumber === currentClueRef.current.clueNumber &&
         data.direction === currentClueRef.current.direction
       ) {
-        console.log('[HintModal] Event matches current clue')
-
         // Remove from pending
         dispatch(
           removePendingExplanation({
             clueNumber: data.clueNumber,
             direction: data.direction,
-          })
+          }),
         )
 
         if (data.success && data.explanation) {
@@ -145,11 +140,9 @@ export function HintModal({
       }
     }
 
-    console.log('[HintModal] Setting up explanation_ready listener')
     socket.on('explanation_ready', handleExplanationReady)
 
     return () => {
-      console.log('[HintModal] Removing explanation_ready listener')
       socket.off('explanation_ready', handleExplanationReady)
     }
   }, [socket, dispatch])
@@ -209,18 +202,15 @@ export function HintModal({
         direction,
       }).unwrap()
 
-      console.log('[HintModal] Request explanation result:', result)
-
       // Check if it's a processing response (202 Accepted)
       if ('processing' in result && result.processing) {
-        console.log('[HintModal] Got processing response, requestId:', result.requestId)
         dispatch(
           addPendingExplanation({
             requestId: result.requestId,
             clueNumber,
             direction,
             message: result.message || 'AI is thinking...',
-          })
+          }),
         )
         setProcessingMessage(result.message || 'AI is thinking...')
       } else {

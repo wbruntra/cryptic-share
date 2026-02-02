@@ -105,6 +105,69 @@ function extractWord(
 }
 
 /**
+ * Check a single word given its clue number and direction
+ * Returns null if the word is incomplete or not found
+ */
+export function checkSingleWord(
+  grid: CellType[][],
+  sessionState: string[],
+  puzzleAnswers: PuzzleAnswers,
+  clueNumber: number,
+  direction: Direction
+): CheckResult | null {
+  // Find the starting position for this clue
+  const metadata = extractClueMetadata(grid)
+  const clueMeta = metadata.find((m) => m.number === clueNumber && m.direction === direction)
+
+  if (!clueMeta) {
+    return null
+  }
+
+  // Extract the user's answer for this word
+  const userAnswer = extractWord(grid, sessionState, clueMeta.row, clueMeta.col, direction)
+
+  // Determine all cell positions for this word
+  const cells: { r: number; c: number }[] = []
+  let r = clueMeta.row
+  let c = clueMeta.col
+  while (r < grid.length && c < grid[0].length && grid[r][c] !== 'B') {
+    cells.push({ r, c })
+    if (direction === 'across') c++
+    else r++
+  }
+
+  // Skip if incomplete (contains spaces or doesn't match expected length)
+  if (userAnswer.includes(' ') || userAnswer.length !== cells.length) {
+    return null
+  }
+
+  // Find correct answer
+  const list = puzzleAnswers[direction]
+  const answerEntry = list?.find((a) => a.number === clueNumber)
+
+  if (!answerEntry) {
+    return null
+  }
+
+  // Decrypt ROT13 and compare
+  const decrypted = rot13(answerEntry.answer).toUpperCase()
+  const userClean = userAnswer.toUpperCase()
+
+  // Normalize for comparison
+  const normalize = (s: string) => s.replace(/[^A-Z0-9]/g, '')
+  const isCorrect = normalize(userClean) === normalize(decrypted)
+
+  return {
+    number: clueNumber,
+    direction,
+    userAnswer: userClean,
+    correctAnswer: decrypted,
+    isCorrect,
+    cells,
+  }
+}
+
+/**
  * Check session answers against correct answers - performs all checking client-side
  */
 export function checkSessionAnswers(

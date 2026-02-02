@@ -6,6 +6,8 @@ interface CrosswordGridProps {
   onCellClick: (r: number, c: number) => void
   changedCells?: Set<string>
   errorCells?: Set<string>
+  correctFlashCells?: Set<string>
+  incorrectFlashCells?: Set<string>
 }
 
 export function CrosswordGrid({
@@ -14,6 +16,8 @@ export function CrosswordGrid({
   onCellClick,
   changedCells,
   errorCells,
+  correctFlashCells,
+  incorrectFlashCells,
 }: CrosswordGridProps) {
   return (
     <div className="flex justify-center max-w-full w-full overflow-hidden">
@@ -29,12 +33,18 @@ export function CrosswordGrid({
                 const isBlack = cell.type === 'B'
                 const isChanged = changedCells?.has(`${rIndex}-${cIndex}`)
                 const isError = errorCells?.has(`${rIndex}-${cIndex}`)
+                const isCorrectFlash = correctFlashCells?.has(`${rIndex}-${cIndex}`)
+                const isIncorrectFlash = incorrectFlashCells?.has(`${rIndex}-${cIndex}`)
                 let bgClass = 'bg-surface'
 
                 if (isBlack) {
                   bgClass = 'bg-black'
                 } else if (cell.isSelected) {
                   bgClass = 'bg-selection'
+                } else if (isCorrectFlash) {
+                  bgClass = 'bg-green-500 dark:bg-green-600' // Green flash for correct
+                } else if (isIncorrectFlash) {
+                  bgClass = 'bg-red-500 dark:bg-red-600' // Red flash for incorrect
                 } else if (isError) {
                   bgClass = 'bg-[#ffeb3b] dark:bg-[#fbc02d]' // Vivid yellow for error (adjust for dark mode)
                 } else if (isChanged) {
@@ -50,11 +60,12 @@ export function CrosswordGrid({
                         w-10 h-10 md:w-11 md:h-11 flex items-center justify-center relative select-none font-mono cursor-pointer transition-colors duration-100
                         ${bgClass}
                         ${cell.isSelected ? '!text-black z-10' : ''}
+                        ${!isBlack && !cell.isSelected && (isCorrectFlash || isIncorrectFlash) ? 'text-white font-bold' : ''}
                         ${
-                          !isBlack && !cell.isSelected && !isChanged && !isError ? 'text-text' : ''
+                          !isBlack && !cell.isSelected && !isChanged && !isError && !isCorrectFlash && !isIncorrectFlash ? 'text-text' : ''
                         }
-                        ${!isBlack && !cell.isSelected && isChanged ? 'text-text-changed' : ''}
-                        ${!isBlack && !cell.isSelected && isError ? 'text-black font-bold' : ''}
+                        ${!isBlack && !cell.isSelected && isChanged && !isCorrectFlash && !isIncorrectFlash ? 'text-text-changed' : ''}
+                        ${!isBlack && !cell.isSelected && isError && !isCorrectFlash && !isIncorrectFlash ? 'text-black font-bold' : ''}
                         ${
                           !isBlack && !cell.isSelected && !cell.isActiveWord
                             ? 'hover:bg-input-bg'

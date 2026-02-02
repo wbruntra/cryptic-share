@@ -14,11 +14,12 @@ import {
   MobileClueList,
   VirtualKeyboard,
 } from '../components/mobile'
-import { Modal } from '../components/Modal'
+import { Modal } from '@/components/Modal'
 import { HintModal } from '../components/HintModal'
 import { usePuzzleTimer } from '../hooks/usePuzzleTimer'
 import { useSocket } from '../context/SocketContext'
-import { checkSessionAnswers } from '../utils/answerChecker'
+import { checkSessionAnswers, checkSingleWord, extractClueMetadata } from '../utils/answerChecker'
+import type { ClueMetadata } from '../utils/answerChecker'
 
 interface SessionData extends PuzzleData {
   sessionState: string[] // Array of rows (strings)
@@ -77,6 +78,13 @@ export function PlaySession() {
   const [errorCells, setErrorCells] = useState<Set<string>>(new Set())
   const [showSuccessModal, setShowSuccessModal] = useState(false)
 
+  // Auto-Check Feature
+  const AUTO_CHECK_ENABLED = true // Future configuration hook point
+  const [checkedWords, setCheckedWords] = useState<Set<string>>(new Set()) // Tracks "number-direction" words already auto-checked
+  const [correctFlashCells, setCorrectFlashCells] = useState<Set<string>>(new Set())
+  const [incorrectFlashCells, setIncorrectFlashCells] = useState<Set<string>>(new Set())
+  const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // ... existing imports
 
   // Hint State
@@ -128,6 +136,8 @@ export function PlaySession() {
     try {
       // Clear previous errors first
       setErrorCells(new Set())
+      // Reset auto-check state so words can be re-checked after manual check
+      setCheckedWords(new Set())
 
       // Perform local answer checking
       const checkResult = checkSessionAnswers(grid, answers, answersEncrypted)
@@ -155,7 +165,61 @@ export function PlaySession() {
     }
   }, [answersEncrypted, grid, answers])
 
-  const clearErrors = () => setErrorCells(new Set())
+  const clearErrors = () => {
+    setErrorCells(new Set())
+    // Also clear auto-check state when manually clearing errors
+    setCheckedWords(new Set())
+  }
+
+  // Auto-check the current word if it's complete
+  // NOTE: currentAnswers must be passed explicitly to avoid stale closure issues
+  // (React state updates are async, so `answers` would be outdated if we relied on it)
+  const autoCheckCurrentWord = useCallback(
+    (clueNumber: number, direction: Direction, currentAnswers: string[]) => {
+      if (!AUTO_CHECK_ENABLED || !answersEncrypted || grid.length === 0) return
+
+      const wordKey = `${clueNumber}-${direction}`
+
+      // Skip if already checked
+      if (checkedWords.has(wordKey)) return
+
+      const result = checkSingleWord(grid, currentAnswers, answersEncrypted, clueNumber, direction)
+
+      if (result) {
+        // Word is complete - show flash feedback
+        const cellKeys = result.cells.map((cell) => `${cell.r}-${cell.c}`)
+
+        if (result.isCorrect) {
+          setCorrectFlashCells(new Set(cellKeys))
+        } else {
+          setIncorrectFlashCells(new Set(cellKeys))
+        }
+
+        // Mark this word as checked
+        setCheckedWords((prev) => new Set(prev).add(wordKey))
+
+        // Clear flash after 300ms
+        if (flashTimeoutRef.current) {
+          clearTimeout(flashTimeoutRef.current)
+        }
+
+        flashTimeoutRef.current = setTimeout(() => {
+          setCorrectFlashCells(new Set())
+          setIncorrectFlashCells(new Set())
+        }, 300)
+      }
+    },
+    [answersEncrypted, grid, checkedWords],
+  )
+
+  // Clear flash on unmount
+  useEffect(() => {
+    return () => {
+      if (flashTimeoutRef.current) {
+        clearTimeout(flashTimeoutRef.current)
+      }
+    }
+  }, [])
 
   // When user subscribes while already on a session page, link this session
   useEffect(() => {
@@ -237,7 +301,14 @@ export function PlaySession() {
       setLoading(true)
       try {
         const response = await axios.get<SessionData>(`/api/sessions/${sessionId}`)
-        const { title, grid: gridString, clues, sessionState, id: puzzleId, answersEncrypted } = response.data
+        const {
+          title,
+          grid: gridString,
+          clues,
+          sessionState,
+          id: puzzleId,
+          answersEncrypted,
+        } = response.data
 
         setTitle(title)
         setClues(clues)
@@ -374,6 +445,53 @@ export function PlaySession() {
     return grid[r][c] !== 'B'
   }
 
+  // Helper to clear checked status for words containing a specific cell
+  const clearCheckedWordsForCell = useCallback(
+    (r: number, c: number) => {
+      if (checkedWords.size === 0) return
+
+      // Find which clue numbers pass through this cell
+      const newCheckedWords = new Set(checkedWords)
+      let changed = false
+
+      for (const wordKey of checkedWords) {
+        const [numberStr, direction] = wordKey.split('-')
+        const clueNumber = parseInt(numberStr, 10)
+
+        // Check if this word contains the cell
+        const metadata = extractClueMetadata(grid)
+        const clueMeta = metadata.find(
+          (m) => m.number === clueNumber && m.direction === (direction as Direction),
+        )
+
+        if (clueMeta) {
+          let currR = clueMeta.row
+          let currC = clueMeta.col
+          let containsCell = false
+
+          while (currR < grid.length && currC < grid[0].length && grid[currR][currC] !== 'B') {
+            if (currR === r && currC === c) {
+              containsCell = true
+              break
+            }
+            if (direction === 'across') currC++
+            else currR++
+          }
+
+          if (containsCell) {
+            newCheckedWords.delete(wordKey)
+            changed = true
+          }
+        }
+      }
+
+      if (changed) {
+        setCheckedWords(newCheckedWords)
+      }
+    },
+    [checkedWords, grid],
+  )
+
   // --- Actions ---
   // Save state locally to avoid "partner made changes" on own reload
   const updateLocalState = (currentAnswers: string[]) => {
@@ -502,6 +620,23 @@ export function PlaySession() {
         }
 
         moveCursor(r, c, direction, 1)
+
+        // Auto-check: clear checked status for edited cell, then check the word we just completed
+        clearCheckedWordsForCell(r, c)
+
+        // Calculate clue number for the cell we just edited (before cursor moved)
+        let checkR = r
+        let checkC = c
+        if (direction === 'across') {
+          while (checkC > 0 && grid[r][checkC - 1] !== 'B') checkC--
+        } else {
+          while (checkR > 0 && grid[checkR - 1][c] !== 'B') checkR--
+        }
+        // Find the clue number at the start of this word
+        const startCellNum = renderedGrid[checkR]?.[checkC]?.number
+        if (startCellNum) {
+          autoCheckCurrentWord(startCellNum, direction, newAnswers)
+        }
       } else if (e.key === 'Backspace') {
         const currentVal = answers[r][c]
         const newAnswers = [...answers]
@@ -522,6 +657,9 @@ export function PlaySession() {
           newErrors.delete(`${r}-${c}`)
           setErrorCells(newErrors)
         }
+
+        // Auto-check: clearing a cell makes words incomplete, so just clear checked status
+        clearCheckedWordsForCell(r, c)
 
         if (currentVal === '') {
           moveCursor(r, c, direction, -1)
@@ -562,6 +700,23 @@ export function PlaySession() {
     }
 
     moveCursor(r, c, direction, 1)
+
+    // Auto-check: clear checked status for edited cell, then check the word we just completed
+    clearCheckedWordsForCell(r, c)
+
+    // Calculate clue number for the cell we just edited (before cursor moved)
+    let checkR = r
+    let checkC = c
+    if (direction === 'across') {
+      while (checkC > 0 && grid[r][checkC - 1] !== 'B') checkC--
+    } else {
+      while (checkR > 0 && grid[checkR - 1][c] !== 'B') checkR--
+    }
+    // Find the clue number at the start of this word
+    const startCellNum = renderedGrid[checkR]?.[checkC]?.number
+    if (startCellNum) {
+      autoCheckCurrentWord(startCellNum, direction, newAnswers)
+    }
   }
 
   const handleVirtualDelete = () => {
@@ -579,6 +734,9 @@ export function PlaySession() {
     if (socket) {
       socket.emit('update_cell', { sessionId, r, c, value: '' })
     }
+
+    // Auto-check: clearing a cell makes words incomplete, so just clear checked status
+    clearCheckedWordsForCell(r, c)
 
     if (currentVal === '') {
       moveCursor(r, c, direction, -1)
@@ -828,6 +986,8 @@ export function PlaySession() {
               onCellClick={handleCellClick}
               changedCells={changedCells}
               errorCells={errorCells}
+              correctFlashCells={correctFlashCells}
+              incorrectFlashCells={incorrectFlashCells}
             />
           </div>
         </div>
@@ -1016,6 +1176,8 @@ export function PlaySession() {
             onCellClick={handleCellClick}
             changedCells={changedCells}
             errorCells={errorCells}
+            correctFlashCells={correctFlashCells}
+            incorrectFlashCells={incorrectFlashCells}
           />
 
           <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
