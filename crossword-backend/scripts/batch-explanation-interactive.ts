@@ -116,29 +116,12 @@ async function createBatch(puzzleId: number) {
   const answersAcross = decryptList(answersData.across || [])
   const answersDown = decryptList(answersData.down || [])
 
-  // Fetch existing explanations to filter them out by default
-  const existingExplanations = await db('clue_explanations')
-    .where('puzzle_id', puzzleId)
-    .select('clue_number', 'direction')
-  
-  const existingSet = new Set(
-    existingExplanations.map((e) => `${e.clue_number}_${e.direction}`)
-  )
-
-  console.log(`ℹ️  Found ${existingExplanations.length} existing explanations for this puzzle.`)
-
   const requests = []
 
   // Process Across
   for (const clue of clues.across) {
     const answerObj = answersAcross.find((a) => a.number === clue.number)
     if (!answerObj) continue
-
-    const key = `${clue.number}_across`
-    if (existingSet.has(key)) {
-      // Skip clues that already have explanations
-      continue
-    }
 
     const messages = generateExplanationMessages(clue.clue, answerObj.answer, 'full')
     const customId = `p${puzzle.id}_c${clue.number}_across`
@@ -162,12 +145,6 @@ async function createBatch(puzzleId: number) {
   for (const clue of clues.down) {
     const answerObj = answersDown.find((a) => a.number === clue.number)
     if (!answerObj) continue
-
-    const key = `${clue.number}_down`
-    if (existingSet.has(key)) {
-      // Skip clues that already have explanations
-      continue
-    }
 
     const messages = generateExplanationMessages(clue.clue, answerObj.answer, 'full')
     const customId = `p${puzzle.id}_c${clue.number}_down`
@@ -547,7 +524,6 @@ async function showBatchStatus() {
 }
 
 // Build puzzle choices for inquirer selection with puzzle_number and explanation count
-// Only includes puzzles that are not fully explained
 async function getPuzzleChoices() {
   const puzzles = await db<PuzzleRow>('puzzles')
     .select('id', 'title', 'clues', 'puzzle_number')
@@ -557,23 +533,14 @@ async function getPuzzleChoices() {
   const choices: Array<{ name: string; value: number }> = []
 
   for (const puzzle of puzzles) {
-    const clues: PuzzleClues = JSON.parse(puzzle.clues)
-    const totalClues = (clues.across?.length || 0) + (clues.down?.length || 0)
-
     const explainedCountRow = await db('clue_explanations')
       .where('puzzle_id', puzzle.id)
       .count('* as count')
       .first()
 
     const explained = Number((explainedCountRow as any)?.count ?? 0)
-    
-    // Skip puzzles that are fully explained
-    if (explained >= totalClues && totalClues > 0) {
-      continue
-    }
-
     const pn = puzzle.puzzle_number ?? '—'
-    const label = `#${pn} (explanations: ${explained}/${totalClues})`
+    const label = `#${pn} (explanations: ${explained})`
     choices.push({ name: label, value: puzzle.id })
   }
 
