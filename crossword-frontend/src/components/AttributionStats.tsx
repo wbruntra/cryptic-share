@@ -34,24 +34,24 @@ export function AttributionStats({ attributions, clues }: AttributionStatsProps)
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-      <h3 className="font-bold text-gray-900 mb-3">Statistics</h3>
+    <div className="bg-surface border border-border rounded-lg p-4 shadow-sm">
+      <h3 className="font-bold text-text mb-3">Statistics</h3>
       
-      <div className="mb-4 text-sm text-gray-600">
+      <div className="mb-4 text-sm text-text-secondary">
         <div className="flex justify-between mb-1">
           <span>Completed:</span>
-          <span className="font-semibold">{totalAttributed} / {totalClues}</span>
+          <span className="font-semibold text-text">{totalAttributed} / {totalClues}</span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
+        <div className="w-full bg-input-bg rounded-full h-2">
           <div
-            className="bg-blue-600 h-2 rounded-full transition-all"
+            className="bg-primary h-2 rounded-full transition-all"
             style={{ width: `${(totalAttributed / totalClues) * 100}%` }}
           />
         </div>
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs text-gray-500 mb-2">Clues solved:</p>
+        <p className="text-xs text-text-secondary mb-2">Clues solved:</p>
         {sortedUsers.map((user) => (
           <div key={`${user.userId}-${user.username}`} className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -62,9 +62,9 @@ export function AttributionStats({ attributions, clues }: AttributionStatsProps)
                   borderColor: getUserColor(user.userId)
                 }}
               />
-              <span className="text-sm text-gray-700">{user.username}</span>
+              <span className="text-sm text-text">{user.username}</span>
             </div>
-            <span className="text-sm font-semibold text-gray-900">{user.count}</span>
+            <span className="text-sm font-semibold text-text">{user.count}</span>
           </div>
         ))}
       </div>
