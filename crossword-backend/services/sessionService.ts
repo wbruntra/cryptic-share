@@ -6,6 +6,7 @@ import {
   migrateLegacyState,
   countFilledLetters,
 } from '../utils/stateHelpers'
+import { FriendshipService } from './friendshipService'
 
 export class SessionService {
   static generateSessionId(length = 12) {
@@ -407,10 +408,19 @@ export class SessionService {
       this.cache.set(sessionId, { state: sessionState, lastAccess: Date.now(), dirty: false })
     }
 
+    // Parse attributions
+    let attributions = {}
+    try {
+      attributions = JSON.parse(session.attributions || '{}')
+    } catch (e) {
+      console.error('Failed to parse attributions', e)
+    }
+
     return {
       ...puzzle,
       sessionState,
       answersEncrypted,
+      attributions,
     }
   }
 
@@ -421,6 +431,123 @@ export class SessionService {
     this.cache.set(sessionId, { state: migratedState, lastAccess: Date.now(), dirty: true })
     this.scheduleSave(sessionId)
     return true
+  }
+
+  /**
+   * Get sessions for user and all their friends
+   */
+  static async getUserAndFriendsSessions(userId: number) {
+    // Get friend IDs
+    const friendIds = await FriendshipService.getFriendIds(userId)
+    const allUserIds = [userId, ...friendIds]
+
+    // Query sessions
+    const sessions = await db('puzzle_sessions')
+      .join('puzzles', 'puzzle_sessions.puzzle_id', 'puzzles.id')
+      .leftJoin('users', 'puzzle_sessions.user_id', 'users.id')
+      .whereIn('puzzle_sessions.user_id', allUserIds)
+      .select(
+        'puzzle_sessions.session_id',
+        'puzzle_sessions.state',
+        'puzzle_sessions.is_complete',
+        'puzzle_sessions.user_id as owner_user_id',
+        'users.username as owner_username',
+        'puzzles.title as puzzle_title',
+        'puzzles.id as puzzle_id',
+        'puzzles.grid',
+      )
+      .orderBy('puzzle_sessions.updated_at', 'desc')
+
+    // Calculate completion percentage for each
+    return sessions.map((s: any) => {
+      const state = migrateLegacyState(JSON.parse(s.state))
+      const filledCount = this.countFilledCells(state)
+      const totalCount = this.countTotalCells(s.grid)
+      const completionPct = totalCount > 0 ? Math.round((filledCount / totalCount) * 100) : 0
+
+      return {
+        session_id: s.session_id,
+        puzzle_id: s.puzzle_id,
+        puzzle_title: s.puzzle_title,
+        state,
+        is_complete: Boolean(s.is_complete),
+        owner_user_id: s.owner_user_id,
+        owner_username: s.owner_username,
+        filled_count: filledCount,
+        total_count: totalCount,
+        completion_pct: completionPct,
+      }
+    })
+  }
+
+  /**
+   * Record word attribution (first correct completion wins)
+   */
+  static async recordWordAttribution(
+    sessionId: string,
+    clueKey: string,
+    userId: number | null,
+    username: string,
+  ): Promise<boolean> {
+    const session = await db('puzzle_sessions').where({ session_id: sessionId }).first()
+
+    if (!session) {
+      return false
+    }
+
+    // Parse existing attributions
+    let attributions: Record<string, any> = {}
+    try {
+      attributions = JSON.parse(session.attributions || '{}')
+    } catch (e) {
+      console.error('Failed to parse attributions', e)
+    }
+
+    // Check if already claimed
+    if (attributions[clueKey]) {
+      return false // Already attributed
+    }
+
+    // Add attribution
+    attributions[clueKey] = {
+      userId,
+      username,
+      timestamp: new Date().toISOString(),
+    }
+
+    // Update DB
+    await db('puzzle_sessions')
+      .where({ session_id: sessionId })
+      .update({
+        attributions: JSON.stringify(attributions),
+        updated_at: new Date().toISOString(),
+      })
+
+    return true // Successfully claimed
+  }
+
+  /**
+   * Helper: Count filled cells in state
+   */
+  private static countFilledCells(state: string[]): number {
+    return state.reduce((count, row) => {
+      return count + row.split('').filter((ch) => ch !== ' ' && ch !== '').length
+    }, 0)
+  }
+
+  /**
+   * Helper: Count total playable cells from grid
+   */
+  private static countTotalCells(gridString: string): number {
+    const rows = gridString.split('\n')
+    let total = 0
+    for (const row of rows) {
+      const cells = row.trim().split(' ')
+      for (const cell of cells) {
+        if (cell !== 'B') total++ // 'B' = black square
+      }
+    }
+    return total
   }
 
   // Admin methods

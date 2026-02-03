@@ -51,4 +51,19 @@ export interface RemoteSession {
   title: string
   state: string
   is_complete: boolean
+  filled_count?: number
+  total_count?: number
+  completion_pct?: number
+  owner_user_id?: number
+  owner_username?: string
+}
+
+export interface Attribution {
+  userId: number | null
+  username: string
+  timestamp: string
+}
+
+export interface Attributions {
+  [clueKey: string]: Attribution
 }

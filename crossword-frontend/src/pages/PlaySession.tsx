@@ -4,8 +4,12 @@ import axios from 'axios'
 import type { CellType, Direction, Clue, PuzzleData, PuzzleAnswers } from '../types'
 import { ClueList } from '../ClueList'
 import { CrosswordGrid } from '../CrosswordGrid'
-import { saveLocalSession, getLocalSessionById } from '../utils/sessionManager'
+import { saveLocalSession, getLocalSessionById, getNickname, setNickname, getAnonymousId } from '../utils/sessionManager'
 import { useIsMobile } from '../utils/useIsMobile'
+import { useAuth } from '../context/AuthContext'
+import { NicknameModal } from '../components/NicknameModal'
+import { AttributionControls } from '../components/AttributionControls'
+import { AttributionStats } from '../components/AttributionStats'
 import { ChangeNotification } from '../components/ChangeNotification'
 import { usePushNotifications } from '../hooks/usePushNotifications'
 import {
@@ -24,6 +28,7 @@ import type { ClueMetadata } from '../utils/answerChecker'
 interface SessionData extends PuzzleData {
   sessionState: string[] // Array of rows (strings)
   answersEncrypted?: PuzzleAnswers
+  attributions?: Record<string, { userId: number | null; username: string; timestamp: string }>
 }
 
 export function PlaySession() {
@@ -36,6 +41,31 @@ export function PlaySession() {
   // Socket
   const { socket } = useSocket()
 
+  // Auth and Nickname
+  const { user } = useAuth()
+  const [showNicknameModal, setShowNicknameModal] = useState(false)
+  const [userNickname, setUserNickname] = useState<string | null>(null)
+
+  // Check for nickname on mount
+  useEffect(() => {
+    if (!user) {
+      const savedNickname = getNickname()
+      if (savedNickname) {
+        setUserNickname(savedNickname)
+      } else {
+        setShowNicknameModal(true)
+      }
+    } else {
+      setUserNickname(user.username)
+    }
+  }, [user])
+
+  const handleNicknameSubmit = (nickname: string) => {
+    setNickname(nickname)
+    setUserNickname(nickname)
+    setShowNicknameModal(false)
+  }
+
   // Local edit timestamps for optimistic locking/grace period
   const localEditTimestamps = useRef<Map<string, number>>(new Map())
   const GRACE_PERIOD_MS = 2000
@@ -46,6 +76,49 @@ export function PlaySession() {
 
   // User answers (dynamic)
   const [answers, setAnswers] = useState<string[]>([])
+  const answersRef = useRef<string[]>([])
+
+  useEffect(() => {
+    answersRef.current = answers
+  }, [answers])
+
+  const mergePreferLocalWithChanges = useCallback(
+    (localState: string[], serverState: string[]) => {
+      if (!Array.isArray(localState) || localState.length === 0) {
+        return { merged: serverState, filledFromServer: new Set<string>() }
+      }
+
+      const rows = Math.max(localState.length, serverState.length)
+      const merged: string[] = []
+      const filledFromServer = new Set<string>()
+
+      for (let r = 0; r < rows; r++) {
+        const localRow = localState[r] ?? ''
+        const serverRow = serverState[r] ?? ''
+        const cols = Math.max(localRow.length, serverRow.length)
+
+        let out = ''
+        for (let c = 0; c < cols; c++) {
+          const l = localRow[c] ?? ' '
+          const s = serverRow[c] ?? ' '
+
+          const localBlank = l === ' ' || l === ''
+          const serverBlank = s === ' ' || s === ''
+
+          // Prefer local when both filled; otherwise fill local blanks from server.
+          const next = localBlank && !serverBlank ? s : l
+          if (next !== l && localBlank && !serverBlank) {
+            filledFromServer.add(`${r}-${c}`)
+          }
+          out += next
+        }
+        merged.push(out)
+      }
+
+      return { merged, filledFromServer }
+    },
+    [],
+  )
 
   // Encrypted answers for local checking
   const [answersEncrypted, setAnswersEncrypted] = useState<PuzzleAnswers | null>(null)
@@ -93,6 +166,16 @@ export function PlaySession() {
 
   // Timer
   const formattedTime = usePuzzleTimer(sessionId)
+
+  // Attributions
+  const [attributions, setAttributions] = useState<Record<string, { userId: number | null; username: string; timestamp: string }>>({})
+  const [showAttributions, setShowAttributions] = useState(false)
+
+  // Extract clue metadata for attribution mapping
+  const clueMetadata = useMemo(() => {
+    if (grid.length === 0) return []
+    return extractClueMetadata(grid)
+  }, [grid])
 
   // Calculate current word state for the modal
   const currentWordState = useMemo(() => {
@@ -191,6 +274,17 @@ export function PlaySession() {
 
         if (result.isCorrect) {
           setCorrectFlashCells(new Set(cellKeys))
+
+          // Claim attribution if not already claimed
+          if (!attributions[wordKey] && socket && sessionId && userNickname) {
+            const userId = user?.id || null
+            socket.emit('claim_word', {
+              sessionId,
+              clueKey: wordKey,
+              userId,
+              username: userNickname
+            })
+          }
         } else {
           setIncorrectFlashCells(new Set(cellKeys))
         }
@@ -209,7 +303,7 @@ export function PlaySession() {
         }, 300)
       }
     },
-    [answersEncrypted, grid, checkedWords],
+    [answersEncrypted, grid, checkedWords, attributions, socket, sessionId, userNickname, user],
   )
 
   // Clear flash on unmount
@@ -249,44 +343,19 @@ export function PlaySession() {
     // Also listen for connect event (for initial connect and reconnects)
     socket.on('connect', handleConnect)
 
-    const mergePreferLocal = (localState: string[], serverState: string[]) => {
-      if (!Array.isArray(localState) || localState.length === 0) {
-        return serverState
-      }
-
-      const rows = Math.max(localState.length, serverState.length)
-      const merged: string[] = []
-
-      for (let r = 0; r < rows; r++) {
-        const localRow = localState[r] ?? ''
-        const serverRow = serverState[r] ?? ''
-        const cols = Math.max(localRow.length, serverRow.length)
-
-        let out = ''
-        for (let c = 0; c < cols; c++) {
-          const l = localRow[c] ?? ' '
-          const s = serverRow[c] ?? ' '
-
-          const localBlank = l === ' ' || l === ''
-          const serverBlank = s === ' ' || s === ''
-
-          // Prefer local edits when both filled; otherwise fill local blanks from server.
-          let next = l
-          if (localBlank && !serverBlank) next = s
-          else if (!localBlank && serverBlank) next = l
-          else if (!localBlank && !serverBlank && l !== s) next = l
-          else if (localBlank && serverBlank) next = ' '
-
-          out += next
-        }
-        merged.push(out)
-      }
-
-      return merged
-    }
-
     const handlePuzzleUpdated = (newState: string[]) => {
-      setAnswers((prev) => mergePreferLocal(prev, newState))
+      const { merged, filledFromServer } = mergePreferLocalWithChanges(answersRef.current, newState)
+
+      if (filledFromServer.size > 0) {
+        setChangedCells((prev) => {
+          const next = new Set(prev)
+          for (const cell of filledFromServer) next.add(cell)
+          return next
+        })
+        setShowChangeNotification(true)
+      }
+
+      setAnswers(merged)
     }
 
     const handleCellUpdated = ({
@@ -333,6 +402,15 @@ export function PlaySession() {
     socket.on('puzzle_updated', handlePuzzleUpdated)
     socket.on('cell_updated', handleCellUpdated)
 
+    const handleWordClaimed = ({ clueKey, userId, username, timestamp }: { clueKey: string; userId: number | null; username: string; timestamp: string }) => {
+      setAttributions((prev) => ({
+        ...prev,
+        [clueKey]: { userId, username, timestamp }
+      }))
+    }
+
+    socket.on('word_claimed', handleWordClaimed)
+
     const fetchSession = async () => {
       setLoading(true)
       try {
@@ -344,6 +422,7 @@ export function PlaySession() {
           sessionState,
           id: puzzleId,
           answersEncrypted,
+          attributions: serverAttributions,
         } = response.data
 
         setTitle(title)
@@ -352,6 +431,11 @@ export function PlaySession() {
         // Store encrypted answers for local checking
         if (answersEncrypted) {
           setAnswersEncrypted(answersEncrypted)
+        }
+
+        // Load attributions from server
+        if (serverAttributions) {
+          setAttributions(serverAttributions)
         }
 
         // Update local session timestamp
@@ -432,8 +516,9 @@ export function PlaySession() {
       socket.off('connect', handleConnect)
       socket.off('puzzle_updated', handlePuzzleUpdated)
       socket.off('cell_updated', handleCellUpdated)
+      socket.off('word_claimed', handleWordClaimed)
     }
-  }, [sessionId, socket])
+  }, [sessionId, socket, getEndpoint, mergePreferLocalWithChanges])
 
   // --- Polling Backup ---
   const syncSession = useCallback(async () => {
@@ -451,36 +536,33 @@ export function PlaySession() {
       const { sessionState } = response.data
 
       if (sessionState) {
-        setAnswers((prev) => {
-          if (JSON.stringify(prev) === JSON.stringify(sessionState)) {
-            return prev
-          }
-          console.log('[PlaySession] Sync found changes, merging server state.')
+        const local = answersRef.current
+        if (JSON.stringify(local) === JSON.stringify(sessionState)) {
+          return
+        }
 
-          // Prefer local when both filled; only fill local blanks from server.
-          const rows = Math.max(prev.length, sessionState.length)
-          const merged: string[] = []
-          for (let r = 0; r < rows; r++) {
-            const localRow = prev[r] ?? ''
-            const serverRow = sessionState[r] ?? ''
-            const cols = Math.max(localRow.length, serverRow.length)
-            let out = ''
-            for (let c = 0; c < cols; c++) {
-              const l = localRow[c] ?? ' '
-              const s = serverRow[c] ?? ' '
-              const localBlank = l === ' ' || l === ''
-              const serverBlank = s === ' ' || s === ''
-              out += localBlank && !serverBlank ? s : l
-            }
-            merged.push(out)
-          }
-          return merged
-        })
+        const { merged, filledFromServer } = mergePreferLocalWithChanges(local, sessionState)
+        if (JSON.stringify(local) === JSON.stringify(merged)) {
+          return
+        }
+
+        console.log('[PlaySession] Sync found changes, merging server state.')
+
+        if (filledFromServer.size > 0) {
+          setChangedCells((prev) => {
+            const next = new Set(prev)
+            for (const cell of filledFromServer) next.add(cell)
+            return next
+          })
+          setShowChangeNotification(true)
+        }
+
+        setAnswers(merged)
       }
     } catch (error) {
       console.error('[PlaySession] Sync failed:', error)
     }
-  }, [sessionId, socket])
+  }, [sessionId, socket, mergePreferLocalWithChanges])
 
   useEffect(() => {
     // Poll periodically as a safety net (does a merge, so it won't clobber local edits).
@@ -1073,6 +1155,9 @@ export function PlaySession() {
               errorCells={errorCells}
               correctFlashCells={correctFlashCells}
               incorrectFlashCells={incorrectFlashCells}
+              attributions={attributions}
+              showAttributions={showAttributions}
+              clueMetadata={clueMetadata}
             />
           </div>
         </div>
@@ -1244,14 +1329,29 @@ export function PlaySession() {
       </header>
 
       <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
-        {clues && (
-          <ClueList
-            clues={clues}
-            currentClueNumber={currentClueNumber}
-            currentDirection={cursor?.direction}
-            onClueClick={handleClueClick}
+        <div className="flex flex-col gap-4">
+          {clues && (
+            <ClueList
+              clues={clues}
+              currentClueNumber={currentClueNumber}
+              currentDirection={cursor?.direction}
+              onClueClick={handleClueClick}
+            />
+          )}
+          
+          {/* Attribution Controls */}
+          <AttributionControls
+            enabled={showAttributions}
+            onToggle={() => setShowAttributions(!showAttributions)}
+            attributions={attributions}
           />
-        )}
+          
+          {/* Attribution Stats */}
+          <AttributionStats
+            attributions={attributions}
+            clues={clues}
+          />
+        </div>
 
         <div className="flex-1 w-full bg-surface p-6 md:p-8 rounded-2xl shadow-xl border border-border relative overflow-hidden group">
           <div className="absolute top-0 left-0 w-2 h-full bg-primary opacity-20"></div>
@@ -1263,6 +1363,9 @@ export function PlaySession() {
             errorCells={errorCells}
             correctFlashCells={correctFlashCells}
             incorrectFlashCells={incorrectFlashCells}
+            attributions={attributions}
+            showAttributions={showAttributions}
+            clueMetadata={clueMetadata}
           />
 
           <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
@@ -1328,6 +1431,8 @@ export function PlaySession() {
           socket={socket}
         />
       )}
+
+      {showNicknameModal && <NicknameModal onSubmit={handleNicknameSubmit} />}
     </div>
   )
 }

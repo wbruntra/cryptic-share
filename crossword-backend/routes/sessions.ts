@@ -6,10 +6,10 @@ import { SessionService } from '../services/sessionService'
 
 const router = Router()
 
-// Get all sessions for the authenticated user
+// Get all sessions for the authenticated user (including friend sessions)
 router.get('/', authenticateUser, async (req, res) => {
   try {
-    const sessions = await SessionService.getUserSessions(res.locals.user.id)
+    const sessions = await SessionService.getUserAndFriendsSessions(res.locals.user.id)
     res.json(sessions)
   } catch (error) {
     console.error('Error fetching user sessions:', error)

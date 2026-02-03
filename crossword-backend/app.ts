@@ -128,6 +128,25 @@ io.on('connection', (socket) => {
     }
   })
 
+  socket.on('claim_word', async ({ sessionId, clueKey, userId, username }) => {
+    try {
+      const claimed = await SessionService.recordWordAttribution(sessionId, clueKey, userId, username)
+      if (claimed) {
+        const timestamp = new Date().toISOString()
+        // Broadcast to all users in the session (including sender)
+        io.to(sessionId).emit('word_claimed', {
+          clueKey,
+          userId,
+          username,
+          timestamp
+        })
+        console.log(`[Attribution] ${username} claimed ${clueKey} in session ${sessionId}`)
+      }
+    } catch (error) {
+      console.error('Error claiming word:', error)
+    }
+  })
+
   socket.on('disconnect', () => {
     const sessionId = socketToSession.get(socket.id)
     if (sessionId) {
