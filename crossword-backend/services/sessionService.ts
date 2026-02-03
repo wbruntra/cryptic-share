@@ -280,6 +280,10 @@ export class SessionService {
     return state
   }
 
+  static async getSessionState(sessionId: string): Promise<string[] | null> {
+    return await this.getCachedOrLoad(sessionId)
+  }
+
   private static scheduleSave(sessionId: string) {
     if (this.saveTimers.has(sessionId)) return
 

@@ -52,6 +52,17 @@ io.on('connection', (socket) => {
     connectedSockets.get(sessionId)!.add(socket.id)
     socketToSession.set(socket.id, sessionId)
 
+    // Send authoritative current state to the newly joined socket.
+    // This is critical for mobile sleep/wake: the client may have missed updates while offline.
+    try {
+      const state = await SessionService.getSessionState(sessionId)
+      if (state) {
+        socket.emit('puzzle_updated', state)
+      }
+    } catch (error) {
+      console.error('Error sending session snapshot on join:', error)
+    }
+
     // Clear notified flag when user reconnects (so they can get notifications again later)
     // AND link this session to the user's global subscription so they get updates for THIS puzzle
     if (pushEndpoint) {

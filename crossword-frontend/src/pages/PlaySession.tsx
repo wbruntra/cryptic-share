@@ -249,8 +249,44 @@ export function PlaySession() {
     // Also listen for connect event (for initial connect and reconnects)
     socket.on('connect', handleConnect)
 
+    const mergePreferLocal = (localState: string[], serverState: string[]) => {
+      if (!Array.isArray(localState) || localState.length === 0) {
+        return serverState
+      }
+
+      const rows = Math.max(localState.length, serverState.length)
+      const merged: string[] = []
+
+      for (let r = 0; r < rows; r++) {
+        const localRow = localState[r] ?? ''
+        const serverRow = serverState[r] ?? ''
+        const cols = Math.max(localRow.length, serverRow.length)
+
+        let out = ''
+        for (let c = 0; c < cols; c++) {
+          const l = localRow[c] ?? ' '
+          const s = serverRow[c] ?? ' '
+
+          const localBlank = l === ' ' || l === ''
+          const serverBlank = s === ' ' || s === ''
+
+          // Prefer local edits when both filled; otherwise fill local blanks from server.
+          let next = l
+          if (localBlank && !serverBlank) next = s
+          else if (!localBlank && serverBlank) next = l
+          else if (!localBlank && !serverBlank && l !== s) next = l
+          else if (localBlank && serverBlank) next = ' '
+
+          out += next
+        }
+        merged.push(out)
+      }
+
+      return merged
+    }
+
     const handlePuzzleUpdated = (newState: string[]) => {
-      setAnswers(newState)
+      setAnswers((prev) => mergePreferLocal(prev, newState))
     }
 
     const handleCellUpdated = ({
@@ -419,24 +455,73 @@ export function PlaySession() {
           if (JSON.stringify(prev) === JSON.stringify(sessionState)) {
             return prev
           }
-          console.log('[PlaySession] Polling found changes, syncing state.')
-          return sessionState
+          console.log('[PlaySession] Sync found changes, merging server state.')
+
+          // Prefer local when both filled; only fill local blanks from server.
+          const rows = Math.max(prev.length, sessionState.length)
+          const merged: string[] = []
+          for (let r = 0; r < rows; r++) {
+            const localRow = prev[r] ?? ''
+            const serverRow = sessionState[r] ?? ''
+            const cols = Math.max(localRow.length, serverRow.length)
+            let out = ''
+            for (let c = 0; c < cols; c++) {
+              const l = localRow[c] ?? ' '
+              const s = serverRow[c] ?? ' '
+              const localBlank = l === ' ' || l === ''
+              const serverBlank = s === ' ' || s === ''
+              out += localBlank && !serverBlank ? s : l
+            }
+            merged.push(out)
+          }
+          return merged
         })
       }
     } catch (error) {
       console.error('[PlaySession] Sync failed:', error)
     }
-  }, [sessionId])
+  }, [sessionId, socket])
 
   useEffect(() => {
-    // Only poll if socket is NOT connected or we have no socket
-    // This prevents polling from overwriting real-time state when connection is healthy
-    if (socket?.connected) return
-
-    // Poll every 90 seconds
-    const intervalId = setInterval(syncSession, 90000)
+    // Poll periodically as a safety net (does a merge, so it won't clobber local edits).
+    // Keep it running even when connected; iOS sleep/wake can silently miss events.
+    const intervalId = setInterval(syncSession, 30000)
     return () => clearInterval(intervalId)
-  }, [syncSession, socket?.connected])
+  }, [syncSession])
+
+  useEffect(() => {
+    // iOS sleep/wake often manifests as visibility/focus changes without clean socket events.
+    // When the page becomes active again, do an immediate sync.
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void syncSession()
+      }
+    }
+
+    const handleFocus = () => {
+      void syncSession()
+    }
+
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [syncSession])
+
+  useEffect(() => {
+    if (!socket) return
+
+    const handleConnect = () => {
+      void syncSession()
+    }
+
+    socket.on('connect', handleConnect)
+    return () => {
+      socket.off('connect', handleConnect)
+    }
+  }, [socket, syncSession])
 
   // --- Helpers ---
   const isPlayable = (r: number, c: number) => {
