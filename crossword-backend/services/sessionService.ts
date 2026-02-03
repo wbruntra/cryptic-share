@@ -203,6 +203,9 @@ export class SessionService {
    * Gets an existing session for the user/puzzle combo, or creates a new one.
    * This does NOT reset an existing session - it just returns it.
    * Used for the "Go to Puzzle" flow to avoid duplicate sessions across devices.
+   * 
+   * If the user is logged in and has friends who have a session for this puzzle,
+   * they will join the friend's session instead of creating a new one.
    */
   static async getOrCreateSession(
     userId: number | null,
@@ -223,6 +226,24 @@ export class SessionService {
 
       if (existingSession) {
         return { sessionId: existingSession.session_id, isNew: false }
+      }
+
+      // Check if any friend has a session for this puzzle
+      const { FriendshipService } = await import('./friendshipService')
+      const friendIds = await FriendshipService.getFriendIds(userId)
+
+      if (friendIds.length > 0) {
+        const friendSession = await db('puzzle_sessions')
+          .where({ puzzle_id: puzzleId })
+          .whereIn('user_id', friendIds)
+          .orderBy('created_at', 'asc') // Use the oldest session if multiple friends have one
+          .first()
+
+        if (friendSession) {
+          // Join the friend's session by creating a record for this user pointing to the same session
+          // Actually, we want to share the SAME session_id, so just return the friend's session
+          return { sessionId: friendSession.session_id, isNew: false }
+        }
       }
     } else if (anonymousId) {
       // If user is anonymous, check for existing session with this anonymousId
