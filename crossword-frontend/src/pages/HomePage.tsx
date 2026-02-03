@@ -8,8 +8,13 @@ import { getLocalSessions, saveLocalSession, getAnonymousId } from '../utils/ses
 
 type PuzzleStatus = 'complete' | 'in-progress' | null
 
+interface PuzzleWithSession extends PuzzleSummary {
+  session?: RemoteSession
+}
+
 export function HomePage() {
   const [puzzles, setPuzzles] = useState<PuzzleSummary[]>([])
+  const [sessions, setSessions] = useState<RemoteSession[]>([])
   const [puzzleStatus, setPuzzleStatus] = useState<Map<number, PuzzleStatus>>(new Map())
   const [showCompleted, setShowCompleted] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -33,6 +38,7 @@ export function HomePage() {
         const statusMap = new Map<number, PuzzleStatus>()
         if (user) {
           const remoteSessions = await refreshSessions()
+          setSessions(remoteSessions as RemoteSession[])
           for (const s of remoteSessions as RemoteSession[]) {
             statusMap.set(s.puzzle_id, s.is_complete ? 'complete' : 'in-progress')
           }
@@ -107,17 +113,18 @@ export function HomePage() {
             {visiblePuzzles.map((puzzle) => {
               const status = puzzleStatus.get(puzzle.id)
               const isNavigating = navigating === puzzle.id
+              const session = sessions.find(s => s.puzzle_id === puzzle.id)
 
               return (
                 <div
                   key={puzzle.id}
                   className="group bg-surface rounded-xl p-6 shadow-lg border border-border hover:border-primary transition-all duration-300 flex flex-col justify-between"
                 >
-                  <div className="mb-4 flex items-center flex-wrap gap-3">
+                  <div className="mb-4 flex flex-col gap-3">
                     <h3 className="text-xl font-bold text-text group-hover:text-primary transition-colors">
                       {puzzle.title}
                     </h3>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       {status === 'complete' && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-600 dark:text-green-400 font-medium border border-green-500/20 whitespace-nowrap">
                           ✓ Complete
@@ -129,6 +136,29 @@ export function HomePage() {
                         </span>
                       )}
                     </div>
+                    
+                    {/* Completion percentage */}
+                    {session && typeof session.completion_pct === 'number' && (
+                      <div>
+                        <div className="flex justify-between text-xs text-gray-600 mb-1">
+                          <span>Progress</span>
+                          <span className="font-semibold">{session.completion_pct}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-blue-600 h-2 rounded-full transition-all"
+                            style={{ width: `${session.completion_pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Owner info for friend sessions */}
+                    {session && session.owner_username && session.owner_username !== user?.username && (
+                      <div className="text-xs text-gray-500">
+                        <span className="font-medium">Owner:</span> {session.owner_username}
+                      </div>
+                    )}
                   </div>
 
                   <button

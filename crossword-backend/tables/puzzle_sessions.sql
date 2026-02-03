@@ -7,6 +7,7 @@ CREATE TABLE "puzzle_sessions" (
   `is_complete` boolean default '0',
   `created_at` datetime,
   `updated_at` datetime,
+  `attributions` text default '{}',
   FOREIGN KEY (`puzzle_id`) REFERENCES `puzzles` (`id`),
   PRIMARY KEY (`session_id`),
   FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)

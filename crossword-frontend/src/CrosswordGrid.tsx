@@ -1,4 +1,6 @@
+import React from 'react'
 import type { RenderedCell, Mode } from './types'
+import { getAttributionBackground, getAttributionBorder } from './utils/attributionColors'
 
 interface CrosswordGridProps {
   grid: RenderedCell[][]
@@ -8,6 +10,9 @@ interface CrosswordGridProps {
   errorCells?: Set<string>
   correctFlashCells?: Set<string>
   incorrectFlashCells?: Set<string>
+  attributions?: Record<string, { userId: number | null; username: string; timestamp: string }>
+  showAttributions?: boolean
+  clueMetadata?: Array<{ number: number; direction: 'across' | 'down'; row: number; col: number }>
 }
 
 export function CrosswordGrid({
@@ -18,7 +23,38 @@ export function CrosswordGrid({
   errorCells,
   correctFlashCells,
   incorrectFlashCells,
+  attributions,
+  showAttributions,
+  clueMetadata,
 }: CrosswordGridProps) {
+  // Helper function to find which clue(s) a cell belongs to
+  const getCellAttributions = (r: number, c: number): Array<{ userId: number | null; username: string }> => {
+    if (!attributions || !showAttributions || !clueMetadata) return []
+    
+    const cellAttributions: Array<{ userId: number | null; username: string }> = []
+    
+    for (const meta of clueMetadata) {
+      let cr = meta.row
+      let cc = meta.col
+      
+      // Trace the word to see if this cell is part of it
+      while (cr < grid.length && cc < grid[0].length && grid[cr][cc].type !== 'B') {
+        if (cr === r && cc === c) {
+          const clueKey = `${meta.number}-${meta.direction}`
+          const attr = attributions[clueKey]
+          if (attr) {
+            cellAttributions.push({ userId: attr.userId, username: attr.username })
+          }
+          break
+        }
+        if (meta.direction === 'across') cc++
+        else cr++
+      }
+    }
+    
+    return cellAttributions
+  }
+
   return (
     <div className="flex justify-center max-w-full w-full overflow-hidden">
       <div
@@ -35,7 +71,11 @@ export function CrosswordGrid({
                 const isError = errorCells?.has(`${rIndex}-${cIndex}`)
                 const isCorrectFlash = correctFlashCells?.has(`${rIndex}-${cIndex}`)
                 const isIncorrectFlash = incorrectFlashCells?.has(`${rIndex}-${cIndex}`)
+                const cellAttributions = getCellAttributions(rIndex, cIndex)
+                const hasAttribution = cellAttributions.length > 0
+                
                 let bgClass = 'bg-surface'
+                let borderStyle: React.CSSProperties = {}
 
                 if (isBlack) {
                   bgClass = 'bg-black'
@@ -51,6 +91,19 @@ export function CrosswordGrid({
                   bgClass = 'bg-changed-cell'
                 } else if (cell.isActiveWord) {
                   bgClass = 'bg-active-word'
+                }
+
+                // Apply attribution styling if enabled
+                if (hasAttribution && showAttributions && !isBlack && !isCorrectFlash && !isIncorrectFlash && !isError) {
+                  // Use the first attribution for coloring (in case cell belongs to multiple words)
+                  const primaryAttr = cellAttributions[0]
+                  borderStyle = {
+                    backgroundColor: getAttributionBackground(primaryAttr.userId),
+                    borderLeft: `3px solid ${getAttributionBorder(primaryAttr.userId)}`,
+                    borderTop: `3px solid ${getAttributionBorder(primaryAttr.userId)}`,
+                    borderRight: `3px solid ${getAttributionBorder(primaryAttr.userId)}`,
+                    borderBottom: `3px solid ${getAttributionBorder(primaryAttr.userId)}`,
+                  }
                 }
 
                 return (
@@ -72,6 +125,7 @@ export function CrosswordGrid({
                             : ''
                         }
                     `}
+                    style={borderStyle}
                     onClick={() => onCellClick(rIndex, cIndex)}
                     role="gridcell"
                     tabIndex={isBlack ? -1 : 0}

@@ -109,3 +109,32 @@ export const getAnonymousId = (): string => {
 
   return generatedId
 }
+
+const NICKNAME_KEY = 'cryptic_share_nickname'
+
+export const getNickname = (): string | null => {
+  try {
+    return localStorage.getItem(NICKNAME_KEY)
+  } catch (e) {
+    console.error('Failed to read nickname from localStorage', e)
+    return null
+  }
+}
+
+export const setNickname = (nickname: string): void => {
+  try {
+    localStorage.setItem(NICKNAME_KEY, nickname)
+    console.log('[setNickname] Saved nickname:', nickname)
+  } catch (e) {
+    console.error('Failed to save nickname to localStorage', e)
+  }
+}
+
+export const clearNickname = (): void => {
+  try {
+    localStorage.removeItem(NICKNAME_KEY)
+    console.log('[clearNickname] Cleared nickname')
+  } catch (e) {
+    console.error('Failed to clear nickname from localStorage', e)
+  }
+}
