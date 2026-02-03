@@ -19,15 +19,15 @@ export function AttributionControls({ enabled, onToggle, attributions }: Attribu
   const uniqueUsers = Array.from(users.values())
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+    <div className="bg-surface border border-border rounded-lg p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-bold text-gray-900">Contributions</h3>
+        <h3 className="font-bold text-text">Contributions</h3>
         <button
           onClick={onToggle}
           className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
             enabled
-              ? 'bg-blue-600 text-white hover:bg-blue-700'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              ? 'bg-primary text-white hover:bg-primary-hover'
+              : 'bg-input-bg text-text-secondary hover:bg-border border border-border'
           }`}
         >
           {enabled ? 'Hide' : 'Show'}
@@ -36,7 +36,7 @@ export function AttributionControls({ enabled, onToggle, attributions }: Attribu
 
       {enabled && uniqueUsers.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs text-gray-500 mb-2">Color-coded by contributor:</p>
+          <p className="text-xs text-text-secondary mb-2">Color-coded by contributor:</p>
           {uniqueUsers.map((user) => (
             <div key={`${user.userId}-${user.username}`} className="flex items-center gap-2">
               <div
@@ -46,14 +46,14 @@ export function AttributionControls({ enabled, onToggle, attributions }: Attribu
                   borderColor: getUserColor(user.userId)
                 }}
               />
-              <span className="text-sm text-gray-700">{user.username}</span>
+              <span className="text-sm text-text">{user.username}</span>
             </div>
           ))}
         </div>
       )}
 
       {enabled && uniqueUsers.length === 0 && (
-        <p className="text-xs text-gray-500 italic">No contributions yet</p>
+        <p className="text-xs text-text-secondary italic">No contributions yet</p>
       )}
     </div>
   )

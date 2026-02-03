@@ -16,10 +16,10 @@ export function NicknameModal({ onSubmit }: NicknameModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-        <h2 className="text-2xl font-bold mb-2">Choose a Nickname</h2>
-        <p className="text-gray-600 mb-6">
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-surface rounded-lg shadow-xl max-w-md w-full p-6 border border-border">
+        <h2 className="text-2xl font-bold mb-2 text-text">Choose a Nickname</h2>
+        <p className="text-text-secondary mb-6">
           Enter a nickname so others can see your contributions to the puzzle.
         </p>
         
@@ -30,7 +30,7 @@ export function NicknameModal({ onSubmit }: NicknameModalProps) {
             onChange={(e) => setNickname(e.target.value)}
             placeholder="Your nickname"
             maxLength={20}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+            className="w-full px-4 py-2 bg-input-bg border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-text placeholder:text-text-secondary mb-4"
             autoFocus
           />
           
@@ -38,7 +38,7 @@ export function NicknameModal({ onSubmit }: NicknameModalProps) {
             <button
               type="submit"
               disabled={!nickname.trim()}
-              className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-hover disabled:bg-border disabled:text-text-secondary disabled:cursor-not-allowed transition-colors font-medium"
             >
               Continue
             </button>
