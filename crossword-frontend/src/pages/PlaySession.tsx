@@ -1160,6 +1160,24 @@ export function PlaySession() {
               clueMetadata={clueMetadata}
             />
           </div>
+
+          {/* Attribution Section - Below grid, visible when keyboard is dismissed */}
+          <div className="px-4 pb-6 pt-4">
+            <div className="grid grid-cols-2 gap-4">
+              {/* Attribution Controls */}
+              <AttributionControls
+                enabled={showAttributions}
+                onToggle={() => setShowAttributions(!showAttributions)}
+                attributions={attributions}
+              />
+              
+              {/* Attribution Stats */}
+              <AttributionStats
+                attributions={attributions}
+                clues={clues}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Keyboard Toggle FAB (Always visible when keyboard is closed) */}
