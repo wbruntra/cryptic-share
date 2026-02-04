@@ -265,7 +265,7 @@ async function dryRun() {
     console.log('\n✅ Nothing to do - all puzzles are complete or have no answers.')
   } else {
     console.log(
-      `\n💡 Running without --dry-run will create 1 batch job${successCount > 1 ? 's' : ''} with ${totalRequests} total requests.`,
+      `\n💡 Running without --dry-run will create ${successCount} batch job${successCount > 1 ? 's' : ''} (one per puzzle) with ${totalRequests} total requests.`,
     )
   }
 
@@ -489,8 +489,8 @@ async function createBatchesForAllPuzzles() {
 
   console.log('\n💡 Next steps:')
   console.log('   1. Wait for batches to complete (typically 1-24 hours)')
-  console.log('   2. Run: bun scripts/batch-explanation-retrieve.ts')
-  console.log('   3. Select completed batches to download and apply results')
+  console.log('   2. Run: bun run batch-retrieve')
+  console.log('   3. Results will be automatically downloaded and applied')
 }
 
 async function retrieveAndApplyCompletedBatches() {

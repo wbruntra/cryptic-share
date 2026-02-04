@@ -12,7 +12,8 @@ bun run batch-create -- --dry-run
 **What `--dry-run` does:**
 - Scans all puzzles
 - Shows which ones need explanations
-- Counts how many requests would be created
+- Counts how many requests each puzzle would create
+- Shows how many separate batch jobs would be created
 - **No batches are actually created** - just shows what would happen
 
 **Example output:**
@@ -31,7 +32,7 @@ SUMMARY
   Puzzles to skip:     0
   Total requests:      227
 
-💡 Running without --dry-run will create 1 batch jobs with 227 total requests.
+💡 Running without --dry-run will create 8 batch jobs (one per puzzle) with 227 total requests.
 ```
 
 **Then actually create batches:**
@@ -41,11 +42,12 @@ bun run batch-create
 
 **What it does:**
 - Finds all puzzles with incomplete explanations
+- Creates a **separate batch job for each puzzle**
 - Verifies they have answers
-- Automatically creates OpenAI batch jobs
-- Reports batch IDs and progress
+- Automatically uploads to OpenAI
+- Reports batch IDs for each puzzle
 
-**No manual selection needed** - it processes all incomplete puzzles automatically.
+**No manual selection needed** - it processes all incomplete puzzles automatically, one batch per puzzle.
 
 ### 2. Retrieve & Apply Results
 

@@ -16,18 +16,30 @@ The `batch-explanation-auto.ts` script provides two modes:
 ```
 1. Find puzzles needing explanations
    ↓
-2. Verify they have answers (answers_encrypted)
+2. For each puzzle:
+   a. Verify it has answers (answers_encrypted)
+   b. Find all clues without explanations
+   c. Create a SEPARATE batch job for that puzzle
    ↓
-3. Create batch jobs for remaining clues
+3. [Wait 1-24 hours for OpenAI to process]
    ↓
-4. [Wait 1-24 hours for OpenAI to process]
+4. Retrieve ALL completed batches
    ↓
-5. Retrieve completed batches
-   ↓
-6. Validate results against ExplanationSchema
-   ↓
-7. Store explanations in database
+5. For each batch result:
+   a. Validate explanations against ExplanationSchema
+   b. Store in database
+   c. Mark batch as applied
 ```
+
+### Batch Organization
+
+Each puzzle gets its own batch job:
+- **Puzzle 20** → `batch_xxx...xxx` with 32 requests
+- **Puzzle 21** → `batch_yyy...yyy` with 30 requests  
+- **Puzzle 22** → `batch_zzz...zzz` with 29 requests
+- etc.
+
+This matches the interactive script's approach and allows tracking progress per puzzle.
 
 ## Usage
 
@@ -97,6 +109,21 @@ Found 8 puzzle(s) needing explanations:
 
 Processing 8 puzzle(s)...
 
+--- Puzzle #20 (ID: 5) ---
+  ✓ Puzzle has answers: 32 across, 0 down
+  ✓ Generated 32 requests.
+  📤 Uploading batch to OpenAI...
+  ✓ File uploaded. ID: file_xxx...
+  🚀 Creating batch job...
+  ✅ Batch job created!
+     Batch ID: batch_1234567890abcdef
+  ✓ Batch record saved to database.
+
+--- Puzzle #21 (ID: 6) ---
+  ✓ Puzzle has answers: 30 across, 0 down
+  ✓ Generated 30 requests.
+  ...
+
 ✅ BATCH CREATION COMPLETE
 
 Created 8 batch job(s):
@@ -106,7 +133,7 @@ Created 8 batch job(s):
 
 💡 Next steps:
    1. Wait for batches to complete (typically 1-24 hours)
-   2. Run: bun scripts/batch-explanation-auto.ts retrieve
+   2. Run: bun run batch-retrieve
    3. Results will be automatically downloaded and applied
 ```
 
