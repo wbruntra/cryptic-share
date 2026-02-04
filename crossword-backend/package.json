@@ -10,7 +10,9 @@
     "migrate:latest": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
     "create-user": "bun run create-user.ts",
-    "batch-explanations": "bun run scripts/batch-explanation-interactive.ts"
+    "batch-explanations": "bun run scripts/batch-explanation-interactive.ts",
+    "batch-create": "bun run scripts/batch-explanation-auto.ts",
+    "batch-retrieve": "bun run scripts/batch-explanation-auto.ts retrieve"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
