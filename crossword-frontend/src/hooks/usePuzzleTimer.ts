@@ -1,41 +1,38 @@
 import { useState, useEffect, useRef } from 'react'
 
 const STORAGE_KEY_PREFIX = 'cryptic_timer_'
+const IDLE_THRESHOLD = 60 * 1000
+
+const loadStoredSeconds = (key: string) => {
+  try {
+    const stored = localStorage.getItem(key)
+    if (stored) {
+      const { totalSeconds } = JSON.parse(stored)
+      return totalSeconds || 0
+    }
+  } catch (error) {
+    console.error('Failed to parse timer', error)
+  }
+  return 0
+}
 
 export const usePuzzleTimer = (sessionId: string | undefined) => {
-  const [elapsedSeconds, setElapsedSeconds] = useState(0)
-  const timerRef = useRef<any>(null)
+  const initialKey = sessionId ? `${STORAGE_KEY_PREFIX}${sessionId}` : null
+  const [elapsedSeconds, setElapsedSeconds] = useState(() =>
+    initialKey ? loadStoredSeconds(initialKey) : 0,
+  )
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Track last real update to total seconds
-  const lastUpdateTimeRef = useRef<number>(Date.now())
+  const lastUpdateTimeRef = useRef<number>(0)
 
   // Track user activity for idle detection
-  const lastActivityRef = useRef<number>(Date.now())
-
-  // IDLE THRESHOLD: 60 seconds
-  const IDLE_THRESHOLD = 60 * 1000
+  const lastActivityRef = useRef<number>(0)
 
   useEffect(() => {
     if (!sessionId) return
 
     const key = `${STORAGE_KEY_PREFIX}${sessionId}`
-
-    // Load initial state
-    const loadState = () => {
-      try {
-        const stored = localStorage.getItem(key)
-        if (stored) {
-          const { totalSeconds } = JSON.parse(stored)
-          // We assume "work" time is only while open, so we don't add diff from lastTimestamp
-          return totalSeconds || 0
-        }
-      } catch (e) {
-        console.error('Failed to parse timer', e)
-      }
-      return 0
-    }
-
-    setElapsedSeconds(loadState())
     lastUpdateTimeRef.current = Date.now()
     lastActivityRef.current = Date.now()
 

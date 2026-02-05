@@ -1,11 +1,18 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useGetPuzzleByIdQuery, useUpdatePuzzleMutation } from '../store/api/adminApi'
-import type { CellType } from '../types'
+import type { CellType, PuzzleData } from '../types'
 import { CrosswordGrid } from '../CrosswordGrid'
 import { EditOutput } from '../EditOutput'
 import { parseGridJson, parseGridString, renderGrid } from '../utils/gridRenderer'
 import { validateClues } from '../utils/clueHelpers'
+
+type EditPuzzleData = Omit<PuzzleData, 'clues'> & {
+  clues?: PuzzleData['clues']
+  answers?: unknown
+}
+
+type UpdatePuzzleFn = ReturnType<typeof useUpdatePuzzleMutation>[0]
 
 export function EditPuzzle() {
   const { puzzleId } = useParams<{ puzzleId: string }>()
@@ -13,19 +20,71 @@ export function EditPuzzle() {
   const { data: puzzle, isLoading: loading, error } = useGetPuzzleByIdQuery(puzzleId!)
   const [updatePuzzle, { isLoading: isSaving }] = useUpdatePuzzleMutation()
 
+  if (loading)
+    return (
+      <div className="flex items-center justify-center min-h-[50vh] text-text-secondary animate-pulse gap-2">
+        <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+        Loading puzzle layout...
+      </div>
+    )
+
+  if (error || !puzzle)
+    return (
+      <div className="max-w-md mx-auto mt-12 p-8 bg-error/10 border border-error/20 rounded-2xl text-error text-center font-medium">
+        Failed to load puzzle.
+      </div>
+    )
+
+  return (
+    <EditPuzzleForm
+      key={puzzle.id}
+      puzzle={puzzle as EditPuzzleData}
+      puzzleId={puzzleId!}
+      updatePuzzle={updatePuzzle}
+      isSaving={isSaving}
+    />
+  )
+}
+
+interface EditPuzzleFormProps {
+  puzzle: EditPuzzleData
+  puzzleId: string
+  updatePuzzle: UpdatePuzzleFn
+  isSaving: boolean
+}
+
+function EditPuzzleForm({ puzzle, puzzleId, updatePuzzle, isSaving }: EditPuzzleFormProps) {
+  const parseGrid = (gridString: string) =>
+    gridString
+      .split('\n')
+      .map((row) => row.trim().split(' ') as CellType[])
+
   // Local state for editing
-  const [title, setTitle] = useState('')
-  const [grid, setGrid] = useState<CellType[][]>([])
-  const [cluesJson, setCluesJson] = useState('')
-  const [answersJson, setAnswersJson] = useState('')
-  // saving state is now isSaving from hook
-  const [validationErrors, setValidationErrors] = useState<string[]>([])
-  const [isJsonValid, setIsJsonValid] = useState(true)
+  const title = puzzle.title
+  const [grid, setGrid] = useState<CellType[][]>(() => parseGrid(puzzle.grid))
+  const [cluesJson, setCluesJson] = useState(() =>
+    JSON.stringify(puzzle.clues ?? { across: [], down: [] }, null, 2),
+  )
+  const [answersJson, setAnswersJson] = useState(() =>
+    puzzle.answers ? JSON.stringify(puzzle.answers, null, 2) : '',
+  )
   const [replaceGridInput, setReplaceGridInput] = useState('')
   const [replaceGridError, setReplaceGridError] = useState<string | null>(null)
 
-  // Track previous grid string to detect changes
-  const prevGridStringRef = useRef<string>('')
+  const { isJsonValid, validationErrors } = useMemo(() => {
+    if (grid.length === 0) {
+      return { isJsonValid: true, validationErrors: [] as string[] }
+    }
+
+    try {
+      JSON.parse(cluesJson)
+    } catch {
+      return { isJsonValid: false, validationErrors: ['Invalid JSON format'] }
+    }
+
+    const errors = validateClues(grid, cluesJson)
+    return { isJsonValid: true, validationErrors: errors }
+  }, [grid, cluesJson])
 
   const applyReplaceGridInput = () => {
     setReplaceGridError(null)
@@ -63,46 +122,6 @@ export function EditPuzzle() {
     setGrid(candidate)
   }
 
-  // Sync query data to local state
-  useEffect(() => {
-    if (puzzle) {
-      setTitle(puzzle.title)
-      const parsedGrid = puzzle.grid
-        .split('\n')
-        .map((row: string) => row.trim().split(' ') as CellType[])
-      setGrid(parsedGrid)
-      prevGridStringRef.current = puzzle.grid
-
-      if (puzzle.clues) {
-        setCluesJson(JSON.stringify(puzzle.clues, null, 2))
-      } else {
-        setCluesJson(JSON.stringify({ across: [], down: [] }, null, 2))
-      }
-
-      if (puzzle.answers) {
-        setAnswersJson(JSON.stringify(puzzle.answers, null, 2))
-      }
-    }
-  }, [puzzle])
-
-  // Validate clues when grid or json changes
-  useEffect(() => {
-    if (grid.length === 0) return
-
-    // Quick syntactical check
-    try {
-      JSON.parse(cluesJson)
-      setIsJsonValid(true)
-    } catch {
-      setIsJsonValid(false)
-      setValidationErrors(['Invalid JSON format'])
-      return
-    }
-
-    const errors = validateClues(grid, cluesJson)
-    setValidationErrors(errors)
-  }, [grid, cluesJson])
-
   const handleSave = async () => {
     if (!puzzleId) return
 
@@ -122,7 +141,7 @@ export function EditPuzzle() {
       if (answersJson.trim()) {
         try {
           answersObj = JSON.parse(answersJson)
-        } catch (e) {
+        } catch {
           if (!confirm('Answers JSON is invalid. Save without updating answers?')) {
             return
           }
@@ -167,21 +186,6 @@ export function EditPuzzle() {
     if (grid.length === 0) return ''
     return grid.map((row) => row.join(' ')).join('\n')
   }, [grid])
-
-  if (loading)
-    return (
-      <div className="flex items-center justify-center min-h-[50vh] text-text-secondary animate-pulse gap-2">
-        <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-        Loading puzzle layout...
-      </div>
-    )
-
-  if (error)
-    return (
-      <div className="max-w-md mx-auto mt-12 p-8 bg-error/10 border border-error/20 rounded-2xl text-error text-center font-medium">
-        Failed to load puzzle.
-      </div>
-    )
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 pb-12">

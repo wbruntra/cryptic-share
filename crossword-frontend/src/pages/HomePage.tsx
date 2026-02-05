@@ -12,18 +12,19 @@ interface PuzzleWithSession extends PuzzleSummary {
   session?: RemoteSession
 }
 
+const getTimestamp = () => Date.now()
+
 export function HomePage() {
   const [puzzles, setPuzzles] = useState<PuzzleSummary[]>([])
   const [sessions, setSessions] = useState<RemoteSession[]>([])
   const [puzzleStatus, setPuzzleStatus] = useState<Map<number, PuzzleStatus>>(new Map())
   const [showCompleted, setShowCompleted] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [navigating, setNavigating] = useState<number | null>(null)
   const navigate = useNavigate()
   const { user, refreshSessions } = useAuth()
 
   useEffect(() => {
-    setLoading(true)
     axios
       .get('/api/puzzles')
       .then((res) => setPuzzles(res.data))
@@ -68,7 +69,7 @@ export function HomePage() {
         sessionId,
         puzzleId,
         puzzleTitle,
-        lastPlayed: Date.now(),
+        lastPlayed: getTimestamp(),
       })
 
       navigate(`/play/${sessionId}`)

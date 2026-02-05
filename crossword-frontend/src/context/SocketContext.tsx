@@ -19,42 +19,46 @@ interface SocketProviderProps {
 }
 
 export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
-  const [socket, setSocket] = useState<Socket | null>(null)
-  const [socketId, setSocketId] = useState<string | null>(null)
-  const [isConnected, setIsConnected] = useState(false)
-
-  useEffect(() => {
-    // Create socket connection
-    const newSocket = io('/', {
+  const [socket] = useState(() =>
+    io('/', {
       // Use polling first, then upgrade to websocket to avoid proxy issues
       transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-    })
+    }),
+  )
+  const [socketId, setSocketId] = useState<string | null>(null)
+  const [isConnected, setIsConnected] = useState(false)
 
-    newSocket.on('connect', () => {
-      console.log('Socket connected:', newSocket.id)
-      setSocketId(newSocket.id ?? null)
+  useEffect(() => {
+    const handleConnect = () => {
+      console.log('Socket connected:', socket.id)
+      setSocketId(socket.id ?? null)
       setIsConnected(true)
-    })
+    }
 
-    newSocket.on('disconnect', () => {
+    const handleDisconnect = () => {
       console.log('Socket disconnected')
       setSocketId(null)
       setIsConnected(false)
-    })
+    }
 
-    newSocket.on('connect_error', (error) => {
+    const handleConnectError = (error: Error) => {
       console.error('Socket connection error:', error.message)
-    })
+    }
 
-    setSocket(newSocket)
+    socket.on('connect', handleConnect)
+    socket.on('disconnect', handleDisconnect)
+    socket.on('connect_error', handleConnectError)
 
     return () => {
-      newSocket.close()
+      socket.off('connect', handleConnect)
+      socket.off('disconnect', handleDisconnect)
+      socket.off('connect_error', handleConnectError)
+      socket.close()
     }
-  }, [])
+  }, [socket])
 
   return (
     <SocketContext.Provider value={{ socket, socketId, isConnected }}>

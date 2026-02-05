@@ -1,0 +1,182 @@
+$ eslint .
+
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/components/HintModal.ts
+x                                                                                                 96:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/components/HintModal.ts
+x:96:7                                                                                           94 |   useEffect(() => {
+  95 |     if (cachedExplanation) {
+> 96 |       setExplanation(cachedExplanation)
+     |       ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  97 |       setExplanationError(null)
+  98 |     }
+  99 |   }, [cachedExplanation])  react-hooks/set-state-in-effect
+  104:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/components/HintModal.ts
+x:104:7                                                                                          102 |   useEffect(() => {
+  103 |     if (pendingExplanation) {
+> 104 |       setProcessingMessage(pendingExplanation.message)
+      |       ^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  105 |     }
+  106 |   }, [pendingExplanation])
+  107 |   react-hooks/set-state-in-effect
+  153:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/components/HintModal.ts
+x:153:7                                                                                          151 |   useEffect(() => {
+  152 |     if (isOpen) {
+> 153 |       setModalState(currentWordState)
+      |       ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  154 |       setFullAnswer(null)
+  155 |       setError(null)
+  156 |       setLoading(true)  react-hooks/set-state-in-effect
+  220:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/components/ImageCropperDialog.tsx
+  1:28  warning  'useEffect' is defined but never used         @typescript-eslint/no-unused-vars
+  11:10  warning  'centerAspectCrop' is defined but never used  @typescript-eslint/no-unused-vars
+  90:13  warning  'centerX' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  91:13  warning  'centerY' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/components/NavBar.tsx
+  11:10  warning  'isNotifPopoverOpen' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  11:30  warning  'setIsNotifPopoverOpen' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/context/SocketContext.tsx
+  11:14  warning  Fast refresh only works when a file only exports components. Move your React context(s) to a separate file  react-refresh/only-export-components
+  52:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/context/SocketContext.tsx:52:5
+  50 |     })
+  51 |
+> 52 |     setSocket(newSocket)
+     |     ^^^^^^^^^ Avoid calling setState() directly within an effect
+  53 |
+  54 |     return () => {
+  55 |       newSocket.close()  react-hooks/set-state-in-effect
+  67:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/hooks/usePuzzleTimer.ts
+   7:27  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  10:44  error    Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/hooks/usePuzzleTimer.ts:10:44
+   8 |
+   9 |   // Track last real update to total seconds
+> 10 |   const lastUpdateTimeRef = useRef<number>(Date.now())
+     |                                            ^^^^^^^^^^ Cannot call impure function
+  11 |
+  12 |   // Track user activity for idle detection
+  13 |   const lastActivityRef = useRef<number>(Date.now())  react-hooks/purity
+  13:42  error    Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/hooks/usePuzzleTimer.ts:13:42
+  11 |
+  12 |   // Track user activity for idle detection
+> 13 |   const lastActivityRef = useRef<number>(Date.now())
+     |                                          ^^^^^^^^^^ Cannot call impure function
+  14 |
+  15 |   // IDLE THRESHOLD: 60 seconds
+  16 |   const IDLE_THRESHOLD = 60 * 1000                                     react-hooks/purity
+  98:6   warning  React Hook useEffect has a missing dependency: 'IDLE_THRESHOLD'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/pages/EditPuzzle.tsx
+   69:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/pages/EditPuzzle.tsx:69:7
+  67 |   useEffect(() => {
+  68 |     if (puzzle) {
+> 69 |       setTitle(puzzle.title)
+     |       ^^^^^^^^ Avoid calling setState() directly within an effect
+  70 |       const parsedGrid = puzzle.grid
+  71 |         .split('\n')
+  72 |         .map((row: string) => row.trim().split(' ') as CellType[])  react-hooks/set-state-in-effect
+  95:7   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/pages/EditPuzzle.tsx:95:7
+  93 |     try {
+  94 |       JSON.parse(cluesJson)
+> 95 |       setIsJsonValid(true)
+     |       ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  96 |     } catch {
+  97 |       setIsJsonValid(false)
+  98 |       setValidationErrors(['Invalid JSON format'])                              react-hooks/set-state-in-effect
+  125:18  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/pages/ExplanationReviewPage.tsx
+  11:16  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  68:43  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  94:6   warning  React Hook useEffect has a missing dependency: 'storageKey'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  127:16  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/pages/HomePage.tsx
+  11:11  warning  'PuzzleWithSession' is defined but never used  @typescript-eslint/no-unused-vars
+  71:21  error    Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/pages/HomePage.tsx:71:21
+  69 |         puzzleId,
+  70 |         puzzleTitle,
+> 71 |         lastPlayed: Date.now(),
+     |                     ^^^^^^^^^^ Cannot call impure function
+  72 |       })
+  73 |
+  74 |       navigate(`/play/${sessionId}`)  react-hooks/purity
+
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/pages/PlaySession.tsx
+  7:75  warning  'getAnonymousId' is defined but never used  @typescript-eslint/no-unused-vars
+  26:15  warning  'ClueMetadata' is defined but never used  @typescript-eslint/no-unused-vars
+  186:19  warning  'setHinting' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  327:5   warning  React Hook useCallback has a missing dependency: 'AUTO_CHECK_ENABLED'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  548:6   warning  React Hook useEffect has a missing dependency: 'normalizeAnswersForGrid'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  592:6   warning  React Hook useCallback has a missing dependency: 'normalizeAnswersForGrid'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  879:6   warning  React Hook useEffect has missing dependencies: 'autoCheckCurrentWord', 'clearCheckedWordsForCell', 'errorCells', 'normalizeAnswersForGrid', 'renderedGrid', 'socket', and 'updateLocalState'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/pages/ReportManagementPage.tsx
+  10:16  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  59:43  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  121:16  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/pages/SessionListPage.tsx
+  1:20  warning  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/store/api/adminApi.ts
+  10:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  11:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/store/api/sessionApi.ts
+  43:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/store/slices/adminSlice.ts
+  3:15  warning  'PuzzleSummary' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/william/src/tries/2026-01-06-cryptic-share/crossword-frontend/src/utils/clueHelpers.ts
+  55:18  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  58:12  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+  74:34  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  82:32  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 45 problems (21 errors, 24 warnings)
+
+error: script "lint" exited with code 1
