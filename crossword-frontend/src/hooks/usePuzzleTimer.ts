@@ -70,7 +70,7 @@ export const usePuzzleTimer = (sessionId: string | undefined) => {
       const delta = Math.floor((now - lastUpdateTimeRef.current) / 1000)
 
       if (delta >= 1) {
-        setElapsedSeconds((prev) => {
+        setElapsedSeconds((prev: number) => {
           const newValue = prev + delta
           // Save to local storage
           localStorage.setItem(
