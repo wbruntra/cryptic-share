@@ -82,6 +82,27 @@ export function PlaySession() {
     answersRef.current = answers
   }, [answers])
 
+  const normalizeStateToDimensions = (state: string[], rows: number, cols: number) => {
+    const next = state.length === rows ? [...state] : Array(rows).fill(' '.repeat(cols))
+
+    for (let r = 0; r < rows; r++) {
+      const row = next[r] ?? ''
+      if (row.length !== cols) {
+        next[r] = row.padEnd(cols, ' ').slice(0, cols)
+      }
+    }
+
+    return next
+  }
+
+  const normalizeAnswersForGrid = useCallback(
+    (state: string[]) => {
+      if (grid.length === 0) return state
+      return normalizeStateToDimensions(state, grid.length, grid[0].length)
+    },
+    [grid],
+  )
+
   const mergePreferLocalWithChanges = useCallback(
     (localState: string[], serverState: string[]) => {
       if (!Array.isArray(localState) || localState.length === 0) {
@@ -355,7 +376,7 @@ export function PlaySession() {
         setShowChangeNotification(true)
       }
 
-      setAnswers(merged)
+      setAnswers(normalizeAnswersForGrid(merged))
     }
 
     const handleCellUpdated = ({
@@ -381,7 +402,7 @@ export function PlaySession() {
       }
 
       setAnswers((prev) => {
-        const newAnswers = [...prev]
+        const newAnswers = normalizeAnswersForGrid(prev)
         if (newAnswers[r]) {
           // String manipulation
           const row = newAnswers[r]
@@ -452,7 +473,8 @@ export function PlaySession() {
         // If sessionState exists and matches dimensions, use it. Otherwise empty.
         // If sessionState exists and matches dimensions, use it. Otherwise empty.
         if (sessionState && sessionState.length === rows && sessionState[0].length === cols) {
-          setAnswers(sessionState)
+          const normalizedSessionState = normalizeStateToDimensions(sessionState, rows, cols)
+          setAnswers(normalizedSessionState)
 
           // Check for changes since last visit
           const storedSession = getLocalSessionById(sessionId as string)
@@ -467,7 +489,7 @@ export function PlaySession() {
 
               for (let c = 0; c < cols; c++) {
                 const oldVal = lastState[r][c] || ' '
-                const newVal = sessionState[r][c] || ' '
+                const newVal = normalizedSessionState[r][c] || ' '
                 if (oldVal !== newVal) {
                   newChangedCells.add(`${r}-${c}`)
                 }
@@ -498,7 +520,12 @@ export function PlaySession() {
           lastPlayed: Date.now(),
           // Only set lastKnownState if it's new or empty, otherwise wait for dismiss
           ...(shouldUpdateKnownState
-            ? { lastKnownState: sessionState || Array(rows).fill(' '.repeat(cols)) }
+            ? {
+                lastKnownState:
+                  (sessionState
+                    ? normalizeStateToDimensions(sessionState, rows, cols)
+                    : Array(rows).fill(' '.repeat(cols)))
+              }
             : {}),
         })
       } catch (error) {
@@ -557,7 +584,7 @@ export function PlaySession() {
           setShowChangeNotification(true)
         }
 
-        setAnswers(merged)
+        setAnswers(normalizeAnswersForGrid(merged))
       }
     } catch (error) {
       console.error('[PlaySession] Sync failed:', error)
@@ -767,7 +794,7 @@ export function PlaySession() {
 
       if (e.key.match(/^[a-zA-Z]$/)) {
         const char = e.key.toUpperCase()
-        const newAnswers = [...answers]
+        const newAnswers = normalizeAnswersForGrid(answers)
         const row = newAnswers[r] || ' '
         newAnswers[r] = row.substring(0, c) + char + row.substring(c + 1)
         setAnswers(newAnswers)
@@ -806,7 +833,7 @@ export function PlaySession() {
         }
       } else if (e.key === 'Backspace') {
         const currentVal = answers[r][c]
-        const newAnswers = [...answers]
+        const newAnswers = normalizeAnswersForGrid(answers)
         const row = newAnswers[r] || ' '
         newAnswers[r] = row.substring(0, c) + ' ' + row.substring(c + 1)
         setAnswers(newAnswers)
@@ -854,7 +881,7 @@ export function PlaySession() {
   const handleVirtualKeyPress = (key: string) => {
     if (!cursor) return
     const { r, c, direction } = cursor
-    const newAnswers = [...answers]
+    const newAnswers = normalizeAnswersForGrid(answers)
     const row = newAnswers[r] || ' '
     newAnswers[r] = row.substring(0, c) + key + row.substring(c + 1)
     setAnswers(newAnswers)
@@ -890,7 +917,7 @@ export function PlaySession() {
     if (!cursor) return
     const { r, c, direction } = cursor
     const currentVal = answers[r][c]
-    const newAnswers = [...answers]
+    const newAnswers = normalizeAnswersForGrid(answers)
     const row = newAnswers[r] || ' '
     newAnswers[r] = row.substring(0, c) + ' ' + row.substring(c + 1)
     setAnswers(newAnswers)
