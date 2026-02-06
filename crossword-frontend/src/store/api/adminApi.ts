@@ -1,6 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
 import type { Report, Session } from '../slices/adminSlice'
-
+import { getAuthToken } from '../../services/auth'
 import type { PuzzleSummary } from '../../types'
 
 export interface PuzzleDetail {
@@ -13,7 +13,16 @@ export interface PuzzleDetail {
 
 export const adminApi = createApi({
   reducerPath: 'adminApi',
-  baseQuery: fetchBaseQuery({ baseUrl: '/api/admin/' }),
+  baseQuery: fetchBaseQuery({
+    baseUrl: '/api/admin/',
+    prepareHeaders: (headers) => {
+      const token = getAuthToken()
+      if (token) {
+        headers.set('Authorization', `Bearer ${token}`)
+      }
+      return headers
+    },
+  }),
   tagTypes: ['Report', 'Puzzle', 'Session'],
   endpoints: (builder) => ({
     getReports: builder.query<Report[], void>({

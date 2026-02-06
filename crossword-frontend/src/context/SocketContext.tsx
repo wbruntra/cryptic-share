@@ -1,17 +1,22 @@
-import React, { createContext, useEffect, useState, useContext } from 'react'
+import React, { createContext, useEffect, useState, useContext, useRef, useCallback } from 'react'
 import type { ReactNode } from 'react'
-import { io, Socket } from 'socket.io-client'
 
 interface SocketContextValue {
-  socket: Socket | null
+  ws: WebSocket | null
   socketId: string | null
   isConnected: boolean
+  send: (data: object) => void
+  on: (type: string, handler: (data: any) => void) => void
+  off: (type: string, handler: (data: any) => void) => void
 }
 
 export const SocketContext = createContext<SocketContextValue>({
-  socket: null,
+  ws: null,
   socketId: null,
   isConnected: false,
+  send: () => {},
+  on: () => {},
+  off: () => {},
 })
 
 interface SocketProviderProps {
@@ -19,48 +24,119 @@ interface SocketProviderProps {
 }
 
 export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
-  const socketUrl = '/'
-  const [socket] = useState(() =>
-    io(socketUrl, {
-      // Use polling first, then upgrade to websocket to avoid proxy issues
-      transports: ['polling', 'websocket'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    }),
-  )
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const wsUrl = `${protocol}//${window.location.host}/ws`
+
+  const [ws, setWs] = useState<WebSocket | null>(null)
   const [socketId, setSocketId] = useState<string | null>(null)
   const [isConnected, setIsConnected] = useState(false)
 
+  // Event handlers map: type -> Set of handlers
+  const handlersRef = useRef<Map<string, Set<(data: any) => void>>>(new Map())
+
+  // Connect on mount
   useEffect(() => {
-    const handleConnect = () => {
-      setSocketId(socket.id ?? null)
-      setIsConnected(true)
+    let socket: WebSocket | null = null
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
+    let reconnectAttempts = 0
+    const maxReconnectAttempts = 5
+
+    const connect = () => {
+      socket = new WebSocket(wsUrl)
+
+      socket.onopen = () => {
+        console.log('[WebSocket] Connected')
+        setWs(socket)
+        setIsConnected(true)
+        // SocketId will be set when we receive connection_established message
+        reconnectAttempts = 0
+      }
+
+      socket.onclose = () => {
+        console.log('[WebSocket] Disconnected')
+        setIsConnected(false)
+        setSocketId(null)
+
+        // Auto-reconnect with backoff
+        if (reconnectAttempts < maxReconnectAttempts) {
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000)
+          console.log(`[WebSocket] Reconnecting in ${delay}ms...`)
+          reconnectTimeout = setTimeout(() => {
+            reconnectAttempts++
+            connect()
+          }, delay)
+        }
+      }
+
+      socket.onerror = (error) => {
+        console.error('[WebSocket] Error:', error)
+      }
+
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          const type = data.type
+
+          // Handle connection_established message to set socketId
+          if (type === 'connection_established') {
+            setSocketId(data.socketId)
+            console.log('[WebSocket] Socket ID received:', data.socketId)
+            return
+          }
+
+          // Call all handlers registered for this message type
+          const handlers = handlersRef.current.get(type)
+          if (handlers) {
+            handlers.forEach((handler) => handler(data))
+          }
+        } catch (error) {
+          console.error('[WebSocket] Failed to parse message:', error)
+        }
+      }
     }
 
-    const handleDisconnect = () => {
-      setSocketId(null)
-      setIsConnected(false)
-    }
-
-    const handleConnectError = (error: Error) => {
-      console.error('Socket connection error:', error.message)
-    }
-
-    socket.on('connect', handleConnect)
-    socket.on('disconnect', handleDisconnect)
-    socket.on('connect_error', handleConnectError)
+    connect()
 
     return () => {
-      socket.off('connect', handleConnect)
-      socket.off('disconnect', handleDisconnect)
-      socket.off('connect_error', handleConnectError)
-      socket.close()
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout)
+      }
+      if (socket) {
+        socket.close()
+      }
     }
-  }, [socket])
+  }, [wsUrl])
+
+  // Send a message
+  const send = useCallback(
+    (data: object) => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(data))
+      } else {
+        console.warn('[WebSocket] Cannot send, not connected')
+      }
+    },
+    [ws],
+  )
+
+  // Register a handler for a message type
+  const on = useCallback((type: string, handler: (data: any) => void) => {
+    if (!handlersRef.current.has(type)) {
+      handlersRef.current.set(type, new Set())
+    }
+    handlersRef.current.get(type)!.add(handler)
+  }, [])
+
+  // Unregister a handler
+  const off = useCallback((type: string, handler: (data: any) => void) => {
+    const handlers = handlersRef.current.get(type)
+    if (handlers) {
+      handlers.delete(handler)
+    }
+  }, [])
 
   return (
-    <SocketContext.Provider value={{ socket, socketId, isConnected }}>
+    <SocketContext.Provider value={{ ws, socketId, isConnected, send, on, off }}>
       {children}
     </SocketContext.Provider>
   )

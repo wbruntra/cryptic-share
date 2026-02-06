@@ -13,11 +13,12 @@ export function AdminDashboard() {
   const dispatch = useAppDispatch()
   const { isAuthenticated, error } = useAppSelector((state) => state.admin)
   const { data: puzzles = [], isLoading: isPuzzlesLoading } = useGetPuzzlesQuery(undefined, {
-    skip: !isAuthenticated,
+    skip: isAuthenticated !== true, // Only fetch when explicitly authenticated
   })
   const [deletePuzzle] = useDeletePuzzleMutation()
   const [renamePuzzle] = useRenamePuzzleMutation()
 
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
 
   useEffect(() => {
@@ -42,7 +43,7 @@ export function AdminDashboard() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
-    dispatch(login(password))
+    dispatch(login({ username, password }))
   }
 
   if (isAuthenticated === null)
@@ -63,13 +64,25 @@ export function AdminDashboard() {
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
               <label className="block text-sm font-semibold mb-2 text-text-secondary">
+                Username
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter username"
+                className="w-full px-4 py-3 rounded-xl bg-input-bg border border-border text-text focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-text-secondary">
                 Password
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter admin password"
+                placeholder="Enter password"
                 className="w-full px-4 py-3 rounded-xl bg-input-bg border border-border text-text focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
               />
             </div>

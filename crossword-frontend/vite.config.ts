@@ -55,6 +55,11 @@ export default defineConfig({
         target: 'http://localhost:8921',
         changeOrigin: true,
       },
+      '/ws': {
+        target: 'ws://localhost:8921',
+        ws: true,
+        changeOrigin: true,
+      },
       '/socket.io': {
         target: 'http://localhost:8921',
         ws: true,

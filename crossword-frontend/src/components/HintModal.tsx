@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Socket } from 'socket.io-client'
+import { useSocket } from '../context/SocketContext'
 import { Modal } from './Modal'
 import { ClueExplanationDisplay, type ClueExplanation } from './ClueExplanationDisplay'
 import {
@@ -21,7 +21,6 @@ interface HintModalProps {
   currentWordState: string[] // The characters currently in the grid for this word
   onFetchAnswer: () => Promise<string>
   timerDisplay?: string
-  socket?: Socket | null
 }
 
 type TabType = 'letters' | 'explain'
@@ -45,8 +44,8 @@ function HintModalContent({
   currentWordState,
   onFetchAnswer,
   timerDisplay,
-  socket,
 }: HintModalContentProps) {
+  const { on, off } = useSocket()
   const dispatch = useAppDispatch()
   const [activeTab, setActiveTab] = useState<TabType>('letters')
 
@@ -123,11 +122,8 @@ function HintModalContent({
     }
   }, [clueNumber, direction])
 
-
   // Listen for socket events for async explanation
   useEffect(() => {
-    if (!socket) return
-
     const handleExplanationReady = (data: {
       requestId: string
       clueNumber: number
@@ -161,13 +157,12 @@ function HintModalContent({
       }
     }
 
-    socket.on('explanation_ready', handleExplanationReady)
+    on('explanation_ready', handleExplanationReady)
 
     return () => {
-      socket.off('explanation_ready', handleExplanationReady)
+      off('explanation_ready', handleExplanationReady)
     }
-  }, [socket, dispatch])
-
+  }, [on, off, dispatch])
 
   const handleLetterHint = (index: number) => {
     if (!fullAnswer) return

@@ -7,10 +7,47 @@ This document contains guidelines for agentic coding agents working on the Crypt
 This is a full-stack crossword puzzle application with:
 
 - **Frontend**: React + TypeScript + Vite + Tailwind CSS
-- **Backend**: Express.js + TypeScript + Bun runtime + SQLite/Knex
+- **Backend**: Bun.serve (native) + TypeScript + SQLite/Knex
 - **Database**: SQLite with Knex migrations
+- **Authentication**: Unified JWT-based authentication with admin role flag
 
 Use Bun instead of node/npm for all commands, including running scripts and managing dependencies. (Use `bun add` instead of `npm install`)
+
+## Architecture
+
+### Backend Server
+
+The backend uses **native Bun.serve** with a custom HTTP router (no Express):
+
+- **HTTP Router**: Custom lightweight router with path parameter extraction (`/http/router.ts`)
+- **WebSocket**: Native Bun WebSocket integration for real-time updates
+- **Request Logging**: Custom HTTP logger (`/http/logger.ts`) for request/response timing
+- **Body Parsing**: Custom JSON parser in server fetch handler
+- **Error Handling**: HttpError exceptions with automatic JSON error responses
+
+### Authentication System
+
+The application uses a **unified JWT-based authentication** system:
+
+- **Single login endpoint**: `/api/auth/login` for both regular users and admins
+- **JWT tokens**: Include `{ id, username, isAdmin }` claims
+- **No cookies**: Exclusively JWT with Bearer token in Authorization header
+- **Admin management**: CLI script to promote/demote users (`bun run scripts/manage-admin.ts`)
+- **Database column**: `users.is_admin` boolean column determines admin status
+- **Frontend storage**: JWT stored in localStorage via `setAuthToken()`
+
+#### Managing Admin Users
+
+```bash
+# List all users with admin status
+bun run scripts/manage-admin.ts list
+
+# Promote a user to admin
+bun run scripts/manage-admin.ts set <userId>
+
+# Demote an admin to regular user
+bun run scripts/manage-admin.ts unset <userId>
+```
 
 ## Build & Development Commands
 
@@ -104,26 +141,68 @@ export function ComponentName({ title, onAction }: ComponentProps) {
 
 ### Backend API Patterns
 
-- Use **Express Router** for route organization
+- Use **custom Router** for route organization (`/http/router.ts`)
 - Implement **async/await** for database operations
 - Use **try/catch** blocks for error handling
-- Return **consistent JSON responses**
+- Throw **HttpError** exceptions for error responses
+- Return responses via **jsonResponse()** helper
 
 ```typescript
-router.get('/:id', async (req, res) => {
-  const { id } = req.params
+import { Router, jsonResponse, HttpError, type Context } from '../http/router'
+import { requireUser, requireAdmin } from '../middleware/auth'
+
+export function registerRoutes(router: Router) {
+  router.get('/api/resource/:id', handleGet)
+  router.post('/api/resource', handleCreate)
+}
+
+async function handleGet(ctx: Context) {
+  const { id } = ctx.params
+  requireUser(ctx) // Throws 401 if not authenticated
+  
   try {
     const result = await db('table').where({ id }).first()
-    if (result) {
-      res.json(result)
-    } else {
-      res.status(404).json({ error: 'Not found' })
+    if (!result) {
+      throw new HttpError(404, { error: 'Not found' })
     }
+    return jsonResponse(result)
   } catch (error) {
+    if (error instanceof HttpError) throw error
     console.error('Error:', error)
-    res.status(500).json({ error: 'Internal server error' })
+    throw new HttpError(500, { error: 'Internal server error' })
   }
-})
+}
+
+async function handleCreate(ctx: Context) {
+  requireAdmin(ctx) // Throws 403 if not admin
+  const body = ctx.body as any
+  // Handle creation...
+  return jsonResponse({ success: true })
+}
+```
+
+### Authentication Middleware
+
+```typescript
+import { requireUser, requireAdmin, optionalAuthenticateUser } from '../middleware/auth'
+
+// Throw 401 if no user (any authenticated user)
+function handleProtected(ctx: Context) {
+  requireUser(ctx)
+  // ...
+}
+
+// Throw 403 if not admin
+function handleAdminOnly(ctx: Context) {
+  requireAdmin(ctx)
+  // ...
+}
+
+// Allow both guests and authenticated users
+function handleOptional(ctx: Context) {
+  const user = optionalAuthenticateUser(ctx)
+  // user is AuthUser | null
+}
 ```
 
 ### Database Patterns
@@ -171,14 +250,20 @@ crossword-frontend/src/
 └── main.tsx           # App entry point
 
 crossword-backend/
+├── http/               # HTTP utilities
+│   ├── router.ts      # Custom HTTP router
+│   └── logger.ts      # Request/response logger
 ├── routes/             # API route handlers
-├── middleware/         # Express middleware
+├── middleware/         # Auth utility functions
 ├── services/           # Business logic
 ├── tests/              # Test files (*.test.ts)
 ├── migrations/         # Database migrations
 ├── tables/             # Exported DDL files for reference
+├── scripts/            # CLI utilities (admin management, etc.)
 ├── config.ts           # Configuration
-└── index.ts            # Server entry point
+├── bin/                # Executable entry points
+│   └── server.ts      # Main server entry point
+└── index.ts            # Server entry point (legacy)
 ```
 
 ## Security Considerations

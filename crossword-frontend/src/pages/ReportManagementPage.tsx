@@ -1,8 +1,10 @@
-import { useState, useEffect, useContext, useRef } from 'react'
-import { SocketContext } from '../context/SocketContext'
+import { useState, useEffect, useRef } from 'react'
+import { useSocket } from '../context/SocketContext'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { useGetReportsQuery } from '../store/api/adminApi'
+import { useAppSelector, useAppDispatch } from '../store/hooks'
+import { checkAuth } from '../store/slices/adminSlice'
 import type { Report } from '../store/slices/adminSlice'
 
 interface Explanation {
@@ -11,7 +13,17 @@ interface Explanation {
 }
 
 export function ReportManagementPage() {
-  const { data: reports = [], isLoading, refetch } = useGetReportsQuery()
+  const dispatch = useAppDispatch()
+  const { isAuthenticated } = useAppSelector((state) => state.admin)
+  const { data: reports = [], isLoading, refetch } = useGetReportsQuery(undefined, {
+    skip: isAuthenticated !== true, // Only fetch when explicitly authenticated
+  })
+
+  useEffect(() => {
+    if (isAuthenticated === null) {
+      dispatch(checkAuth())
+    }
+  }, [dispatch, isAuthenticated])
 
   const [selectedReport, setSelectedReport] = useState<Report | null>(null)
   const [regenerating, setRegenerating] = useState(false)
@@ -50,12 +62,10 @@ export function ReportManagementPage() {
     setProcessingMessage('Checking regeneration status...')
   }, [storageKey, requestId])
 
-  const { socket, socketId } = useContext(SocketContext)
+  const { on, off, socketId } = useSocket()
 
   // Listen for socket events
   useEffect(() => {
-    if (!socket) return
-
     const handleExplanationReady = (data: any) => {
       // Check if this explanation matches our current request
       if (data.requestId && data.requestId !== requestIdRef.current) {
@@ -77,12 +87,12 @@ export function ReportManagementPage() {
       }
     }
 
-    socket.on('admin_explanation_ready', handleExplanationReady)
+    on('admin_explanation_ready', handleExplanationReady)
 
     return () => {
-      socket.off('admin_explanation_ready', handleExplanationReady)
+      off('admin_explanation_ready', handleExplanationReady)
     }
-  }, [socket])
+  }, [on, off, storageKey])
 
   useEffect(() => {
     if (!pendingReportId || reports.length === 0) return

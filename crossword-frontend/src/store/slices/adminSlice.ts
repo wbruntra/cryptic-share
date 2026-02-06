@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import axios from 'axios'
+import { getAuthToken, setAuthToken, getMe } from '../../services/auth'
 import type { PuzzleSummary } from '../../types'
 
 export interface Session {
@@ -50,14 +51,35 @@ const initialState: AdminState = {
 
 // Thunks
 export const checkAuth = createAsyncThunk('admin/checkAuth', async () => {
-  await axios.get('/api/auth/check-auth')
-  return true
+  try {
+    const user = await getMe()
+    // Check if user exists and has admin privileges
+    if (user && user.isAdmin) {
+      return true
+    }
+    return false
+  } catch {
+    return false
+  }
 })
 
-export const login = createAsyncThunk('admin/login', async (password: string) => {
-  await axios.post('/api/auth/admin-login', { password })
-  return true
-})
+export const login = createAsyncThunk(
+  'admin/login',
+  async ({ username, password }: { username: string; password: string }) => {
+    const response = await axios.post('/api/auth/login', { username, password })
+    if (response.data.token) {
+      setAuthToken(response.data.token)
+      // Verify the user is an admin
+      const user = await getMe()
+      if (!user || !user.isAdmin) {
+        setAuthToken(null) // Clear the token if not admin
+        throw new Error('Access denied: Admin privileges required')
+      }
+      return true
+    }
+    throw new Error('Invalid response from server')
+  },
+)
 
 export const fetchClueExplanations = createAsyncThunk(
   'admin/fetchClueExplanations',
@@ -74,6 +96,7 @@ const adminSlice = createSlice({
     logout: (state) => {
       state.isAuthenticated = false
       state.clueExplanations = []
+      setAuthToken(null) // Clear token on logout
     },
     clearError: (state) => {
       state.error = null
@@ -82,8 +105,8 @@ const adminSlice = createSlice({
   extraReducers: (builder) => {
     builder
       // Check Auth
-      .addCase(checkAuth.fulfilled, (state) => {
-        state.isAuthenticated = true
+      .addCase(checkAuth.fulfilled, (state, action) => {
+        state.isAuthenticated = action.payload
       })
       .addCase(checkAuth.rejected, (state) => {
         state.isAuthenticated = false

@@ -45,7 +45,7 @@ export function PlaySession() {
   const [title, setTitle] = useState('')
 
   // Socket
-  const { socket } = useSocket()
+  const { isConnected, socketId, send, on, off } = useSocket()
 
   // Auth and Nickname
   const { user } = useAuth()
@@ -298,8 +298,9 @@ export function PlaySession() {
       if (!sessionId) return false
 
       // Try socket first if connected
-      if (socket?.connected) {
-        socket.emit('claim_word', {
+      if (isConnected) {
+        send({
+          type: 'claim_word',
           sessionId,
           clueKey,
           userId,
@@ -321,7 +322,7 @@ export function PlaySession() {
         return false
       }
     },
-    [sessionId, socket],
+    [sessionId, isConnected, send],
   )
 
   // Track attributions in a ref to avoid dependency issues
@@ -417,32 +418,29 @@ export function PlaySession() {
 
   // When user subscribes while already on a session page, link this session
   useEffect(() => {
-    if (isPushSubscribed && sessionId && socket) {
+    if (isPushSubscribed && sessionId && isConnected) {
       const endpoint = getEndpoint()
       if (endpoint) {
-        socket.emit('link_push_session', { sessionId, endpoint })
+        send({ type: 'link_push_session', sessionId, endpoint })
       }
     }
-  }, [isPushSubscribed, sessionId, getEndpoint, socket])
+  }, [isPushSubscribed, sessionId, getEndpoint, isConnected, send])
 
   // --- Data Loading & Socket Setup ---
   useEffect(() => {
-    if (!sessionId || !socket) return
+    if (!sessionId) return
 
     // Join session on connect (and reconnect)
     const handleConnect = () => {
-      socket.emit('join_session', sessionId, getEndpoint())
+      send({ type: 'join_session', sessionId, pushEndpoint: getEndpoint() })
       // Process any queued claims from when we were offline
       void processQueuedClaims()
     }
 
     // If already connected, join immediately
-    if (socket.connected) {
+    if (isConnected) {
       handleConnect()
     }
-
-    // Also listen for connect event (for initial connect and reconnects)
-    socket.on('connect', handleConnect)
 
     const handlePuzzleUpdated = (newState: string[]) => {
       // Server is authoritative for puzzle_updated events.
@@ -486,15 +484,23 @@ export function PlaySession() {
       value: string
       senderId?: string
     }) => {
+      console.log('[Cell Update] Received:', { r, c, value, senderId, mySocketId: socketId })
+      
       // Ignore own updates if senderId matches our socket ID
-      if (socket && senderId === socket.id) return
+      if (senderId === socketId) {
+        console.log('[Cell Update] Ignoring own update')
+        return
+      }
 
       // Check grace period for this cell to avoid overwriting recent local edits
       const cellKey = `${r}-${c}`
       const lastEdit = localEditTimestamps.current.get(cellKey)
       if (lastEdit && Date.now() - lastEdit < GRACE_PERIOD_MS) {
+        console.log('[Cell Update] Within grace period, skipping')
         return
       }
+
+      console.log('[Cell Update] Applying update:', { r, c, value, senderId })
 
       setAnswers((prev) => {
         const newAnswers = normalizeAnswersForGrid(prev)
@@ -515,8 +521,8 @@ export function PlaySession() {
       setShowChangeNotification(true)
     }
 
-    socket.on('puzzle_updated', handlePuzzleUpdated)
-    socket.on('cell_updated', handleCellUpdated)
+    on('puzzle_updated', handlePuzzleUpdated)
+    on('cell_updated', handleCellUpdated)
 
     const handleWordClaimed = ({
       clueKey,
@@ -535,7 +541,7 @@ export function PlaySession() {
       }))
     }
 
-    socket.on('word_claimed', handleWordClaimed)
+    on('word_claimed', handleWordClaimed)
 
     const fetchSession = async () => {
       setLoading(true)
@@ -643,23 +649,19 @@ export function PlaySession() {
     fetchSession()
 
     return () => {
-      // Clean up listeners, but do NOT disconnect the global socket
-      socket.off('connect', handleConnect)
-      socket.off('puzzle_updated', handlePuzzleUpdated)
-      socket.off('cell_updated', handleCellUpdated)
-      socket.off('word_claimed', handleWordClaimed)
+      // Clean up listeners
+      off('puzzle_updated', handlePuzzleUpdated)
+      off('cell_updated', handleCellUpdated)
+      off('word_claimed', handleWordClaimed)
     }
-  }, [sessionId, socket, getEndpoint, mergePreferLocalWithChanges, processQueuedClaims])
+  }, [sessionId, isConnected, send, on, off, getEndpoint, processQueuedClaims])
 
   // --- Polling Backup ---
   const syncSession = useCallback(async () => {
     if (!sessionId) return
 
-    // Check socket status and reconnect if needed
-    if (socket && !socket.connected) {
-      console.log('[PlaySession] Socket disconnected, attempting reconnect...')
-      socket.connect()
-    }
+    // The native WebSocket in SocketContext handles reconnection automatically
+    // Just run the sync to fetch latest state
 
     try {
       // Fetch latest state without loading spinner
@@ -693,7 +695,7 @@ export function PlaySession() {
     } catch (error) {
       console.error('[PlaySession] Sync failed:', error)
     }
-  }, [sessionId, socket, mergePreferLocalWithChanges])
+  }, [sessionId, mergePreferLocalWithChanges])
 
   useEffect(() => {
     // Poll periodically as a safety net (does a merge, so it won't clobber local edits).
@@ -723,19 +725,13 @@ export function PlaySession() {
     }
   }, [syncSession])
 
+  // Re-sync when isConnected changes (reconnection scenario)
   useEffect(() => {
-    if (!socket) return
-
-    const handleConnect = () => {
+    if (isConnected) {
       void syncSession()
       void processQueuedClaims()
     }
-
-    socket.on('connect', handleConnect)
-    return () => {
-      socket.off('connect', handleConnect)
-    }
-  }, [socket, syncSession, processQueuedClaims])
+  }, [isConnected, syncSession, processQueuedClaims])
 
   // --- Helpers ---
   const isPlayable = (r: number, c: number) => {
@@ -907,9 +903,7 @@ export function PlaySession() {
         updateLocalState(newAnswers)
 
         // Emit granular update
-        if (socket) {
-          socket.emit('update_cell', { sessionId, r, c, value: char })
-        }
+        send({ type: 'update_cell', sessionId, r, c, value: char })
 
         // Clear error for this cell if it exists
         if (errorCells.has(`${r}-${c}`)) {
@@ -946,9 +940,7 @@ export function PlaySession() {
         updateLocalState(newAnswers)
 
         // Emit granular update
-        if (socket) {
-          socket.emit('update_cell', { sessionId, r, c, value: '' })
-        }
+        send({ type: 'update_cell', sessionId, r, c, value: '' })
 
         // Clear error for this cell
         if (errorCells.has(`${r}-${c}`)) {
@@ -994,9 +986,8 @@ export function PlaySession() {
     updateLocalState(newAnswers)
 
     // Emit granular update
-    if (socket) {
-      socket.emit('update_cell', { sessionId, r, c, value: key })
-    }
+    // Emit granular update
+    send({ type: 'update_cell', sessionId, r, c, value: key })
 
     moveCursor(r, c, direction, 1)
 
@@ -1030,9 +1021,8 @@ export function PlaySession() {
     updateLocalState(newAnswers)
 
     // Emit granular update
-    if (socket) {
-      socket.emit('update_cell', { sessionId, r, c, value: '' })
-    }
+    // Emit granular update
+    send({ type: 'update_cell', sessionId, r, c, value: '' })
 
     // Auto-check: clearing a cell makes words incomplete, so just clear checked status
     clearCheckedWordsForCell(r, c)
@@ -1388,7 +1378,6 @@ export function PlaySession() {
             currentWordState={currentWordState}
             onFetchAnswer={handleFetchHintAnswer}
             timerDisplay={formattedTime}
-            socket={socket}
           />
         )}
       </div>
@@ -1572,7 +1561,6 @@ export function PlaySession() {
           currentWordState={currentWordState}
           onFetchAnswer={handleFetchHintAnswer}
           timerDisplay={formattedTime}
-          socket={socket}
         />
       )}
 

@@ -1,150 +1,169 @@
-import { Router } from 'express'
 import crypto from 'crypto'
+import { Router, jsonResponse, HttpError, type Context } from '../http/router'
 import { authenticateUser, optionalAuthenticateUser } from '../middleware/auth'
-
 import { SessionService } from '../services/sessionService'
 
-const router = Router()
+export function registerSessionRoutes(router: Router) {
+  router.get('/api/sessions', handleGetUserSessions)
+  router.post('/api/sessions/sync', handleSyncSessions)
+  router.post('/api/sessions', handleCreateSession)
+  router.post('/api/sessions/go', handleGoToPuzzle)
+  router.get('/api/sessions/:sessionId', handleGetSession)
+  router.put('/api/sessions/:sessionId', handleUpdateSession)
+  router.post('/api/sessions/:sessionId/check', handleCheckAnswers)
+  router.post('/api/sessions/:sessionId/hint', handleGetHint)
+  router.post('/api/sessions/:sessionId/explain', handleExplainClue)
+  router.post('/api/sessions/:sessionId/report-explanation', handleReportExplanation)
+  router.post('/api/sessions/:sessionId/claim', handleClaimWord)
+}
 
-// Get all sessions for the authenticated user (including friend sessions)
-router.get('/', authenticateUser, async (req, res) => {
+// Get all sessions for the authenticated user
+async function handleGetUserSessions(ctx: Context) {
+  const user = authenticateUser(ctx)
+
   try {
-    const sessions = await SessionService.getUserAndFriendsSessions(res.locals.user.id)
-    res.json(sessions)
+    const sessions = await SessionService.getUserAndFriendsSessions(user.id as number)
+    return jsonResponse(sessions)
   } catch (error) {
     console.error('Error fetching user sessions:', error)
-    res.status(500).json({ error: 'Failed to fetch sessions' })
+    throw new HttpError(500, { error: 'Failed to fetch sessions' })
   }
-})
+}
 
 // Sync/Claim sessions (migrate local sessions to user)
-router.post('/sync', authenticateUser, async (req, res) => {
-  const { sessionIds } = req.body
+async function handleSyncSessions(ctx: Context) {
+  const user = authenticateUser(ctx)
+  const { sessionIds } = (ctx.body as any) || {}
 
   if (!Array.isArray(sessionIds)) {
-    return res.status(400).json({ error: 'sessionIds must be an array' })
+    throw new HttpError(400, { error: 'sessionIds must be an array' })
   }
 
   if (sessionIds.length === 0) {
-    return res.json({ success: true, count: 0 })
+    return jsonResponse({ success: true, count: 0 })
   }
 
   try {
-    const count = await SessionService.syncSessions(res.locals.user.id, sessionIds)
-    res.json({ success: true, count })
+    const count = await SessionService.syncSessions(user.id as number, sessionIds)
+    return jsonResponse({ success: true, count })
   } catch (error) {
     console.error('Error syncing sessions:', error)
-    res.status(500).json({ error: 'Failed to sync sessions' })
+    throw new HttpError(500, { error: 'Failed to sync sessions' })
   }
-})
+}
 
 // Create a new session (or reset existing one - legacy behavior)
-router.post('/', optionalAuthenticateUser, async (req, res) => {
-  const { puzzleId, anonymousId } = req.body
+async function handleCreateSession(ctx: Context) {
+  const user = optionalAuthenticateUser(ctx)
+  const { puzzleId, anonymousId } = (ctx.body as any) || {}
+
   if (!puzzleId) {
-    return res.status(400).json({ error: 'Missing puzzleId' })
+    throw new HttpError(400, { error: 'Missing puzzleId' })
   }
 
   try {
     const sessionId = await SessionService.createOrResetSession(
-      res.locals.user?.id || null,
+      user?.id as number | null || null,
       puzzleId,
       anonymousId,
     )
-    res.status(201).json({ sessionId })
+    return jsonResponse({ sessionId })
   } catch (error) {
     console.error('Error creating session:', error)
-    res.status(500).json({ error: 'Failed to create session' })
+    throw new HttpError(500, { error: 'Failed to create session' })
   }
-})
+}
 
 // Go to puzzle - gets existing session or creates new one (does NOT reset)
-router.post('/go', optionalAuthenticateUser, async (req, res) => {
-  const { puzzleId, anonymousId } = req.body
+async function handleGoToPuzzle(ctx: Context) {
+  const user = optionalAuthenticateUser(ctx)
+  const { puzzleId, anonymousId } = (ctx.body as any) || {}
+
   if (!puzzleId) {
-    return res.status(400).json({ error: 'Missing puzzleId' })
+    throw new HttpError(400, { error: 'Missing puzzleId' })
   }
 
-  console.log(`[/go] User: ${res.locals.user?.username || 'anonymous'}, AnonymousId: ${anonymousId || 'none'}, PuzzleId: ${puzzleId}`)
+  console.log(`[/go] User: ${user?.username || 'anonymous'}, AnonymousId: ${anonymousId || 'none'}, PuzzleId: ${puzzleId}`)
 
   try {
     const result = await SessionService.getOrCreateSession(
-      res.locals.user?.id || null,
+      user?.id as number | null || null,
       puzzleId,
       anonymousId,
     )
-    res.status(result.isNew ? 201 : 200).json(result)
+    // Return 201 if new, 200 if existing
+    const statusCode = result.isNew ? 201 : 200
+    return new Response(JSON.stringify(result), {
+      status: statusCode,
+      headers: { 'Content-Type': 'application/json' },
+    })
   } catch (error) {
     console.error('Error getting/creating session:', error)
-    res.status(500).json({ error: 'Failed to get or create session' })
+    throw new HttpError(500, { error: 'Failed to get or create session' })
   }
-})
+}
 
 // Get session details (puzzle + state)
-router.get('/:sessionId', async (req, res) => {
-  const { sessionId } = req.params
+async function handleGetSession(ctx: Context) {
+  const { sessionId } = ctx.params as any
 
   try {
     const result = await SessionService.getSessionWithPuzzle(sessionId)
 
     if (!result) {
-      return res.status(404).json({ error: 'Session or puzzle not found' })
+      throw new HttpError(404, { error: 'Session or puzzle not found' })
     }
 
-    res.json(result)
-  } catch (error) {
+    return jsonResponse(result)
+  } catch (error: any) {
+    if (error instanceof HttpError) throw error
     console.error('Error fetching session:', error)
-    res.status(500).json({ error: 'Failed to fetch session' })
+    throw new HttpError(500, { error: 'Failed to fetch session' })
   }
-})
+}
 
 // Update session state
-router.put('/:sessionId', async (req, res) => {
-  const { sessionId } = req.params
-  const { state } = req.body
+async function handleUpdateSession(ctx: Context) {
+  const { sessionId } = ctx.params as any
+  const body = ctx.body as any
+  const { state } = body || {}
 
   if (state === undefined) {
-    return res.status(400).json({ error: 'Missing state' })
+    throw new HttpError(400, { error: 'Missing state' })
   }
 
   try {
     const updated = await SessionService.updateSessionState(sessionId, state)
 
     if (!updated) {
-      return res.status(404).json({ error: 'Session not found' })
+      throw new HttpError(404, { error: 'Session not found' })
     }
 
-    res.json({ success: true })
-  } catch (error) {
+    return jsonResponse({ success: true })
+  } catch (error: any) {
+    if (error instanceof HttpError) throw error
     console.error('Error updating session:', error)
-    res.status(500).json({ error: 'Failed to update session' })
+    throw new HttpError(500, { error: 'Failed to update session' })
   }
-})
+}
 
 // Check session answers
-router.post('/:sessionId/check', async (req, res) => {
-  const { sessionId } = req.params
+async function handleCheckAnswers(ctx: Context) {
+  const { sessionId } = ctx.params as any
 
   try {
     const session = await SessionService.getSessionWithPuzzle(sessionId)
     if (!session) {
-      return res.status(404).json({ error: 'Session not found' })
+      throw new HttpError(404, { error: 'Session not found' })
     }
 
     const { checkSessionAnswers } = await import('../utils/answerChecker')
-    // session is the puzzle object + sessionState, so the ID is session.id
     const { results, totalClues, totalLetters, filledLetters } = await checkSessionAnswers(
       session.id,
       session.sessionState,
     )
 
-    // Filter to return only incorrect answers with their cells
     const incorrect = results.filter((r) => !r.isCorrect)
-
-    // For privacy/spoiler prevention, we might mostly care about WHICH cells are wrong.
-    // We return the raw results or a simplified list of incorrect cells?
-    // Let's return the full results (filtered for incorrect) so frontend can decide.
-    // Flatten to a list of "error cells" for easy highlighting
     const errorCells: string[] = []
     incorrect.forEach((item) => {
       item.cells.forEach((cell) => {
@@ -152,26 +171,27 @@ router.post('/:sessionId/check', async (req, res) => {
       })
     })
 
-    res.json({ success: true, incorrectCount: incorrect.length, errorCells })
+    return jsonResponse({ success: true, incorrectCount: incorrect.length, errorCells })
   } catch (error) {
     console.error('Error checking session:', error)
-    res.status(500).json({ error: 'Failed to check session' })
+    throw new HttpError(500, { error: 'Failed to check session' })
   }
-})
+}
 
 // Get hint (reveal letter or word)
-router.post('/:sessionId/hint', async (req, res) => {
-  const { sessionId } = req.params
-  const { type, target } = req.body
+async function handleGetHint(ctx: Context) {
+  const { sessionId } = ctx.params as any
+  const body = ctx.body as any
+  const { type, target } = body || {}
 
   if (!type || !target) {
-    return res.status(400).json({ error: 'Missing type or target' })
+    throw new HttpError(400, { error: 'Missing type or target' })
   }
 
   try {
     const session = await SessionService.getSessionWithPuzzle(sessionId)
     if (!session) {
-      return res.status(404).json({ error: 'Session not found' })
+      throw new HttpError(404, { error: 'Session not found' })
     }
 
     const { getCorrectAnswersStructure, rot13, extractClueMetadata } = await import(
@@ -180,34 +200,23 @@ router.post('/:sessionId/hint', async (req, res) => {
     const { puzzle, puzzleAnswers } = await getCorrectAnswersStructure(session.id)
 
     if (!puzzleAnswers) {
-      return res.status(400).json({ error: 'No answers available for this puzzle' })
+      throw new HttpError(400, { error: 'No answers available for this puzzle' })
     }
 
     let valueToReveal = ''
 
     if (type === 'letter') {
       const { r, c } = target
-      // Find which word this cell belongs to (could be across or down) to look up the answer.
-      // Or search both.
-      // Actually we have the grid structure, we can find the clue number for this cell.
-      // But a cell can belong to two clues.
-      // We need to find *any* correct letter for this position.
-      // Strategy: Iterate all answers, map them to grid, see if any covers (r, c).
-
       const grid = puzzle.grid.split('\n').map((row: string) => row.trim().split(' ') as any[])
       const metadata = extractClueMetadata(grid)
 
-      // Find a clue that covers this cell
       let found = false
       for (const item of metadata) {
-        // Trace word path
         let cr = item.row
         let cc = item.col
         let index = 0
-        const cells = []
         while (cr < grid.length && cc < grid[0].length && grid[cr][cc] !== 'B') {
           if (cr === r && cc === c) {
-            // This clue covers our cell at index `index`
             const list = puzzleAnswers[item.direction]
             const answerEntry = list?.find((a: any) => a.number === item.number)
             if (answerEntry) {
@@ -227,14 +236,13 @@ router.post('/:sessionId/hint', async (req, res) => {
       }
 
       if (!found) {
-        return res.status(404).json({ error: 'Answer not found for this cell' })
+        throw new HttpError(404, { error: 'Answer not found for this cell' })
       }
 
-      if (req.body.dryRun) {
-        return res.json({ success: true, value: valueToReveal })
+      if (body.dryRun) {
+        return jsonResponse({ success: true, value: valueToReveal })
       }
 
-      // Update session
       await SessionService.updateCell(sessionId, r, c, valueToReveal)
     } else if (type === 'word') {
       const { number, direction } = target
@@ -242,7 +250,7 @@ router.post('/:sessionId/hint', async (req, res) => {
       const answerEntry = list?.find((a: any) => a.number === number)
 
       if (!answerEntry) {
-        return res.status(404).json({ error: 'Answer not found for this clue' })
+        throw new HttpError(404, { error: 'Answer not found for this clue' })
       }
 
       const decrypted = rot13(answerEntry.answer)
@@ -250,22 +258,19 @@ router.post('/:sessionId/hint', async (req, res) => {
         .replace(/[^A-Z]/g, '')
       valueToReveal = decrypted
 
-      // We need to know where to start writing.
-      // Re-extract metadata to find start row/col for this clue number/direction
       const grid = puzzle.grid.split('\n').map((row: string) => row.trim().split(' ') as any[])
       const metadata = extractClueMetadata(grid)
       const clueInfo = metadata.find((m) => m.number === number && m.direction === direction)
 
       if (!clueInfo) {
-        return res.status(404).json({ error: 'Clue not found in grid' })
+        throw new HttpError(404, { error: 'Clue not found in grid' })
       }
 
-      // Update each cell of the word
       let r = clueInfo.row
       let c = clueInfo.col
 
-      if (req.body.dryRun) {
-        return res.json({ success: true, value: valueToReveal })
+      if (body.dryRun) {
+        return jsonResponse({ success: true, value: valueToReveal })
       }
 
       for (let i = 0; i < decrypted.length; i++) {
@@ -274,67 +279,70 @@ router.post('/:sessionId/hint', async (req, res) => {
         else r++
       }
     } else {
-      return res.status(400).json({ error: 'Invalid hint type' })
+      throw new HttpError(400, { error: 'Invalid hint type' })
     }
 
-    // Return the revealed value (and updated state if needed, but socket handles that)
-    res.json({ success: true, value: valueToReveal })
-  } catch (error) {
+    return jsonResponse({ success: true, value: valueToReveal })
+  } catch (error: any) {
+    if (error instanceof HttpError) throw error
     console.error('Error providing hint:', error)
-    res.status(500).json({ error: 'Failed to provide hint' })
+    throw new HttpError(500, { error: 'Failed to provide hint' })
   }
-})
+}
 
 // Get explanation for a clue (uses OpenAI, cached in database)
-router.post('/:sessionId/explain', optionalAuthenticateUser, async (req, res) => {
-  const { sessionId } = req.params
-  const { clueNumber, direction, cachedOnly } = req.body
+async function handleExplainClue(ctx: Context) {
+  const user = optionalAuthenticateUser(ctx)
+  const { sessionId } = ctx.params as any
+  const { clueNumber, direction, cachedOnly } = (ctx.body as any) || {}
 
   if (!clueNumber || !direction) {
-    return res.status(400).json({ error: 'Missing clueNumber or direction' })
+    throw new HttpError(400, { error: 'Missing clueNumber or direction' })
   }
 
-  // Generate a request ID to track this specific request
   const requestId = crypto.randomUUID()
 
   try {
     const session = await SessionService.getSessionWithPuzzle(sessionId)
     if (!session) {
-      return res.status(444).json({ error: 'Session not found' })
+      throw new HttpError(444, { error: 'Session not found' })
     }
 
-    // Check cache synchronously
     const { ExplanationService } = await import('../services/explanationService')
     const cached = await ExplanationService.getCachedExplanation(session.id, clueNumber, direction)
 
     if (cached) {
-      return res.json({ success: true, explanation: cached, cached: true })
+      return jsonResponse({ success: true, explanation: cached, cached: true })
     }
 
-    // If cachedOnly mode, return not found instead of generating
     if (cachedOnly) {
-      return res.status(404).json({ 
-        success: false, 
+      throw new HttpError(404, {
+        success: false,
         cached: false,
-        message: 'Explanation not cached yet'
+        message: 'Explanation not cached yet',
       })
     }
 
-    // Not cached - require authentication to generate new explanation
-    if (!res.locals.user) {
-      return res.status(401).json({ 
+    if (!user) {
+      throw new HttpError(401, {
         error: 'Authentication required to generate new explanations',
-        cached: false 
+        cached: false,
       })
     }
 
-    // Not cached - return 202 immediately and process in background
-    res.status(202).json({
-      success: true,
-      processing: true,
-      requestId,
-      message: 'Explanation is being generated...',
-    })
+    // Return 202 immediately and process in background
+    const response = new Response(
+      JSON.stringify({
+        success: true,
+        processing: true,
+        requestId,
+        message: 'Explanation is being generated...',
+      }),
+      {
+        status: 202,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    )
 
     // Background processing
     setImmediate(async () => {
@@ -343,16 +351,13 @@ router.post('/:sessionId/explain', optionalAuthenticateUser, async (req, res) =>
         const { puzzleAnswers } = await getCorrectAnswersStructure(session.id)
 
         if (!puzzleAnswers) {
-          // Should emit error via socket
           return
         }
 
-        // Get the clue text
         const clueList = direction === 'across' ? session.clues.across : session.clues.down
         const clueEntry = clueList?.find((c: any) => c.number === clueNumber)
         if (!clueEntry) return
 
-        // Get the answer
         const answerList = puzzleAnswers[direction]
         const answerEntry = answerList?.find((a: any) => a.number === clueNumber)
         if (!answerEntry) return
@@ -361,9 +366,8 @@ router.post('/:sessionId/explain', optionalAuthenticateUser, async (req, res) =>
           .toUpperCase()
           .replace(/[^A-Z]/g, '')
 
-        // This will now call OpenAI (slow)
-        const { ExplanationService } = await import('../services/explanationService')
-        const { explanation } = await ExplanationService.getOrCreateExplanation(
+        const { ExplanationService: ES } = await import('../services/explanationService')
+        const { explanation } = await ES.getOrCreateExplanation(
           session.id,
           clueNumber,
           direction,
@@ -371,69 +375,61 @@ router.post('/:sessionId/explain', optionalAuthenticateUser, async (req, res) =>
           decryptedAnswer,
         )
 
-        // Import io dynamically to avoid circular dependency issues if possible,
-        // or rely on the fact that app.ts exports it.
-        // For now, let's assume we can import it.
-        const { io } = await import('../app')
-
-        console.log(
-          '[Explain] Emitting explanation_ready to room:',
-          sessionId,
-          'requestId:',
-          requestId,
-        )
-        io.to(sessionId as string).emit('explanation_ready', {
+        // Emit via WebSocket
+        const { bunServer } = await import('../bin/server')
+        bunServer.publish(sessionId, JSON.stringify({
+          type: 'explanation_ready',
           requestId,
           clueNumber,
           direction,
           explanation,
           success: true,
-        })
+        }))
       } catch (error) {
         console.error('Background explanation error:', error)
         try {
-          const { io } = await import('../app')
-          io.to(sessionId as string).emit('explanation_ready', {
+          const { bunServer } = await import('../bin/server')
+          bunServer.publish(sessionId, JSON.stringify({
+            type: 'explanation_ready',
             requestId,
             clueNumber,
             direction,
             success: false,
             error: 'Failed to generate explanation',
-          })
+          }))
         } catch (e) {
           console.error('Failed to emit error socket event:', e)
         }
       }
     })
-  } catch (error) {
+
+    return response
+  } catch (error: any) {
+    if (error instanceof HttpError) throw error
     console.error('Error providing explanation:', error)
-    // If headers haven't been sent, we can send error
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Failed to provide explanation' })
-    }
+    throw new HttpError(500, { error: 'Failed to provide explanation' })
   }
-})
+}
 
 // Report a bad explanation
-router.post('/:sessionId/report-explanation', optionalAuthenticateUser, async (req, res) => {
-  const { sessionId } = req.params
-  const { clueNumber, direction, feedback } = req.body
+async function handleReportExplanation(ctx: Context) {
+  const user = optionalAuthenticateUser(ctx)
+  const { sessionId } = ctx.params as any
+  const { clueNumber, direction, feedback } = (ctx.body as any) || {}
 
   if (!clueNumber || !direction) {
-    return res.status(400).json({ error: 'Missing clueNumber or direction' })
+    throw new HttpError(400, { error: 'Missing clueNumber or direction' })
   }
 
   try {
     const session = await SessionService.getSessionWithPuzzle(sessionId)
     if (!session) {
-      return res.status(444).json({ error: 'Session not found' })
+      throw new HttpError(444, { error: 'Session not found' })
     }
 
-    // Extract user or anonymous ID
-    const userId = res.locals.user?.id || null
+    const userId = (user?.id as number) || null
     const anonymousId = session.anonymous_id || null
 
-    // Insert report into database
     const db = (await import('../db-knex')).default
     await db('explanation_reports').insert({
       puzzle_id: session.id,
@@ -444,42 +440,43 @@ router.post('/:sessionId/report-explanation', optionalAuthenticateUser, async (r
       feedback: feedback || null,
     })
 
-    res.json({ success: true, message: 'Report submitted successfully' })
-  } catch (error) {
+    return jsonResponse({ success: true, message: 'Report submitted successfully' })
+  } catch (error: any) {
+    if (error instanceof HttpError) throw error
     console.error('Error reporting explanation:', error)
-    res.status(500).json({ error: 'Failed to submit report' })
+    throw new HttpError(500, { error: 'Failed to submit report' })
   }
-})
+}
 
 // Claim a word (HTTP fallback for socket)
-router.post('/:sessionId/claim', async (req, res) => {
-  const { sessionId } = req.params
-  const { clueKey, userId, username } = req.body
+async function handleClaimWord(ctx: Context) {
+  const { sessionId } = ctx.params as any
+  const body = ctx.body as any
+  const { clueKey, userId, username } = body || {}
 
   if (!sessionId || !clueKey || !username) {
-    return res.status(400).json({ error: 'Missing sessionId, clueKey, or username' })
+    throw new HttpError(400, { error: 'Missing sessionId, clueKey, or username' })
   }
 
   try {
     const claimed = await SessionService.recordWordAttribution(sessionId, clueKey, userId || null, username)
 
     if (claimed) {
-      // Broadcast to all connected clients via socket
-      const { io } = await import('../app')
+      const { bunServer } = await import('../bin/server')
       const timestamp = new Date().toISOString()
-      io.to(sessionId).emit('word_claimed', {
+      bunServer.publish(sessionId, JSON.stringify({
+        type: 'word_claimed',
         clueKey,
         userId: userId || null,
         username,
         timestamp,
-      })
+      }))
     }
 
-    res.json({ success: true, claimed })
-  } catch (error) {
+    return jsonResponse({ success: true, claimed })
+  } catch (error: any) {
+    if (error instanceof HttpError) throw error
     console.error('Error claiming word via HTTP:', error)
-    res.status(500).json({ error: 'Failed to claim word' })
+    throw new HttpError(500, { error: 'Failed to claim word' })
   }
-})
-
-export default router
+}

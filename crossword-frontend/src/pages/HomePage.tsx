@@ -27,7 +27,14 @@ export function HomePage() {
   useEffect(() => {
     axios
       .get('/api/puzzles')
-      .then((res) => setPuzzles(res.data))
+      .then((res) => {
+        if (Array.isArray(res.data)) {
+          setPuzzles(res.data)
+        } else {
+          console.error('Unexpected puzzles response:', res.data)
+          setPuzzles([])
+        }
+      })
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])

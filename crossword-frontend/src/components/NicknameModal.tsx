@@ -16,7 +16,7 @@ export function NicknameModal({ onSubmit }: NicknameModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-[100] p-4">
       <div className="bg-surface rounded-lg shadow-xl max-w-md w-full p-6 border border-border">
         <h2 className="text-2xl font-bold mb-2 text-text">Choose a Nickname</h2>
         <p className="text-text-secondary mb-6">

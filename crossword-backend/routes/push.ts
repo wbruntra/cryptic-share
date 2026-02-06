@@ -1,56 +1,60 @@
-import { Router } from 'express'
+import { Router, jsonResponse, HttpError, type Context } from '../http/router'
 import { PushService } from '../services/pushService'
 
-const router = Router()
+export function registerPushRoutes(router: Router) {
+  router.get('/api/push/vapid-key', handleGetVapidKey)
+  router.post('/api/push/subscribe', handleSubscribe)
+  router.post('/api/push/unsubscribe', handleUnsubscribe)
+}
 
 /**
  * Get VAPID public key for push notification subscription
  */
-router.get('/vapid-key', (_req, res) => {
+function handleGetVapidKey(ctx: Context) {
   const publicKey = PushService.getVapidPublicKey()
   if (publicKey) {
-    res.json({ publicKey })
+    return jsonResponse({ publicKey })
   } else {
-    res.status(503).json({ error: 'Push notifications not configured' })
+    throw new HttpError(503, { error: 'Push notifications not configured' })
   }
-})
+}
 
 /**
  * Subscribe to push notifications
  */
-router.post('/subscribe', async (req, res) => {
-  const { subscription } = req.body
+async function handleSubscribe(ctx: Context) {
+  const body = ctx.body as any
+  const { subscription } = body || {}
 
   if (!subscription?.endpoint || !subscription?.keys) {
-    return res.status(400).json({ error: 'Missing subscription' })
+    throw new HttpError(400, { error: 'Missing subscription' })
   }
 
   try {
     await PushService.saveSubscription(subscription)
-    res.json({ success: true })
+    return jsonResponse({ success: true })
   } catch (error) {
     console.error('Push subscribe error:', error)
-    res.status(500).json({ error: 'Failed to save subscription' })
+    throw new HttpError(500, { error: 'Failed to save subscription' })
   }
-})
+}
 
 /**
  * Unsubscribe from push notifications
  */
-router.post('/unsubscribe', async (req, res) => {
-  const { endpoint } = req.body
+async function handleUnsubscribe(ctx: Context) {
+  const body = ctx.body as any
+  const { endpoint } = body || {}
 
   if (!endpoint) {
-    return res.status(400).json({ error: 'Missing endpoint' })
+    throw new HttpError(400, { error: 'Missing endpoint' })
   }
 
   try {
     await PushService.removeSubscription(endpoint)
-    res.json({ success: true })
+    return jsonResponse({ success: true })
   } catch (error) {
     console.error('Push unsubscribe error:', error)
-    res.status(500).json({ error: 'Failed to remove subscription' })
+    throw new HttpError(500, { error: 'Failed to remove subscription' })
   }
-})
-
-export default router
+}

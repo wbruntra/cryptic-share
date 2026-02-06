@@ -1,41 +1,51 @@
-import type { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
-import { COOKIE_SECRET, JWT_SECRET } from '../config'
+import { JWT_SECRET } from '../config'
+import { HttpError, type AuthUser, type Context } from '../http/router'
 
-export const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-  // Check for session-based auth
-  if (req.session && req.session.isAdmin) {
-    next()
-  } else {
-    res.status(401).json({ error: 'Unauthorized' })
-  }
-}
-
-export const authenticateUser = (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.headers['authorization']
-  const token = authHeader && authHeader.split(' ')[1]
-
-  if (!token) return res.status(401).json({ error: 'No token provided' })
-
-  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
-    if (err) return res.status(403).json({ error: 'Invalid token' })
-    res.locals.user = user
-    next()
-  })
-}
-
-export const optionalAuthenticateUser = (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.headers['authorization']
-  const token = authHeader && authHeader.split(' ')[1]
+export function getAuthUser(req: Request): AuthUser | null {
+  const authHeader = req.headers.get('authorization') || ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
 
   if (!token) {
-    return next()
+    return null
   }
 
-  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
-    if (!err) {
-      res.locals.user = user
-    }
-    next()
-  })
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as AuthUser
+    console.log(`[AUTH] User authenticated: ${decoded.username} (id: ${decoded.id}, isAdmin: ${decoded.isAdmin})`)
+    return decoded
+  } catch (error) {
+    console.error(`[AUTH] JWT verification failed:`, error instanceof Error ? error.message : error)
+    return null
+  }
 }
+
+export function authenticateUser(ctx: Context): AuthUser {
+  const user = ctx.user
+  if (!user) {
+    throw new HttpError(401, { error: 'Unauthorized' })
+  }
+  return user
+}
+
+export function optionalAuthenticateUser(ctx: Context): AuthUser | null {
+  return ctx.user || null
+}
+
+export function requireUser(ctx: Context): AuthUser {
+  if (!ctx.user) {
+    console.error(`[AUTH] No user found in context. Authorization header present: ${!!ctx.req.headers.get('authorization')}`)
+    throw new HttpError(401, { error: 'Unauthorized' })
+  }
+  return ctx.user
+}
+
+export function requireAdmin(ctx: Context): AuthUser {
+  const user = requireUser(ctx)
+  if (!user.isAdmin) {
+    console.error(`[AUTH] Admin access denied for user ${user.id} (${user.username}). isAdmin: ${user.isAdmin}`)
+    throw new HttpError(403, { error: 'Forbidden' })
+  }
+  return user
+}
+

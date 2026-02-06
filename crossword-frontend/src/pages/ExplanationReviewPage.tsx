@@ -1,5 +1,5 @@
-import { useState, useEffect, useContext, useRef } from 'react'
-import { SocketContext } from '../context/SocketContext'
+import { useState, useEffect, useRef } from 'react'
+import { useSocket } from '../context/SocketContext'
 import { Link, useParams } from 'react-router-dom'
 import axios from 'axios'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
@@ -59,12 +59,10 @@ export function ExplanationReviewPage() {
     setProcessingMessage('Checking regeneration status...')
   }, [storageKey, requestId])
 
-  const { socket, socketId } = useContext(SocketContext)
+  const { on, off, socketId } = useSocket()
 
   // Listen for socket events
   useEffect(() => {
-    if (!socket) return
-
     const handleExplanationReady = (data: any) => {
       // Check if this explanation matches our current request
       if (data.requestId && data.requestId !== requestIdRef.current) {
@@ -86,12 +84,12 @@ export function ExplanationReviewPage() {
       }
     }
 
-    socket.on('admin_explanation_ready', handleExplanationReady)
+    on('admin_explanation_ready', handleExplanationReady)
 
     return () => {
-      socket.off('admin_explanation_ready', handleExplanationReady)
+      off('admin_explanation_ready', handleExplanationReady)
     }
-  }, [socket])
+  }, [on, off, storageKey])
 
   useEffect(() => {
     if (id) {
