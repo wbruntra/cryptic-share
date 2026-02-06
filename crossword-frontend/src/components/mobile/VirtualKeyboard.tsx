@@ -43,14 +43,14 @@ export function VirtualKeyboard({ onKeyPress, onDelete, onClose, isOpen }: Virtu
   return (
     <div
       ref={keyboardRef}
-      className="fixed bottom-0 left-0 right-0 bg-gray-200 p-2 z-50 shadow-lg border-t border-gray-300"
+      className="fixed bottom-0 left-0 right-0 bg-gray-200 dark:bg-surface p-2 z-50 shadow-lg border-t border-gray-300 dark:border-border"
       style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
     >
       {/* Header / Close Button */}
       <div className="flex justify-center mb-2">
         <button
           onClick={onClose}
-          className="w-full flex justify-center items-center py-1 bg-transparent border-none text-gray-500 active:text-gray-800"
+          className="w-full flex justify-center items-center py-1 bg-transparent border-none text-gray-500 dark:text-text-secondary active:text-gray-800 dark:active:text-text"
           aria-label="Hide keyboard"
         >
           <svg
@@ -78,9 +78,9 @@ export function VirtualKeyboard({ onKeyPress, onDelete, onClose, isOpen }: Virtu
                 onClick={() => onKeyPress(key)}
                 className="
                   flex-1 min-w-[30px] h-11 rounded
-                  bg-white shadow-sm border-b border-gray-300
-                  text-lg font-medium text-gray-900
-                  active:bg-gray-100 active:translate-y-[1px] active:shadow-none
+                  bg-white dark:bg-input-bg shadow-sm border-b border-gray-300 dark:border-border
+                  text-lg font-medium text-gray-900 dark:text-text
+                  active:bg-gray-100 dark:active:bg-border active:translate-y-[1px] active:shadow-none
                   transition-all
                 "
               >
@@ -92,9 +92,9 @@ export function VirtualKeyboard({ onKeyPress, onDelete, onClose, isOpen }: Virtu
                 onClick={onDelete}
                 className="
                   flex-1 min-w-[40px] h-11 rounded
-                  bg-gray-300 shadow-sm border-b border-gray-400
-                  text-gray-900 flex items-center justify-center
-                  active:bg-gray-400 active:translate-y-[1px] active:shadow-none
+                  bg-gray-300 dark:bg-input-bg shadow-sm border-b border-gray-400 dark:border-border
+                  text-gray-900 dark:text-text flex items-center justify-center
+                  active:bg-gray-400 dark:active:bg-border active:translate-y-[1px] active:shadow-none
                   transition-all
                 "
               >

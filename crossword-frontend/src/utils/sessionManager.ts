@@ -72,7 +72,6 @@ export const getAnonymousId = (): string => {
   }
 
   if (anonId) {
-    console.log('[getAnonymousId] Reusing existing ID from localStorage:', anonId)
     return anonId
   }
 
@@ -83,7 +82,6 @@ export const getAnonymousId = (): string => {
   }
 
   if (anonId) {
-    console.log('[getAnonymousId] Reusing existing ID from sessionStorage:', anonId)
     return anonId
   }
 
@@ -92,16 +90,12 @@ export const getAnonymousId = (): string => {
       ? crypto.randomUUID()
       : `anon-${Date.now()}-${Math.random()}`
 
-  console.log('[getAnonymousId] Generated new anonymous ID:', generatedId)
-
   try {
     localStorage.setItem(ANON_ID_KEY, generatedId)
-    console.log('[getAnonymousId] Persisted to localStorage')
   } catch (e) {
     console.error('Failed to persist anonymous id to localStorage', e)
     try {
       sessionStorage.setItem(ANON_ID_KEY, generatedId)
-      console.log('[getAnonymousId] Persisted to sessionStorage instead')
     } catch (sessionError) {
       console.error('Failed to persist anonymous id to sessionStorage', sessionError)
     }
@@ -124,7 +118,6 @@ export const getNickname = (): string | null => {
 export const setNickname = (nickname: string): void => {
   try {
     localStorage.setItem(NICKNAME_KEY, nickname)
-    console.log('[setNickname] Saved nickname:', nickname)
   } catch (e) {
     console.error('Failed to save nickname to localStorage', e)
   }
@@ -133,7 +126,6 @@ export const setNickname = (nickname: string): void => {
 export const clearNickname = (): void => {
   try {
     localStorage.removeItem(NICKNAME_KEY)
-    console.log('[clearNickname] Cleared nickname')
   } catch (e) {
     console.error('Failed to clear nickname from localStorage', e)
   }

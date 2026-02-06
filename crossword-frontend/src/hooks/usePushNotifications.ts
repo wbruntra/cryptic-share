@@ -63,7 +63,6 @@ export function usePushNotifications(): PushNotificationState {
       // Request notification permission
       const permission = await Notification.requestPermission()
       if (permission !== 'granted') {
-        console.log('Notification permission denied')
         setIsLoading(false)
         return
       }

@@ -45,7 +45,6 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       socket = new WebSocket(wsUrl)
 
       socket.onopen = () => {
-        console.log('[WebSocket] Connected')
         setWs(socket)
         setIsConnected(true)
         // SocketId will be set when we receive connection_established message
@@ -53,14 +52,12 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       }
 
       socket.onclose = () => {
-        console.log('[WebSocket] Disconnected')
         setIsConnected(false)
         setSocketId(null)
 
         // Auto-reconnect with backoff
         if (reconnectAttempts < maxReconnectAttempts) {
           const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000)
-          console.log(`[WebSocket] Reconnecting in ${delay}ms...`)
           reconnectTimeout = setTimeout(() => {
             reconnectAttempts++
             connect()
@@ -80,7 +77,6 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
           // Handle connection_established message to set socketId
           if (type === 'connection_established') {
             setSocketId(data.socketId)
-            console.log('[WebSocket] Socket ID received:', data.socketId)
             return
           }
 
