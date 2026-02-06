@@ -102,8 +102,20 @@ export function PlaySession() {
   }, [answers])
 
   const normalizeStateToDimensions = (state: string[], rows: number, cols: number) => {
-    const next = state.length === rows ? [...state] : Array(rows).fill(' '.repeat(cols))
+    // Initialize with blank rows of correct width
+    const next = Array(rows).fill(' '.repeat(cols))
 
+    // Copy available data from state, trusting it contains valid letters
+    // We do NOT require state.length === rows, we just take what we have
+    if (Array.isArray(state)) {
+      for (let r = 0; r < Math.min(rows, state.length); r++) {
+        if (typeof state[r] === 'string') {
+          next[r] = state[r]
+        }
+      }
+    }
+
+    // Ensure every row is exactly `cols` wide
     for (let r = 0; r < rows; r++) {
       const row = next[r] ?? ''
       if (row.length !== cols) {
@@ -430,7 +442,117 @@ export function PlaySession() {
     }
   }, [isPushSubscribed, sessionId, getEndpoint, isConnected, send])
 
-  // --- Data Loading & Socket Setup ---
+  // --- Data Loading Effect (HTTP) ---
+  // Runs ONLY on mount or when sessionId changes.
+  // Does NOT rerun on socket connect/disconnect.
+  useEffect(() => {
+    if (!sessionId) return
+
+    const fetchSession = async () => {
+      setLoading(true)
+      try {
+        const response = await axios.get<SessionData>(`/api/sessions/${sessionId}`)
+        const {
+          title,
+          grid: gridString,
+          clues,
+          sessionState,
+          id: puzzleId,
+          answersEncrypted,
+          attributions: serverAttributions,
+        } = response.data
+
+        setTitle(title)
+        setClues(clues)
+
+        // Store encrypted answers for local checking
+        if (answersEncrypted) {
+          setAnswersEncrypted(answersEncrypted)
+        }
+
+        // Load attributions from server
+        if (serverAttributions) {
+          setAttributions(serverAttributions)
+        }
+
+        // Parse Grid
+        const parsedGrid = gridString.split('\n').map((row) => row.trim().split(' ') as CellType[])
+        setGrid(parsedGrid)
+
+        // Initialize Answers
+        const rows = parsedGrid.length
+        const cols = parsedGrid[0].length
+
+        // If sessionState exists, use it and normalize to grid dimensions.
+        // We relax the strict check to allow for robust recovery if backend state is slightly mismatched/unpadded.
+        if (sessionState && Array.isArray(sessionState) && sessionState.length > 0) {
+          console.log('[PlaySession] Loading session state from server:', {
+            rows,
+            cols,
+            serverRows: sessionState.length,
+          })
+
+          const normalizedSessionState = normalizeStateToDimensions(sessionState, rows, cols)
+          setAnswers(normalizedSessionState)
+
+          // Check for changes since last visit
+          const storedSession = getLocalSessionById(sessionId as string)
+          if (storedSession?.lastKnownState) {
+            const lastState = storedSession.lastKnownState
+            const newChangedCells = new Set<string>()
+
+            // Compare states
+            for (let r = 0; r < rows; r++) {
+              if (!lastState[r]) continue
+              for (let c = 0; c < cols; c++) {
+                const oldVal = lastState[r][c] || ' '
+                const newVal = normalizedSessionState[r][c] || ' '
+                if (oldVal !== newVal) {
+                  newChangedCells.add(`${r}-${c}`)
+                }
+              }
+            }
+
+            if (newChangedCells.size > 0) {
+              setChangedCells(newChangedCells)
+              setShowChangeNotification(true)
+            }
+          }
+        } else {
+          setAnswers(Array(rows).fill(' '.repeat(cols)))
+        }
+
+        // Update local session (including current answers as confirmed state for FUTURE visits)
+        const shouldUpdateKnownState =
+          !sessionState ||
+          (sessionState && !getLocalSessionById(sessionId as string)?.lastKnownState)
+
+        saveLocalSession({
+          sessionId: sessionId as string,
+          puzzleId: puzzleId,
+          puzzleTitle: title,
+          lastPlayed: Date.now(),
+          ...(shouldUpdateKnownState
+            ? {
+                lastKnownState: sessionState
+                  ? normalizeStateToDimensions(sessionState, rows, cols)
+                  : Array(rows).fill(' '.repeat(cols)),
+              }
+            : {}),
+        })
+      } catch (error) {
+        console.error('Failed to fetch session:', error)
+        alert('Failed to load session.')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchSession()
+  }, [sessionId]) // Stable dependency: only runs on mount/ID change
+
+  // --- Socket Subscriptions Effect ---
+  // Runs whenever socket connection status changes
   useEffect(() => {
     if (!sessionId) return
 
@@ -446,7 +568,13 @@ export function PlaySession() {
       handleConnect()
     }
 
-    const handlePuzzleUpdated = (newState: string[]) => {
+    const handlePuzzleUpdated = (payload: { state?: string[] } | string[]) => {
+      const newState = Array.isArray(payload) ? payload : payload?.state
+      if (!Array.isArray(newState)) {
+        console.warn('[PlaySession] puzzle_updated missing state payload:', payload)
+        return
+      }
+
       // Server is authoritative for puzzle_updated events.
       // Normalize both states before comparison to avoid false positives
       const local = answersRef.current
@@ -534,9 +662,6 @@ export function PlaySession() {
       setShowChangeNotification(true)
     }
 
-    on('puzzle_updated', handlePuzzleUpdated)
-    on('cell_updated', handleCellUpdated)
-
     const handleWordClaimed = ({
       clueKey,
       userId,
@@ -554,112 +679,9 @@ export function PlaySession() {
       }))
     }
 
+    on('puzzle_updated', handlePuzzleUpdated)
+    on('cell_updated', handleCellUpdated)
     on('word_claimed', handleWordClaimed)
-
-    const fetchSession = async () => {
-      setLoading(true)
-      try {
-        const response = await axios.get<SessionData>(`/api/sessions/${sessionId}`)
-        const {
-          title,
-          grid: gridString,
-          clues,
-          sessionState,
-          id: puzzleId,
-          answersEncrypted,
-          attributions: serverAttributions,
-        } = response.data
-
-        setTitle(title)
-        setClues(clues)
-
-        // Store encrypted answers for local checking
-        if (answersEncrypted) {
-          setAnswersEncrypted(answersEncrypted)
-        }
-
-        // Load attributions from server
-        if (serverAttributions) {
-          setAttributions(serverAttributions)
-        }
-
-        // Update local session timestamp
-        // MOVED: logic to below to handle conditional lastKnownState update
-
-        // Parse Grid
-        const parsedGrid = gridString.split('\n').map((row) => row.trim().split(' ') as CellType[])
-        setGrid(parsedGrid)
-
-        // Initialize Answers
-        const rows = parsedGrid.length
-        const cols = parsedGrid[0].length
-
-        // If sessionState exists and matches dimensions, use it. Otherwise empty.
-        // If sessionState exists and matches dimensions, use it. Otherwise empty.
-        if (sessionState && sessionState.length === rows && sessionState[0].length === cols) {
-          const normalizedSessionState = normalizeStateToDimensions(sessionState, rows, cols)
-          setAnswers(normalizedSessionState)
-
-          // Check for changes since last visit
-          const storedSession = getLocalSessionById(sessionId as string)
-          if (storedSession?.lastKnownState) {
-            const lastState = storedSession.lastKnownState
-            const newChangedCells = new Set<string>()
-
-            // Compare states
-            for (let r = 0; r < rows; r++) {
-              // Only iterate up to the shorter length to avoid errors if dimensions mismatch (though we checked dimensions above)
-              if (!lastState[r]) continue
-
-              for (let c = 0; c < cols; c++) {
-                const oldVal = lastState[r][c] || ' '
-                const newVal = normalizedSessionState[r][c] || ' '
-                if (oldVal !== newVal) {
-                  newChangedCells.add(`${r}-${c}`)
-                }
-              }
-            }
-
-            if (newChangedCells.size > 0) {
-              setChangedCells(newChangedCells)
-              setShowChangeNotification(true)
-            }
-          }
-        } else {
-          setAnswers(Array(rows).fill(' '.repeat(cols)))
-        }
-
-        // Update local session (including current answers as confirmed state for FUTURE visits)
-        // If we found changes, we DON'T update lastKnownState yet, so the user has to acknowledge them.
-        // If we didn't find changes, we update it.
-        const shouldUpdateKnownState =
-          !sessionState ||
-          (sessionState && !getLocalSessionById(sessionId as string)?.lastKnownState)
-
-        const sessId = sessionId as string
-        saveLocalSession({
-          sessionId: sessId,
-          puzzleId: puzzleId,
-          puzzleTitle: title,
-          lastPlayed: Date.now(),
-          // Only set lastKnownState if it's new or empty, otherwise wait for dismiss
-          ...(shouldUpdateKnownState
-            ? {
-                lastKnownState: sessionState
-                  ? normalizeStateToDimensions(sessionState, rows, cols)
-                  : Array(rows).fill(' '.repeat(cols)),
-              }
-            : {}),
-        })
-      } catch (error) {
-        console.error('Failed to fetch session:', error)
-        alert('Failed to load session.')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchSession()
 
     return () => {
       // Clean up listeners
@@ -667,7 +689,17 @@ export function PlaySession() {
       off('cell_updated', handleCellUpdated)
       off('word_claimed', handleWordClaimed)
     }
-  }, [sessionId, isConnected, send, on, off, getEndpoint, processQueuedClaims])
+  }, [
+    sessionId,
+    isConnected,
+    send,
+    on,
+    off,
+    getEndpoint,
+    processQueuedClaims,
+    normalizeAnswersForGrid,
+    socketId,
+  ])
 
   // --- Polling Backup ---
   const syncSession = useCallback(async () => {
