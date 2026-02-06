@@ -192,7 +192,7 @@ crossword-backend/
 
 - **Runtime**: Bun for backend and tests
 - **Database**: SQLite (file: ./crossword.db)
-- **Frontend proxy**: API calls proxied to localhost:3000
+- **Frontend proxy**: API calls proxied to localhost:8921
 
 ## Code Quality
 

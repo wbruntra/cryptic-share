@@ -19,7 +19,7 @@ interface SocketProviderProps {
 }
 
 export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
-  const socketUrl = import.meta.env.DEV ? 'http://localhost:8921' : '/'
+  const socketUrl = '/'
   const [socket] = useState(() =>
     io(socketUrl, {
       // Use polling first, then upgrade to websocket to avoid proxy issues
