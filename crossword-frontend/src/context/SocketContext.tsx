@@ -19,8 +19,9 @@ interface SocketProviderProps {
 }
 
 export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
+  const socketUrl = import.meta.env.DEV ? 'http://localhost:8921' : '/'
   const [socket] = useState(() =>
-    io('/', {
+    io(socketUrl, {
       // Use polling first, then upgrade to websocket to avoid proxy issues
       transports: ['polling', 'websocket'],
       reconnection: true,
@@ -33,13 +34,11 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const handleConnect = () => {
-      console.log('Socket connected:', socket.id)
       setSocketId(socket.id ?? null)
       setIsConnected(true)
     }
 
     const handleDisconnect = () => {
-      console.log('Socket disconnected')
       setSocketId(null)
       setIsConnected(false)
     }

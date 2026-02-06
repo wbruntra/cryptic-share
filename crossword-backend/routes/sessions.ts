@@ -451,4 +451,35 @@ router.post('/:sessionId/report-explanation', optionalAuthenticateUser, async (r
   }
 })
 
+// Claim a word (HTTP fallback for socket)
+router.post('/:sessionId/claim', async (req, res) => {
+  const { sessionId } = req.params
+  const { clueKey, userId, username } = req.body
+
+  if (!sessionId || !clueKey || !username) {
+    return res.status(400).json({ error: 'Missing sessionId, clueKey, or username' })
+  }
+
+  try {
+    const claimed = await SessionService.recordWordAttribution(sessionId, clueKey, userId || null, username)
+
+    if (claimed) {
+      // Broadcast to all connected clients via socket
+      const { io } = await import('../app')
+      const timestamp = new Date().toISOString()
+      io.to(sessionId).emit('word_claimed', {
+        clueKey,
+        userId: userId || null,
+        username,
+        timestamp,
+      })
+    }
+
+    res.json({ success: true, claimed })
+  } catch (error) {
+    console.error('Error claiming word via HTTP:', error)
+    res.status(500).json({ error: 'Failed to claim word' })
+  }
+})
+
 export default router

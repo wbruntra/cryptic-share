@@ -70,6 +70,15 @@ export function PlaySession() {
   const localEditTimestamps = useRef<Map<string, number>>(new Map())
   const GRACE_PERIOD_MS = 2000
 
+  // Queue for claims that failed to send (socket not connected, etc.)
+  interface QueuedClaim {
+    clueKey: string
+    userId: number | null
+    username: string
+    timestamp: number
+  }
+  const queuedClaimsRef = useRef<QueuedClaim[]>([])
+
   // Grid structure (static)
   const [grid, setGrid] = useState<CellType[][]>([])
   const [clues, setClues] = useState<{ across: Clue[]; down: Clue[] } | null>(null)
@@ -275,11 +284,68 @@ export function PlaySession() {
     setCheckedWords(new Set())
   }
 
+  // Helper to send a word claim with socket fallback to HTTP
+  const sendClaim = useCallback(
+    async (clueKey: string, userId: number | null, username: string) => {
+      if (!sessionId) return false
+
+      // Try socket first if connected
+      if (socket?.connected) {
+        socket.emit('claim_word', {
+          sessionId,
+          clueKey,
+          userId,
+          username,
+        })
+        return true
+      }
+
+      // Fallback to HTTP
+      try {
+        await axios.post(`/api/sessions/${sessionId}/claim`, {
+          clueKey,
+          userId,
+          username,
+        })
+        return true
+      } catch (error) {
+        console.error('Failed to send claim via HTTP:', error)
+        return false
+      }
+    },
+    [sessionId, socket]
+  )
+
+  // Track attributions in a ref to avoid dependency issues
+  const attributionsRef = useRef(attributions)
+  useEffect(() => {
+    attributionsRef.current = attributions
+  }, [attributions])
+
+  // Process any queued claims when socket reconnects
+  const processQueuedClaims = useCallback(async () => {
+    if (queuedClaimsRef.current.length === 0 || !sessionId) return
+
+    const claims = [...queuedClaimsRef.current]
+    queuedClaimsRef.current = []
+
+    for (const claim of claims) {
+      // Skip if already claimed by someone else
+      if (attributionsRef.current[claim.clueKey]) continue
+
+      const success = await sendClaim(claim.clueKey, claim.userId, claim.username)
+      if (!success) {
+        // Re-queue if still failing
+        queuedClaimsRef.current.push(claim)
+      }
+    }
+  }, [sessionId, sendClaim])
+
   // Auto-check the current word if it's complete
   // NOTE: currentAnswers must be passed explicitly to avoid stale closure issues
   // (React state updates are async, so `answers` would be outdated if we relied on it)
   const autoCheckCurrentWord = useCallback(
-    (clueNumber: number, direction: Direction, currentAnswers: string[]) => {
+    async (clueNumber: number, direction: Direction, currentAnswers: string[]) => {
       if (!AUTO_CHECK_ENABLED || !answersEncrypted || grid.length === 0) return
 
       const wordKey = `${clueNumber}-${direction}`
@@ -296,15 +362,20 @@ export function PlaySession() {
         if (result.isCorrect) {
           setCorrectFlashCells(new Set(cellKeys))
 
-          // Claim attribution if not already claimed
-          if (!attributions[wordKey] && socket && sessionId && userNickname) {
+          // Claim attribution if not already claimed and we have a username
+          if (!attributions[wordKey] && sessionId && userNickname) {
             const userId = user?.id || null
-            socket.emit('claim_word', {
-              sessionId,
-              clueKey: wordKey,
-              userId,
-              username: userNickname
-            })
+            const success = await sendClaim(wordKey, userId, userNickname)
+
+            if (!success) {
+              // Queue for retry when socket reconnects
+              queuedClaimsRef.current.push({
+                clueKey: wordKey,
+                userId,
+                username: userNickname,
+                timestamp: Date.now(),
+              })
+            }
           }
         } else {
           setIncorrectFlashCells(new Set(cellKeys))
@@ -324,7 +395,7 @@ export function PlaySession() {
         }, 300)
       }
     },
-    [answersEncrypted, grid, checkedWords, attributions, socket, sessionId, userNickname, user],
+    [answersEncrypted, grid, checkedWords, attributions, sessionId, userNickname, user, sendClaim]
   )
 
   // Clear flash on unmount
@@ -352,8 +423,9 @@ export function PlaySession() {
 
     // Join session on connect (and reconnect)
     const handleConnect = () => {
-      console.log('[PlaySession] Socket connected, joining session:', sessionId)
       socket.emit('join_session', sessionId, getEndpoint())
+      // Process any queued claims from when we were offline
+      void processQueuedClaims()
     }
 
     // If already connected, join immediately
@@ -397,7 +469,6 @@ export function PlaySession() {
       const cellKey = `${r}-${c}`
       const lastEdit = localEditTimestamps.current.get(cellKey)
       if (lastEdit && Date.now() - lastEdit < GRACE_PERIOD_MS) {
-        console.log('[PlaySession] Ignoring cell_updated during grace period:', cellKey)
         return
       }
 
@@ -545,7 +616,7 @@ export function PlaySession() {
       socket.off('cell_updated', handleCellUpdated)
       socket.off('word_claimed', handleWordClaimed)
     }
-  }, [sessionId, socket, getEndpoint, mergePreferLocalWithChanges])
+  }, [sessionId, socket, getEndpoint, mergePreferLocalWithChanges, processQueuedClaims])
 
   // --- Polling Backup ---
   const syncSession = useCallback(async () => {
@@ -624,13 +695,14 @@ export function PlaySession() {
 
     const handleConnect = () => {
       void syncSession()
+      void processQueuedClaims()
     }
 
     socket.on('connect', handleConnect)
     return () => {
       socket.off('connect', handleConnect)
     }
-  }, [socket, syncSession])
+  }, [socket, syncSession, processQueuedClaims])
 
   // --- Helpers ---
   const isPlayable = (r: number, c: number) => {
@@ -829,7 +901,7 @@ export function PlaySession() {
         // Find the clue number at the start of this word
         const startCellNum = renderedGrid[checkR]?.[checkC]?.number
         if (startCellNum) {
-          autoCheckCurrentWord(startCellNum, direction, newAnswers)
+          void autoCheckCurrentWord(startCellNum, direction, newAnswers)
         }
       } else if (e.key === 'Backspace') {
         const currentVal = answers[r][c]
@@ -909,7 +981,7 @@ export function PlaySession() {
     // Find the clue number at the start of this word
     const startCellNum = renderedGrid[checkR]?.[checkC]?.number
     if (startCellNum) {
-      autoCheckCurrentWord(startCellNum, direction, newAnswers)
+      void autoCheckCurrentWord(startCellNum, direction, newAnswers)
     }
   }
 
