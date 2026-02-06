@@ -46,4 +46,24 @@ router.get('/me', authenticateUser, (req, res) => {
   res.json({ user: res.locals.user })
 })
 
+// Admin login via password
+router.post('/admin-login', async (req, res) => {
+  const { password } = req.body
+  if (password === process.env.ADMIN_PASSWORD) {
+    req.session = { isAdmin: true }
+    res.json({ success: true })
+  } else {
+    res.status(401).json({ error: 'Invalid password' })
+  }
+})
+
+// Check admin authentication status
+router.get('/check-auth', (req, res) => {
+  if (req.session?.isAdmin) {
+    res.json({ authenticated: true })
+  } else {
+    res.status(401).json({ authenticated: false })
+  }
+})
+
 export default router
