@@ -50,12 +50,12 @@ const initialState: AdminState = {
 
 // Thunks
 export const checkAuth = createAsyncThunk('admin/checkAuth', async () => {
-  await axios.get('/api/check-auth')
+  await axios.get('/api/auth/check-auth')
   return true
 })
 
 export const login = createAsyncThunk('admin/login', async (password: string) => {
-  await axios.post('/api/login', { password })
+  await axios.post('/api/auth/admin-login', { password })
   return true
 })
 
