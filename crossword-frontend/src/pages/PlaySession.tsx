@@ -76,6 +76,10 @@ export function PlaySession() {
   const localEditTimestamps = useRef<Map<string, number>>(new Map())
   const GRACE_PERIOD_MS = 2000
 
+  // Debounce sync to prevent rapid successive syncs
+  const lastSyncTimeRef = useRef<number>(0)
+  const SYNC_DEBOUNCE_MS = 1000
+
   // Queue for claims that failed to send (socket not connected, etc.)
   interface QueuedClaim {
     clueKey: string
@@ -444,13 +448,22 @@ export function PlaySession() {
 
     const handlePuzzleUpdated = (newState: string[]) => {
       // Server is authoritative for puzzle_updated events.
-      // Find cells that differ from current local state for notification.
+      // Normalize both states before comparison to avoid false positives
       const local = answersRef.current
+      const normalizedNew = normalizeAnswersForGrid(newState)
+      const normalizedLocal = normalizeAnswersForGrid(local)
+
+      // Skip if states are identical after normalization
+      if (JSON.stringify(normalizedNew) === JSON.stringify(normalizedLocal)) {
+        return
+      }
+
+      // Find cells that differ from current local state for notification.
       const changedFromLocal = new Set<string>()
 
-      for (let r = 0; r < newState.length; r++) {
-        const localRow = local[r] ?? ''
-        const serverRow = newState[r] ?? ''
+      for (let r = 0; r < normalizedNew.length; r++) {
+        const localRow = normalizedLocal[r] ?? ''
+        const serverRow = normalizedNew[r] ?? ''
         for (let c = 0; c < serverRow.length; c++) {
           const l = localRow[c] ?? ' '
           const s = serverRow[c] ?? ' '
@@ -470,7 +483,7 @@ export function PlaySession() {
       }
 
       // Overwrite local state with server state
-      setAnswers(normalizeAnswersForGrid(newState))
+      setAnswers(normalizedNew)
     }
 
     const handleCellUpdated = ({
@@ -485,7 +498,7 @@ export function PlaySession() {
       senderId?: string
     }) => {
       console.log('[Cell Update] Received:', { r, c, value, senderId, mySocketId: socketId })
-      
+
       // Ignore own updates if senderId matches our socket ID
       if (senderId === socketId) {
         console.log('[Cell Update] Ignoring own update')
@@ -660,6 +673,13 @@ export function PlaySession() {
   const syncSession = useCallback(async () => {
     if (!sessionId) return
 
+    // Debounce to prevent rapid successive syncs
+    const now = Date.now()
+    if (now - lastSyncTimeRef.current < SYNC_DEBOUNCE_MS) {
+      return
+    }
+    lastSyncTimeRef.current = now
+
     // The native WebSocket in SocketContext handles reconnection automatically
     // Just run the sync to fetch latest state
 
@@ -669,13 +689,21 @@ export function PlaySession() {
       const { sessionState } = response.data
 
       if (sessionState) {
-        const local = answersRef.current
-        if (JSON.stringify(local) === JSON.stringify(sessionState)) {
+        // Normalize both states before comparison to avoid false positives
+        const normalizedLocal = normalizeAnswersForGrid(answersRef.current)
+        const normalizedServer = normalizeAnswersForGrid(sessionState)
+
+        if (JSON.stringify(normalizedLocal) === JSON.stringify(normalizedServer)) {
           return
         }
 
-        const { merged, filledFromServer } = mergePreferLocalWithChanges(local, sessionState)
-        if (JSON.stringify(local) === JSON.stringify(merged)) {
+        const { merged, filledFromServer } = mergePreferLocalWithChanges(
+          normalizedLocal,
+          normalizedServer,
+        )
+        const normalizedMerged = normalizeAnswersForGrid(merged)
+
+        if (JSON.stringify(normalizedLocal) === JSON.stringify(normalizedMerged)) {
           return
         }
 
@@ -690,12 +718,12 @@ export function PlaySession() {
           setShowChangeNotification(true)
         }
 
-        setAnswers(normalizeAnswersForGrid(merged))
+        setAnswers(normalizedMerged)
       }
     } catch (error) {
       console.error('[PlaySession] Sync failed:', error)
     }
-  }, [sessionId, mergePreferLocalWithChanges])
+  }, [sessionId, mergePreferLocalWithChanges, normalizeAnswersForGrid])
 
   useEffect(() => {
     // Poll periodically as a safety net (does a merge, so it won't clobber local edits).
