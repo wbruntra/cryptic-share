@@ -4,7 +4,13 @@ import axios from 'axios'
 import type { CellType, Direction, Clue, PuzzleData, PuzzleAnswers } from '../types'
 import { ClueList } from '../ClueList'
 import { CrosswordGrid } from '../CrosswordGrid'
-import { saveLocalSession, getLocalSessionById, getNickname, setNickname, getAnonymousId } from '../utils/sessionManager'
+import {
+  saveLocalSession,
+  getLocalSessionById,
+  getNickname,
+  setNickname,
+  getAnonymousId,
+} from '../utils/sessionManager'
 import { useIsMobile } from '../utils/useIsMobile'
 import { useAuth } from '../context/AuthContext'
 import { NicknameModal } from '../components/NicknameModal'
@@ -198,7 +204,9 @@ export function PlaySession() {
   const formattedTime = usePuzzleTimer(sessionId)
 
   // Attributions
-  const [attributions, setAttributions] = useState<Record<string, { userId: number | null; username: string; timestamp: string }>>({})
+  const [attributions, setAttributions] = useState<
+    Record<string, { userId: number | null; username: string; timestamp: string }>
+  >({})
   const [showAttributions, setShowAttributions] = useState(false)
 
   // Extract clue metadata for attribution mapping
@@ -313,7 +321,7 @@ export function PlaySession() {
         return false
       }
     },
-    [sessionId, socket]
+    [sessionId, socket],
   )
 
   // Track attributions in a ref to avoid dependency issues
@@ -395,7 +403,7 @@ export function PlaySession() {
         }, 300)
       }
     },
-    [answersEncrypted, grid, checkedWords, attributions, sessionId, userNickname, user, sendClaim]
+    [answersEncrypted, grid, checkedWords, attributions, sessionId, userNickname, user, sendClaim],
   )
 
   // Clear flash on unmount
@@ -437,18 +445,34 @@ export function PlaySession() {
     socket.on('connect', handleConnect)
 
     const handlePuzzleUpdated = (newState: string[]) => {
-      const { merged, filledFromServer } = mergePreferLocalWithChanges(answersRef.current, newState)
+      // Server is authoritative for puzzle_updated events.
+      // Find cells that differ from current local state for notification.
+      const local = answersRef.current
+      const changedFromLocal = new Set<string>()
 
-      if (filledFromServer.size > 0) {
+      for (let r = 0; r < newState.length; r++) {
+        const localRow = local[r] ?? ''
+        const serverRow = newState[r] ?? ''
+        for (let c = 0; c < serverRow.length; c++) {
+          const l = localRow[c] ?? ' '
+          const s = serverRow[c] ?? ' '
+          if (l !== s) {
+            changedFromLocal.add(`${r}-${c}`)
+          }
+        }
+      }
+
+      if (changedFromLocal.size > 0) {
         setChangedCells((prev) => {
           const next = new Set(prev)
-          for (const cell of filledFromServer) next.add(cell)
+          for (const cell of changedFromLocal) next.add(cell)
           return next
         })
         setShowChangeNotification(true)
       }
 
-      setAnswers(normalizeAnswersForGrid(merged))
+      // Overwrite local state with server state
+      setAnswers(normalizeAnswersForGrid(newState))
     }
 
     const handleCellUpdated = ({
@@ -494,10 +518,20 @@ export function PlaySession() {
     socket.on('puzzle_updated', handlePuzzleUpdated)
     socket.on('cell_updated', handleCellUpdated)
 
-    const handleWordClaimed = ({ clueKey, userId, username, timestamp }: { clueKey: string; userId: number | null; username: string; timestamp: string }) => {
+    const handleWordClaimed = ({
+      clueKey,
+      userId,
+      username,
+      timestamp,
+    }: {
+      clueKey: string
+      userId: number | null
+      username: string
+      timestamp: string
+    }) => {
       setAttributions((prev) => ({
         ...prev,
-        [clueKey]: { userId, username, timestamp }
+        [clueKey]: { userId, username, timestamp },
       }))
     }
 
@@ -592,10 +626,9 @@ export function PlaySession() {
           // Only set lastKnownState if it's new or empty, otherwise wait for dismiss
           ...(shouldUpdateKnownState
             ? {
-                lastKnownState:
-                  (sessionState
-                    ? normalizeStateToDimensions(sessionState, rows, cols)
-                    : Array(rows).fill(' '.repeat(cols)))
+                lastKnownState: sessionState
+                  ? normalizeStateToDimensions(sessionState, rows, cols)
+                  : Array(rows).fill(' '.repeat(cols)),
               }
             : {}),
         })
@@ -1269,12 +1302,9 @@ export function PlaySession() {
                 onToggle={() => setShowAttributions(!showAttributions)}
                 attributions={attributions}
               />
-              
+
               {/* Attribution Stats */}
-              <AttributionStats
-                attributions={attributions}
-                clues={clues}
-              />
+              <AttributionStats attributions={attributions} clues={clues} />
             </div>
           </div>
         </div>
@@ -1455,19 +1485,16 @@ export function PlaySession() {
               onClueClick={handleClueClick}
             />
           )}
-          
+
           {/* Attribution Controls */}
           <AttributionControls
             enabled={showAttributions}
             onToggle={() => setShowAttributions(!showAttributions)}
             attributions={attributions}
           />
-          
+
           {/* Attribution Stats */}
-          <AttributionStats
-            attributions={attributions}
-            clues={clues}
-          />
+          <AttributionStats attributions={attributions} clues={clues} />
         </div>
 
         <div className="flex-1 w-full bg-surface p-6 md:p-8 rounded-2xl shadow-xl border border-border relative overflow-hidden group">
