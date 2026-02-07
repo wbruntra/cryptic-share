@@ -1,7 +1,7 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
+import { createApi } from '@reduxjs/toolkit/query/react'
 import type { Report, Session } from '../slices/adminSlice'
-import { getAuthToken } from '../../services/auth'
 import type { PuzzleSummary } from '../../types'
+import { axiosBaseQuery } from './axiosBaseQuery'
 
 export interface PuzzleDetail {
   id: number
@@ -13,24 +13,17 @@ export interface PuzzleDetail {
 
 export const adminApi = createApi({
   reducerPath: 'adminApi',
-  baseQuery: fetchBaseQuery({
+  baseQuery: axiosBaseQuery({
     baseUrl: '/api/admin/',
-    prepareHeaders: (headers) => {
-      const token = getAuthToken()
-      if (token) {
-        headers.set('Authorization', `Bearer ${token}`)
-      }
-      return headers
-    },
   }),
   tagTypes: ['Report', 'Puzzle', 'Session'],
   endpoints: (builder) => ({
     getReports: builder.query<Report[], void>({
-      query: () => 'reports',
+      query: () => ({ url: 'reports', method: 'GET' }),
       providesTags: ['Report'],
     }),
     getSessions: builder.query<Session[], void>({
-      query: () => 'sessions',
+      query: () => ({ url: 'sessions', method: 'GET' }),
       providesTags: ['Session'],
     }),
     deleteSession: builder.mutation<string, string>({
@@ -41,11 +34,11 @@ export const adminApi = createApi({
       invalidatesTags: ['Session'],
     }),
     getPuzzles: builder.query<PuzzleSummary[], void>({
-      query: () => '../../api/puzzles',
+      query: () => ({ url: '../../api/puzzles', method: 'GET' }),
       providesTags: ['Puzzle'],
     }),
     getPuzzleById: builder.query<PuzzleDetail, string>({
-      query: (id) => `../../api/puzzles/${id}`,
+      query: (id) => ({ url: `../../api/puzzles/${id}`, method: 'GET' }),
       providesTags: (result, error, id) => [{ type: 'Puzzle', id }],
     }),
     deletePuzzle: builder.mutation<number, number>({

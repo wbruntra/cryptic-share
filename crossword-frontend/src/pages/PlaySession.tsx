@@ -1,11 +1,14 @@
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { DesktopView, MobileView } from '@/components/puzzle'
+import { NicknameModal } from '@/components/NicknameModal'
 import { useIsMobile } from '@/utils/useIsMobile'
 import { usePuzzleSync } from '@/hooks/usePuzzleSync'
 import { usePuzzleInput } from '@/hooks/usePuzzleInput'
 import { useCursorSelection } from '@/hooks/useCursorSelection'
 import { useAnswerChecker } from '@/hooks/useAnswerChecker'
+import { setNickname } from '@/utils/sessionManager'
 import type { RootState } from '@/store/store'
 import type { Direction } from '@/types'
 
@@ -18,17 +21,23 @@ export function PlaySession() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const isMobile = useIsMobile()
 
-  
+  // Local state for attribution nickname prompt
+  const [showNicknameModal, setShowNicknameModal] = useState(false)
+  const [pendingClaim, setPendingClaim] = useState<{
+    clueNumber: number
+    direction: Direction
+  } | null>(null)
+
   // Redux selectors
   const isLoading = useSelector(selectIsLoading)
   const error = useSelector(selectError)
   const grid = useSelector(selectGrid)
-  
+
   // Setup puzzle sync (socket + periodic)
   const { sendCellUpdate } = usePuzzleSync(sessionId)
-  
+
   // Setup answer checking
-  const { checkCurrentWord, checkAllAnswers } = useAnswerChecker()
+  const { checkCurrentWord, checkAllAnswers, claimWord } = useAnswerChecker()
 
   // Wrapper to log when checkAllAnswers is called
   const handleCheckAllAnswers = () => {
@@ -40,11 +49,23 @@ export function PlaySession() {
   const { onVirtualKeyPress, onVirtualDelete } = usePuzzleInput(
     sendCellUpdate,
     (clueNumber: number, direction: Direction, answersOverride?: string[]) =>
-      checkCurrentWord(clueNumber, direction, answersOverride)
+      checkCurrentWord(clueNumber, direction, answersOverride, () => {
+        setPendingClaim({ clueNumber, direction })
+        setShowNicknameModal(true)
+      }),
   )
-  
+
   // Setup cursor selection
   const { selectCell, navigateToClue } = useCursorSelection()
+
+  const handleNicknameSubmit = (nickname: string) => {
+    setNickname(nickname)
+    setShowNicknameModal(false)
+    if (pendingClaim) {
+      void claimWord(pendingClaim.clueNumber, pendingClaim.direction)
+      setPendingClaim(null)
+    }
+  }
 
   if (isLoading && !grid.length) {
     return (
@@ -73,8 +94,10 @@ export function PlaySession() {
 
   return (
     <>
+      {showNicknameModal && <NicknameModal onSubmit={handleNicknameSubmit} />}
+
       {isMobile ? (
-        <MobileView 
+        <MobileView
           onClueClick={navigateToClue}
           onCellClick={selectCell}
           onVirtualKeyPress={onVirtualKeyPress}
@@ -82,8 +105,8 @@ export function PlaySession() {
           onCheckAnswers={handleCheckAllAnswers}
         />
       ) : (
-        <DesktopView 
-          onClueClick={navigateToClue} 
+        <DesktopView
+          onClueClick={navigateToClue}
           onCellClick={selectCell}
           onCheckAnswers={handleCheckAllAnswers}
         />

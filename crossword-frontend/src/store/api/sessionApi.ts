@@ -1,6 +1,6 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
+import { createApi } from '@reduxjs/toolkit/query/react'
 import type { ClueExplanation } from '../../components/ClueExplanationDisplay'
-import { getAuthToken } from '../../services/auth'
+import { axiosBaseQuery } from './axiosBaseQuery'
 
 export interface ExplanationRequest {
   sessionId: string
@@ -25,15 +25,8 @@ export interface ProcessingResponse {
 
 export const sessionApi = createApi({
   reducerPath: 'sessionApi',
-  baseQuery: fetchBaseQuery({
+  baseQuery: axiosBaseQuery({
     baseUrl: '/api/sessions',
-    prepareHeaders: (headers) => {
-      const token = getAuthToken()
-      if (token) {
-        headers.set('Authorization', `Bearer ${token}`)
-      }
-      return headers
-    },
   }),
   tagTypes: ['Explanation'],
   endpoints: (builder) => ({
@@ -63,38 +56,34 @@ export const sessionApi = createApi({
     }),
 
     // Mutation to request new explanation (may be async)
-    requestExplanation: builder.mutation<
-      ClueExplanation | ProcessingResponse,
-      ExplanationRequest
-    >({
-      query: ({ sessionId, clueNumber, direction }) => ({
-        url: `${sessionId}/explain`,
-        method: 'POST',
-        body: { clueNumber, direction },
-      }),
-      transformResponse: (response: ExplanationResponse) => {
-        if (response.processing && response.requestId) {
-          return {
-            processing: true as const,
-            requestId: response.requestId,
-            message: response.message || 'Processing...',
+    requestExplanation: builder.mutation<ClueExplanation | ProcessingResponse, ExplanationRequest>(
+      {
+        query: ({ sessionId, clueNumber, direction }) => ({
+          url: `${sessionId}/explain`,
+          method: 'POST',
+          body: { clueNumber, direction },
+        }),
+        transformResponse: (response: ExplanationResponse) => {
+          if (response.processing && response.requestId) {
+            return {
+              processing: true as const,
+              requestId: response.requestId,
+              message: response.message || 'Processing...',
+            }
           }
-        }
-        if (response.explanation) {
-          return response.explanation
-        }
-        throw new Error('Invalid response format')
+          if (response.explanation) {
+            return response.explanation
+          }
+          throw new Error('Invalid response format')
+        },
+        invalidatesTags: (result, error, arg) => [
+          { type: 'Explanation', id: `${arg.clueNumber}-${arg.direction}` },
+        ],
       },
-      invalidatesTags: (result, error, arg) => [
-        { type: 'Explanation', id: `${arg.clueNumber}-${arg.direction}` },
-      ],
-    }),
+    ),
 
     // Mutation to report an explanation
-    reportExplanation: builder.mutation<
-      void,
-      ExplanationRequest & { feedback?: string }
-    >({
+    reportExplanation: builder.mutation<void, ExplanationRequest & { feedback?: string }>({
       query: ({ sessionId, clueNumber, direction, feedback }) => ({
         url: `${sessionId}/report-explanation`,
         method: 'POST',

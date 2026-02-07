@@ -4,6 +4,13 @@ export interface LocalSession {
   puzzleTitle: string
   lastPlayed: number
   lastKnownState?: string[]
+  // Cached puzzle definition for offline loading
+  puzzleData?: {
+    grid: string // string representation from server
+    clues: { across: any[]; down: any[] }
+    answersEncrypted?: { across: Record<string, string>; down: Record<string, string> }
+    attributions?: Record<string, any>
+  }
 }
 
 const STORAGE_KEY = 'cryptic_share_sessions'
