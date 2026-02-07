@@ -154,9 +154,17 @@ export function useAnswerChecker() {
       }
 
       console.log('[useAnswerChecker] calling checkSessionAnswers...')
-      const { errorCells } = checkSessionAnswers(grid, answers, puzzleAnswers)
-      console.log('[useAnswerChecker] result:', { errorCount: errorCells.length })
-      dispatch(setCheckResult({ errorCells }))
+      const { results, totalLetters, filledLetters, errorCells } = checkSessionAnswers(grid, answers, puzzleAnswers)
+      console.log('[useAnswerChecker] result:', { errorCount: errorCells.length, totalChecked: results.length })
+      
+      // Check if puzzle is complete (all filled and all correct)
+      const isComplete = filledLetters === totalLetters && errorCells.length === 0
+      
+      dispatch(setCheckResult({ 
+        errorCells, 
+        totalChecked: results.length,
+        isComplete 
+      }))
     } catch (err) {
       console.error('[CheckAnswers] Failed:', err)
     } finally {

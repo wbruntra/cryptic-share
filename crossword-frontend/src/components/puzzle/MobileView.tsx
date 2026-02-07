@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { CrosswordGrid } from '@/CrosswordGrid'
 import { FloatingClueBar, VirtualKeyboard, BottomSheet, MobileClueList } from '@/components/mobile'
@@ -6,6 +6,7 @@ import { AttributionControls } from '@/components/AttributionControls'
 import { AttributionStats } from '@/components/AttributionStats'
 import { HintModal } from '@/components/HintModal'
 import { ChangeNotification } from '@/components/ChangeNotification'
+import { Modal } from '@/components/Modal'
 import {
   clearErrorCells,
   dismissChangeNotification,
@@ -202,6 +203,14 @@ export function MobileView({
     setIsClueSheetOpen(false)
   }
 
+  // Show alert for check result (when not complete)
+  useEffect(() => {
+    if (checkResult.show && !checkResult.isComplete && checkResult.message) {
+      window.alert(checkResult.message)
+      dispatch(dismissCheckResult())
+    }
+  }, [checkResult.show, checkResult.isComplete, checkResult.message, dispatch])
+
   return (
     <div 
       className="play-session-mobile bg-bg -mt-8 overflow-x-hidden"
@@ -213,21 +222,26 @@ export function MobileView({
         message="Partner made changes"
       />
 
-      {checkResult.show && checkResult.message && (
-        <div className={`mx-4 mt-4 p-3 rounded-xl flex items-center justify-between ${
-          checkResult.errorCount === 0 
-            ? 'bg-green-500/10 border border-green-500/30' 
-            : 'bg-yellow-500/10 border border-yellow-500/30'
-        }`}>
-          <span className="text-text text-sm font-medium">{checkResult.message}</span>
+      {/* Check Result Modal - shown when puzzle is complete */}
+      <Modal
+        isOpen={checkResult.show && checkResult.isComplete}
+        onClose={() => dispatch(dismissCheckResult())}
+        title="🎉 Congratulations!"
+      >
+        <div className="text-center">
+          <div className="text-6xl mb-4 animate-bounce">🏆</div>
+          <p className="text-lg text-text mb-6">
+            You've solved all the checked answers correctly!
+          </p>
+          <p className="text-text-secondary mb-8">Great job solving this cryptic crossword.</p>
           <button
             onClick={() => dispatch(dismissCheckResult())}
-            className="text-xs text-text-secondary hover:text-text"
+            className="bg-primary hover:bg-primary-hover text-white px-6 py-3 rounded-lg font-medium transition-colors"
           >
-            Dismiss
+            Close
           </button>
         </div>
-      )}
+      </Modal>
 
       {/* Floating clue bar */}
       <FloatingClueBar

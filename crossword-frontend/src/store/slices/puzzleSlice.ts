@@ -32,6 +32,8 @@ export interface PuzzleState {
   checkResult: {
     message: string | null
     errorCount: number
+    totalChecked: number
+    isComplete: boolean
     show: boolean
   }
   
@@ -63,6 +65,8 @@ const initialState: PuzzleState = {
   checkResult: {
     message: null,
     errorCount: 0,
+    totalChecked: 0,
+    isComplete: false,
     show: false
   },
   attributions: {},
@@ -240,12 +244,14 @@ const puzzleSlice = createSlice({
     setCheckInProgress: (state, action: PayloadAction<boolean>) => {
       state.isChecking = action.payload
     },
-    setCheckResult: (state, action: PayloadAction<{ errorCells: string[] }>) => {
+    setCheckResult: (state, action: PayloadAction<{ errorCells: string[]; totalChecked?: number; isComplete?: boolean }>) => {
       const errorCount = action.payload.errorCells.length
       state.errorCells = action.payload.errorCells
       state.checkResult = {
         errorCount,
-        message: errorCount === 0 ? 'No incorrect answers!' : `${errorCount} cells incorrect`,
+        totalChecked: action.payload.totalChecked || 0,
+        isComplete: action.payload.isComplete || false,
+        message: errorCount === 0 ? `Good job! All ${action.payload.totalChecked || 0} checked answers are correct.` : `${errorCount} cells incorrect`,
         show: true
       }
     },
