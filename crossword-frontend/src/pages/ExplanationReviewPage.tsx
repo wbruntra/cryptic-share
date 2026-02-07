@@ -1,20 +1,21 @@
 import { useState, useEffect, useRef } from 'react'
-import { useSocket } from '../context/SocketContext'
 import { Link, useParams } from 'react-router-dom'
 import axios from 'axios'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
-import { fetchClueExplanations } from '../store/slices/adminSlice'
+import { fetchClueExplanations, clearLatestExplanation } from '../store/slices/adminSlice'
 import type { ClueExplanation } from '../store/slices/adminSlice'
 
 interface NewExplanation {
   clue_type: string
-  explanation: any
+  explanation: Record<string, unknown>
 }
 
 export function ExplanationReviewPage() {
   const { id } = useParams<{ id: string }>()
   const dispatch = useAppDispatch()
-  const { clueExplanations, explanationStatus } = useAppSelector((state) => state.admin)
+  const { clueExplanations, explanationStatus, latestExplanation, latestExplanationError, latestExplanationRequestId } =
+    useAppSelector((state) => state.admin)
+  const socketId = useAppSelector((state) => state.socket.socketId)
 
   const [expandedClue, setExpandedClue] = useState<string | null>(null) // "number-direction"
   const [regenerating, setRegenerating] = useState(false)
@@ -59,37 +60,28 @@ export function ExplanationReviewPage() {
     setProcessingMessage('Checking regeneration status...')
   }, [storageKey, requestId])
 
-  const { on, off, socketId } = useSocket()
-
-  // Listen for socket events
   useEffect(() => {
-    const handleExplanationReady = (data: any) => {
-      // Check if this explanation matches our current request
-      if (data.requestId && data.requestId !== requestIdRef.current) {
-        return // Ignore events for other requests
-      }
-
-      if (data.success && data.explanation) {
-        setNewExplanation(data.explanation)
-        setRegenerating(false)
-        setProcessingMessage('')
-        setRequestId(null)
-        localStorage.removeItem(storageKey)
-      } else if (!data.success) {
-        alert('Failed to regenerate: ' + data.error)
-        setRegenerating(false)
-        setProcessingMessage('')
-        setRequestId(null)
-        localStorage.removeItem(storageKey)
-      }
+    if (!latestExplanation && !latestExplanationError) return
+    if (latestExplanationRequestId && requestIdRef.current && latestExplanationRequestId !== requestIdRef.current) {
+      return
     }
 
-    on('admin_explanation_ready', handleExplanationReady)
-
-    return () => {
-      off('admin_explanation_ready', handleExplanationReady)
+    if (latestExplanation) {
+      setNewExplanation(latestExplanation)
+      setRegenerating(false)
+      setProcessingMessage('')
+      setRequestId(null)
+      localStorage.removeItem(storageKey)
+    } else if (latestExplanationError) {
+      alert('Failed to regenerate: ' + latestExplanationError)
+      setRegenerating(false)
+      setProcessingMessage('')
+      setRequestId(null)
+      localStorage.removeItem(storageKey)
     }
-  }, [on, off, storageKey])
+
+    dispatch(clearLatestExplanation())
+  }, [latestExplanation, latestExplanationError, latestExplanationRequestId, storageKey, dispatch])
 
   useEffect(() => {
     if (id) {

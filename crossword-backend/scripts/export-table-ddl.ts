@@ -1,8 +1,13 @@
 import { readFileSync, mkdirSync, writeFileSync, existsSync } from 'fs'
 import path from 'path'
+import config from '@/knexfile.ts'
 
-const dbPath = path.join(__dirname, '..', 'crossword.db')
-const tablesDir = path.join(__dirname, '..', 'tables')
+console.log(config)
+
+const env = process.env.NODE_ENV || 'development'
+// @ts-ignore
+const dbPath = config[env].connection.filename
+const tablesDir = path.join(__dirname, '..', 'ddl')
 
 if (!existsSync(dbPath)) {
   console.error('Database file not found:', dbPath)
@@ -34,8 +39,10 @@ function formatDDL(ddl: string): string {
   const match = ddl.match(/^(CREATE TABLE.*?)\((.*)\)$/s)
   if (!match) return ddl
 
+  // @ts-ignore
   const header = match[1].trim()
   const columnsStr = match[2]
+  // @ts-ignore
   const columns = columnsStr.split(',').map((col, i, arr) => {
     const trimmed = col.trim()
     const suffix = i < arr.length - 1 ? ',' : ''

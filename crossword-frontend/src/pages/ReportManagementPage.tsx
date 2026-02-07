@@ -1,20 +1,21 @@
 import { useState, useEffect, useRef } from 'react'
-import { useSocket } from '../context/SocketContext'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { useGetReportsQuery } from '../store/api/adminApi'
 import { useAppSelector, useAppDispatch } from '../store/hooks'
-import { checkAuth } from '../store/slices/adminSlice'
+import { checkAuth, clearLatestExplanation } from '../store/slices/adminSlice'
 import type { Report } from '../store/slices/adminSlice'
 
 interface Explanation {
   clue_type: string
-  explanation: any
+  explanation: Record<string, unknown>
 }
 
 export function ReportManagementPage() {
   const dispatch = useAppDispatch()
-  const { isAuthenticated } = useAppSelector((state) => state.admin)
+  const { isAuthenticated, latestExplanation, latestExplanationError, latestExplanationRequestId } =
+    useAppSelector((state) => state.admin)
+  const socketId = useAppSelector((state) => state.socket.socketId)
   const { data: reports = [], isLoading, refetch } = useGetReportsQuery(undefined, {
     skip: isAuthenticated !== true, // Only fetch when explicitly authenticated
   })
@@ -62,37 +63,28 @@ export function ReportManagementPage() {
     setProcessingMessage('Checking regeneration status...')
   }, [storageKey, requestId])
 
-  const { on, off, socketId } = useSocket()
-
-  // Listen for socket events
   useEffect(() => {
-    const handleExplanationReady = (data: any) => {
-      // Check if this explanation matches our current request
-      if (data.requestId && data.requestId !== requestIdRef.current) {
-        return // Ignore events for other requests
-      }
-
-      if (data.success && data.explanation) {
-        setNewExplanation(data.explanation)
-        setRegenerating(false)
-        setProcessingMessage('')
-        setRequestId(null)
-        localStorage.removeItem(storageKey)
-      } else if (!data.success) {
-        alert('Failed to regenerate: ' + data.error)
-        setRegenerating(false)
-        setProcessingMessage('')
-        setRequestId(null)
-        localStorage.removeItem(storageKey)
-      }
+    if (!latestExplanation && !latestExplanationError) return
+    if (latestExplanationRequestId && requestIdRef.current && latestExplanationRequestId !== requestIdRef.current) {
+      return
     }
 
-    on('admin_explanation_ready', handleExplanationReady)
-
-    return () => {
-      off('admin_explanation_ready', handleExplanationReady)
+    if (latestExplanation) {
+      setNewExplanation(latestExplanation)
+      setRegenerating(false)
+      setProcessingMessage('')
+      setRequestId(null)
+      localStorage.removeItem(storageKey)
+    } else if (latestExplanationError) {
+      alert('Failed to regenerate: ' + latestExplanationError)
+      setRegenerating(false)
+      setProcessingMessage('')
+      setRequestId(null)
+      localStorage.removeItem(storageKey)
     }
-  }, [on, off, storageKey])
+
+    dispatch(clearLatestExplanation())
+  }, [latestExplanation, latestExplanationError, latestExplanationRequestId, storageKey, dispatch])
 
   useEffect(() => {
     if (!pendingReportId || reports.length === 0) return

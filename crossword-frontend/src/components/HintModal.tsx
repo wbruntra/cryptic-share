@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { useSocket } from '../context/SocketContext'
 import { Modal } from './Modal'
 import { ClueExplanationDisplay, type ClueExplanation } from './ClueExplanationDisplay'
 import {
@@ -8,7 +7,7 @@ import {
   useReportExplanationMutation,
 } from '../store/api/sessionApi'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
-import { addPendingExplanation, removePendingExplanation } from '../store/slices/sessionSlice'
+import { addPendingExplanation, clearLatestExplanation } from '../store/slices/sessionSlice'
 
 interface HintModalProps {
   isOpen: boolean
@@ -45,7 +44,6 @@ function HintModalContent({
   onFetchAnswer,
   timerDisplay,
 }: HintModalContentProps) {
-  const { on, off } = useSocket()
   const dispatch = useAppDispatch()
   const [activeTab, setActiveTab] = useState<TabType>('letters')
 
@@ -84,6 +82,7 @@ function HintModalContent({
 
   // Track pending async explanations
   const pendingExplanations = useAppSelector((state) => state.session.pendingExplanations)
+  const latestExplanation = useAppSelector((state) => state.session.latestExplanation)
   const currentPendingKey = clueNumber !== null && direction ? `${clueNumber}-${direction}` : null
   const pendingExplanation = currentPendingKey ? pendingExplanations[currentPendingKey] : null
   const effectiveExplanation = explanation ?? cachedExplanation ?? null
@@ -122,47 +121,25 @@ function HintModalContent({
     }
   }, [clueNumber, direction])
 
-  // Listen for socket events for async explanation
   useEffect(() => {
-    const handleExplanationReady = (data: {
-      requestId: string
-      clueNumber: number
-      direction: 'across' | 'down'
-      success: boolean
-      explanation?: ClueExplanation
-      error?: string
-    }) => {
-      // Check if this is for our current clue
-      if (
-        currentClueRef.current &&
-        data.clueNumber === currentClueRef.current.clueNumber &&
-        data.direction === currentClueRef.current.direction
-      ) {
-        // Remove from pending
-        dispatch(
-          removePendingExplanation({
-            clueNumber: data.clueNumber,
-            direction: data.direction,
-          }),
-        )
-
-        if (data.success && data.explanation) {
-          setExplanation(data.explanation)
-          setExplanationError(null)
-          setLocalProcessingMessage('')
-        } else {
-          setExplanationError(data.error || 'Failed to generate explanation')
-          setLocalProcessingMessage('')
-        }
+    if (!latestExplanation) return
+    if (
+      currentClueRef.current &&
+      latestExplanation.clueNumber === currentClueRef.current.clueNumber &&
+      latestExplanation.direction === currentClueRef.current.direction
+    ) {
+      if (latestExplanation.explanation) {
+        setExplanation(latestExplanation.explanation as unknown as ClueExplanation)
+        setExplanationError(null)
+        setLocalProcessingMessage('')
+      } else if (latestExplanation.error) {
+        setExplanationError(latestExplanation.error)
+        setLocalProcessingMessage('')
       }
-    }
 
-    on('explanation_ready', handleExplanationReady)
-
-    return () => {
-      off('explanation_ready', handleExplanationReady)
+      dispatch(clearLatestExplanation())
     }
-  }, [on, off, dispatch])
+  }, [latestExplanation, dispatch])
 
   const handleLetterHint = (index: number) => {
     if (!fullAnswer) return
