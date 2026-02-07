@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import adminReducer from './slices/adminSlice'
 import sessionReducer from './slices/sessionSlice'
+import puzzleReducer from './slices/puzzleSlice'
 import { adminApi } from './api/adminApi'
 import { sessionApi } from './api/sessionApi'
 
@@ -8,6 +9,7 @@ export const store = configureStore({
   reducer: {
     admin: adminReducer,
     session: sessionReducer,
+    puzzle: puzzleReducer,
     [adminApi.reducerPath]: adminApi.reducer,
     [sessionApi.reducerPath]: sessionApi.reducer,
   },

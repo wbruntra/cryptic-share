@@ -5,6 +5,8 @@ import { store } from './store/store'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './context/AuthContext'
+// Import auth service to set up axios interceptor
+import './services/auth'
 
 import { registerSW } from 'virtual:pwa-register'
 

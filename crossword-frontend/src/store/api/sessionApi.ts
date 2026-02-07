@@ -1,5 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
 import type { ClueExplanation } from '../../components/ClueExplanationDisplay'
+import { getAuthToken } from '../../services/auth'
 
 export interface ExplanationRequest {
   sessionId: string
@@ -24,7 +25,16 @@ export interface ProcessingResponse {
 
 export const sessionApi = createApi({
   reducerPath: 'sessionApi',
-  baseQuery: fetchBaseQuery({ baseUrl: '/api/sessions' }),
+  baseQuery: fetchBaseQuery({
+    baseUrl: '/api/sessions',
+    prepareHeaders: (headers) => {
+      const token = getAuthToken()
+      if (token) {
+        headers.set('Authorization', `Bearer ${token}`)
+      }
+      return headers
+    },
+  }),
   tagTypes: ['Explanation'],
   endpoints: (builder) => ({
     // Query for cached explanations only

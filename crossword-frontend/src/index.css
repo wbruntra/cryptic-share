@@ -28,6 +28,16 @@
   }
 }
 
+/* Crossword grid cell focus styles */
+[role="gridcell"]:focus {
+  outline: none;
+}
+
+[role="gridcell"]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
