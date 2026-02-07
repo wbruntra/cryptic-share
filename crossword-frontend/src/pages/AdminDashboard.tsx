@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { SkeletonPuzzleCard } from '../components/SkeletonLoader'
-import { useAppDispatch, useAppSelector } from '../store/hooks'
-import { checkAuth, login, clearError } from '../store/slices/adminSlice'
+import { useAuth } from '../context/AuthContext'
 import {
   useGetPuzzlesQuery,
   useDeletePuzzleMutation,
@@ -10,23 +9,18 @@ import {
 } from '../store/api/adminApi'
 
 export function AdminDashboard() {
-  const dispatch = useAppDispatch()
-  const { isAuthenticated, error } = useAppSelector((state) => state.admin)
+  const { user, loading, login } = useAuth()
+  const isAdmin = user?.isAdmin === true
+
   const { data: puzzles = [], isLoading: isPuzzlesLoading } = useGetPuzzlesQuery(undefined, {
-    skip: isAuthenticated !== true, // Only fetch when explicitly authenticated
+    skip: !isAdmin, // Only fetch when explicitly authenticated as admin
   })
   const [deletePuzzle] = useDeletePuzzleMutation()
   const [renamePuzzle] = useRenamePuzzleMutation()
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-
-  useEffect(() => {
-    dispatch(clearError())
-    if (isAuthenticated === null) {
-      dispatch(checkAuth())
-    }
-  }, [dispatch, isAuthenticated])
+  const [loginError, setLoginError] = useState<string | null>(null)
 
   const handleDelete = (id: number) => {
     if (!confirm('Are you sure you want to delete this puzzle? This action cannot be undone.'))
@@ -41,12 +35,17 @@ export function AdminDashboard() {
     renamePuzzle({ id, title: newTitle })
   }
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    dispatch(login({ username, password }))
+    setLoginError(null)
+    try {
+      await login(username, password)
+    } catch (err: any) {
+      setLoginError(err.response?.data?.message || err.message || 'Login failed')
+    }
   }
 
-  if (isAuthenticated === null)
+  if (loading)
     return (
       <div className="flex items-center justify-center min-h-[50vh] text-text-secondary animate-pulse gap-2">
         <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -54,7 +53,7 @@ export function AdminDashboard() {
       </div>
     )
 
-  if (!isAuthenticated) {
+  if (!isAdmin) {
     return (
       <div className="max-w-md mx-auto px-4 py-16">
         <div className="bg-surface p-8 rounded-2xl shadow-xl border border-border">
@@ -86,9 +85,9 @@ export function AdminDashboard() {
                 className="w-full px-4 py-3 rounded-xl bg-input-bg border border-border text-text focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
               />
             </div>
-            {error && (
+            {loginError && (
               <div className="p-3 bg-error/10 border border-error/20 rounded-lg text-error text-sm text-center font-medium">
-                {error}
+                {loginError}
               </div>
             )}
             <button

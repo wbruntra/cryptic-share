@@ -1,6 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import axios from 'axios'
-import { setAuthToken, getMe } from '../../services/auth'
 import { socketReceivedAdminExplanation, type ExplanationPayload } from '../actions/socketActions'
 
 export interface Session {
@@ -36,7 +35,6 @@ export interface ClueExplanation {
 }
 
 interface AdminState {
-  isAuthenticated: boolean | null
   clueExplanations: ClueExplanation[]
   explanationStatus: 'idle' | 'loading' | 'succeeded' | 'failed'
   error: string | null
@@ -46,7 +44,6 @@ interface AdminState {
 }
 
 const initialState: AdminState = {
-  isAuthenticated: null,
   clueExplanations: [],
   explanationStatus: 'idle',
   error: null,
@@ -56,37 +53,6 @@ const initialState: AdminState = {
 }
 
 // Thunks
-export const checkAuth = createAsyncThunk('admin/checkAuth', async () => {
-  try {
-    const user = await getMe()
-    // Check if user exists and has admin privileges
-    if (user && user.isAdmin) {
-      return true
-    }
-    return false
-  } catch {
-    return false
-  }
-})
-
-export const login = createAsyncThunk(
-  'admin/login',
-  async ({ username, password }: { username: string; password: string }) => {
-    const response = await axios.post('/api/auth/login', { username, password })
-    if (response.data.token) {
-      setAuthToken(response.data.token)
-      // Verify the user is an admin
-      const user = await getMe()
-      if (!user || !user.isAdmin) {
-        setAuthToken(null) // Clear the token if not admin
-        throw new Error('Access denied: Admin privileges required')
-      }
-      return true
-    }
-    throw new Error('Invalid response from server')
-  },
-)
-
 export const fetchClueExplanations = createAsyncThunk(
   'admin/fetchClueExplanations',
   async (puzzleId: string) => {
@@ -99,11 +65,6 @@ const adminSlice = createSlice({
   name: 'admin',
   initialState,
   reducers: {
-    logout: (state) => {
-      state.isAuthenticated = false
-      state.clueExplanations = []
-      setAuthToken(null)
-    },
     clearError: (state) => {
       state.error = null
     },
@@ -115,20 +76,6 @@ const adminSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(checkAuth.fulfilled, (state, action) => {
-        state.isAuthenticated = action.payload
-      })
-      .addCase(checkAuth.rejected, (state) => {
-        state.isAuthenticated = false
-      })
-      .addCase(login.fulfilled, (state) => {
-        state.isAuthenticated = true
-        state.error = null
-      })
-      .addCase(login.rejected, (state, action) => {
-        state.error = action.error.message || 'Login failed'
-      })
-
       .addCase(fetchClueExplanations.pending, (state) => {
         state.explanationStatus = 'loading'
       })
@@ -154,5 +101,5 @@ const adminSlice = createSlice({
   },
 })
 
-export const { logout, clearError, clearLatestExplanation } = adminSlice.actions
+export const { clearError, clearLatestExplanation } = adminSlice.actions
 export default adminSlice.reducer

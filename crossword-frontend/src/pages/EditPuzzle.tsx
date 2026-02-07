@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useGetPuzzleByIdQuery, useUpdatePuzzleMutation } from '../store/api/adminApi'
 import { useAppSelector, useAppDispatch } from '../store/hooks'
-import { checkAuth } from '../store/slices/adminSlice'
+import { useAuth } from '../context/AuthContext'
 import type { CellType, PuzzleData } from '../types'
 import { CrosswordGrid } from '../CrosswordGrid'
 import { EditOutput } from '../EditOutput'
@@ -19,16 +19,15 @@ type UpdatePuzzleFn = ReturnType<typeof useUpdatePuzzleMutation>[0]
 export function EditPuzzle() {
   const { puzzleId } = useParams<{ puzzleId: string }>()
   const dispatch = useAppDispatch()
-  const { isAuthenticated } = useAppSelector((state) => state.admin)
+  const { user } = useAuth()
+  const isAdmin = user?.isAdmin === true
 
-  useEffect(() => {
-    if (isAuthenticated === null) {
-      dispatch(checkAuth())
-    }
-  }, [dispatch, isAuthenticated])
-
-  const { data: puzzle, isLoading: loading, error } = useGetPuzzleByIdQuery(puzzleId!, {
-    skip: isAuthenticated !== true, // Only fetch when explicitly authenticated
+  const {
+    data: puzzle,
+    isLoading: loading,
+    error,
+  } = useGetPuzzleByIdQuery(puzzleId!, {
+    skip: !isAdmin, // Only fetch when explicitly authenticated
   })
   const [updatePuzzle, { isLoading: isSaving }] = useUpdatePuzzleMutation()
 
@@ -67,9 +66,7 @@ interface EditPuzzleFormProps {
 
 function EditPuzzleForm({ puzzle, puzzleId, updatePuzzle, isSaving }: EditPuzzleFormProps) {
   const parseGrid = (gridString: string) =>
-    gridString
-      .split('\n')
-      .map((row) => row.trim().split(' ') as CellType[])
+    gridString.split('\n').map((row) => row.trim().split(' ') as CellType[])
 
   // Local state for editing
   const title = puzzle.title

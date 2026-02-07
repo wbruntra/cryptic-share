@@ -1,30 +1,30 @@
 import { useState, useEffect, useRef } from 'react'
+import { useSocket } from '../context/SocketContext'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { useGetReportsQuery } from '../store/api/adminApi'
 import { useAppSelector, useAppDispatch } from '../store/hooks'
-import { checkAuth, clearLatestExplanation } from '../store/slices/adminSlice'
+import { useAuth } from '../context/AuthContext'
+import { clearLatestExplanation } from '../store/slices/adminSlice'
 import type { Report } from '../store/slices/adminSlice'
 
 interface Explanation {
   clue_type: string
-  explanation: Record<string, unknown>
+  explanation: any
 }
 
 export function ReportManagementPage() {
   const dispatch = useAppDispatch()
-  const { isAuthenticated, latestExplanation, latestExplanationError, latestExplanationRequestId } =
-    useAppSelector((state) => state.admin)
-  const socketId = useAppSelector((state) => state.socket.socketId)
-  const { data: reports = [], isLoading, refetch } = useGetReportsQuery(undefined, {
-    skip: isAuthenticated !== true, // Only fetch when explicitly authenticated
-  })
+  const { user, loading } = useAuth()
+  const isAuthenticated = user?.isAdmin === true
 
-  useEffect(() => {
-    if (isAuthenticated === null) {
-      dispatch(checkAuth())
-    }
-  }, [dispatch, isAuthenticated])
+  const {
+    data: reports = [],
+    isLoading,
+    refetch,
+  } = useGetReportsQuery(undefined, {
+    skip: !isAuthenticated, // Only fetch when explicitly authenticated
+  })
 
   const [selectedReport, setSelectedReport] = useState<Report | null>(null)
   const [regenerating, setRegenerating] = useState(false)
@@ -63,9 +63,19 @@ export function ReportManagementPage() {
     setProcessingMessage('Checking regeneration status...')
   }, [storageKey, requestId])
 
+  const socketId = useAppSelector((state) => state.socket.socketId)
+  const { latestExplanation, latestExplanationError, latestExplanationRequestId } = useAppSelector(
+    (state) => state.admin,
+  )
+
+  // Listen for socket events via Redux state
   useEffect(() => {
     if (!latestExplanation && !latestExplanationError) return
-    if (latestExplanationRequestId && requestIdRef.current && latestExplanationRequestId !== requestIdRef.current) {
+    if (
+      latestExplanationRequestId &&
+      requestIdRef.current &&
+      latestExplanationRequestId !== requestIdRef.current
+    ) {
       return
     }
 

@@ -2,22 +2,21 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useGetSessionsQuery, useDeleteSessionMutation } from '../store/api/adminApi'
 import { useAppSelector, useAppDispatch } from '../store/hooks'
-import { checkAuth } from '../store/slices/adminSlice'
+import { useAuth } from '../context/AuthContext'
 
 export function SessionListPage() {
   const dispatch = useAppDispatch()
-  const { isAuthenticated } = useAppSelector((state) => state.admin)
-  const { data: sessions = [], isLoading, refetch } = useGetSessionsQuery(undefined, {
-    skip: isAuthenticated !== true, // Only fetch when explicitly authenticated
+  const { user } = useAuth()
+  const isAdmin = user?.isAdmin === true
+  const {
+    data: sessions = [],
+    isLoading,
+    refetch,
+  } = useGetSessionsQuery(undefined, {
+    skip: !isAdmin, // Only fetch when explicitly authenticated
   })
   const [deleteSession] = useDeleteSessionMutation()
   const [userFilter, setUserFilter] = useState<string>('all')
-
-  useEffect(() => {
-    if (isAuthenticated === null) {
-      dispatch(checkAuth())
-    }
-  }, [dispatch, isAuthenticated])
 
   const handleDeleteSession = (sessionId: string) => {
     if (!confirm('Are you sure you want to delete this session? This action cannot be undone.'))
