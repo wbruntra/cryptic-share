@@ -67,4 +67,7 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    sourcemap: true, // or 'hidden' / 'inline' depending on your needs
+  },
 })
