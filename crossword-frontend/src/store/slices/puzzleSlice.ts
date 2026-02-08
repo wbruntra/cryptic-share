@@ -19,7 +19,7 @@ export interface PuzzleState {
     across: Record<string, string>
     down: Record<string, string>
   } | null
-  
+
   // UI state
   cursor: Cursor | null
   changedCells: string[]
@@ -36,10 +36,10 @@ export interface PuzzleState {
     isComplete: boolean
     show: boolean
   }
-  
+
   // Attributions (who solved which word)
   attributions: Record<string, { userId: number | null; username: string; timestamp: string }>
-  
+
   // Meta
   isLoading: boolean
   error: string | null
@@ -67,7 +67,7 @@ const initialState: PuzzleState = {
     errorCount: 0,
     totalChecked: 0,
     isComplete: false,
-    show: false
+    show: false,
   },
   attributions: {},
   isLoading: false,
@@ -78,7 +78,7 @@ const initialState: PuzzleState = {
 // Helper to normalize state to grid dimensions
 function normalizeToGrid(state: string[], rows: number, cols: number): string[] {
   const result: string[] = []
-  
+
   for (let r = 0; r < rows; r++) {
     let row = state[r] || ''
     if (row.length !== cols) {
@@ -86,7 +86,7 @@ function normalizeToGrid(state: string[], rows: number, cols: number): string[] 
     }
     result.push(row)
   }
-  
+
   return result
 }
 
@@ -98,34 +98,50 @@ const puzzleSlice = createSlice({
       state.isLoading = true
       state.error = null
     },
-    loadSessionSuccess: (state, action: PayloadAction<{
-      grid: string
-      clues: { across: Clue[]; down: Clue[] }
-      title: string
-      sessionState: string[]
-      sessionId: string
-      puzzleId: number
-      answersEncrypted?: {
-        across: Record<string, string>
-        down: Record<string, string>
-      }
-      attributions?: Record<string, { userId: number | null; username: string; timestamp: string }>
-    }>) => {
-      const { grid: gridString, clues, title, sessionState, sessionId, puzzleId, answersEncrypted, attributions } = action.payload
-      
+    loadSessionSuccess: (
+      state,
+      action: PayloadAction<{
+        grid: string
+        clues: { across: Clue[]; down: Clue[] }
+        title: string
+        sessionState: string[]
+        sessionId: string
+        puzzleId: number
+        answersEncrypted?: {
+          across: Record<string, string>
+          down: Record<string, string>
+        }
+        attributions?: Record<
+          string,
+          { userId: number | null; username: string; timestamp: string }
+        >
+      }>,
+    ) => {
+      const {
+        grid: gridString,
+        clues,
+        title,
+        sessionState,
+        sessionId,
+        puzzleId,
+        answersEncrypted,
+        attributions,
+      } = action.payload
+
       // Parse grid
       const parsedGrid = gridString
         .split('\n')
         .map((row: string) => row.trim().split(' ') as CellType[])
-      
+
       const rows = parsedGrid.length
       const cols = parsedGrid[0]?.length || 0
-      
+
       // Normalize answers
-      const normalizedAnswers = sessionState?.length > 0
-        ? normalizeToGrid(sessionState, rows, cols)
-        : Array(rows).fill(' '.repeat(cols))
-      
+      const normalizedAnswers =
+        sessionState?.length > 0
+          ? normalizeToGrid(sessionState, rows, cols)
+          : Array(rows).fill(' '.repeat(cols))
+
       state.grid = parsedGrid
       state.clues = clues
       state.title = title
@@ -151,16 +167,16 @@ const puzzleSlice = createSlice({
     },
     moveCursor: (state, action: PayloadAction<{ direction: Direction; delta: number }>) => {
       if (!state.cursor || state.grid.length === 0) return
-      
+
       const { direction, delta } = action.payload
       let { r, c } = state.cursor
 
       // Always update direction to match movement intent
       state.cursor.direction = direction
-      
+
       if (direction === 'across') c += delta
       else r += delta
-      
+
       // Find next playable cell
       let loopCount = 0
       while (loopCount < 100) {
@@ -190,13 +206,13 @@ const puzzleSlice = createSlice({
     syncFromServer: (state, action: PayloadAction<string[]>) => {
       const serverState = action.payload
       if (!serverState || state.grid.length === 0) return
-      
+
       const normalizedServer = normalizeToGrid(
         serverState,
         state.grid.length,
-        state.grid[0].length
+        state.grid[0].length,
       )
-      
+
       // Find changed cells
       const changedCells: string[] = []
       for (let r = 0; r < normalizedServer.length; r++) {
@@ -208,7 +224,7 @@ const puzzleSlice = createSlice({
           }
         }
       }
-      
+
       state.answers = normalizedServer
       state.changedCells = changedCells
       state.showChangeNotification = changedCells.length > 0
@@ -244,15 +260,21 @@ const puzzleSlice = createSlice({
     setCheckInProgress: (state, action: PayloadAction<boolean>) => {
       state.isChecking = action.payload
     },
-    setCheckResult: (state, action: PayloadAction<{ errorCells: string[]; totalChecked?: number; isComplete?: boolean }>) => {
+    setCheckResult: (
+      state,
+      action: PayloadAction<{ errorCells: string[]; totalChecked?: number; isComplete?: boolean }>,
+    ) => {
       const errorCount = action.payload.errorCells.length
       state.errorCells = action.payload.errorCells
       state.checkResult = {
         errorCount,
         totalChecked: action.payload.totalChecked || 0,
         isComplete: action.payload.isComplete || false,
-        message: errorCount === 0 ? `Good job! All ${action.payload.totalChecked || 0} checked answers are correct.` : `${errorCount} cells incorrect`,
-        show: true
+        message:
+          errorCount === 0
+            ? `Good job! All ${action.payload.totalChecked || 0} checked answers are correct.`
+            : `${errorCount} cells incorrect`,
+        show: errorCount === 0,
       }
     },
     dismissCheckResult: (state) => {
@@ -262,12 +284,15 @@ const puzzleSlice = createSlice({
     setHintModalOpen: (state, action: PayloadAction<boolean>) => {
       state.isHintModalOpen = action.payload
     },
-    setAttribution: (state, action: PayloadAction<{
-      clueKey: string
-      userId: number | null
-      username: string
-      timestamp: string
-    }>) => {
+    setAttribution: (
+      state,
+      action: PayloadAction<{
+        clueKey: string
+        userId: number | null
+        username: string
+        timestamp: string
+      }>,
+    ) => {
       const { clueKey, userId, username, timestamp } = action.payload
       state.attributions[clueKey] = { userId, username, timestamp }
     },

@@ -5,9 +5,16 @@ interface BottomSheetProps {
   onClose: () => void
   children: React.ReactNode
   title?: string
+  height?: string
 }
 
-export function BottomSheet({ isOpen, onClose, children, title }: BottomSheetProps) {
+export function BottomSheet({
+  isOpen,
+  onClose,
+  children,
+  title,
+  height = '70dvh',
+}: BottomSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null)
 
   // Handle escape key to close
@@ -56,7 +63,7 @@ export function BottomSheet({ isOpen, onClose, children, title }: BottomSheetPro
                     transition-transform duration-300 ease-out
                     ${isOpen ? 'translate-y-0' : 'translate-y-full'}
                 `}
-                  style={{ height: '70dvh', maxHeight: '70dvh' }}
+        style={{ height, maxHeight: height }}
         role="dialog"
         aria-modal="true"
         aria-label={title || 'Bottom sheet'}
@@ -74,7 +81,10 @@ export function BottomSheet({ isOpen, onClose, children, title }: BottomSheetPro
         )}
 
         {/* Content */}
-        <div className="overflow-y-auto h-full" style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}>
+        <div
+          className="overflow-y-auto h-full"
+          style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}
+        >
           {children}
         </div>
       </div>

@@ -198,8 +198,14 @@ export function MobileView({
   }, [cursor, currentClueNumber, sessionId])
 
   const handleClueSelect = (num: number, dir: Direction) => {
+    setIsClueBarHidden(false)
     onClueClick(num, dir)
     setIsClueSheetOpen(false)
+  }
+
+  const handleCellClick = (r: number, c: number) => {
+    setIsClueBarHidden(false)
+    onCellClick(r, c)
   }
 
   // Show alert for check result (when not complete)
@@ -301,6 +307,15 @@ export function MobileView({
                 )}
               </button>
             )}
+            {sessionId && (
+              <button
+                onClick={() => setShowAttributions(true)}
+                className="w-9 h-9 flex items-center justify-center rounded-lg bg-surface border border-border text-text-secondary active:bg-input-bg transition-colors"
+                aria-label="Show stats"
+              >
+                📊
+              </button>
+            )}
           </div>
         </div>
 
@@ -308,7 +323,7 @@ export function MobileView({
           <CrosswordGrid
             grid={renderedGrid}
             mode="play"
-            onCellClick={onCellClick}
+            onCellClick={handleCellClick}
             changedCells={new Set(changedCells)}
             correctFlashCells={new Set(correctFlashCells)}
             incorrectFlashCells={new Set(incorrectFlashCells)}
@@ -364,6 +379,7 @@ export function MobileView({
         isOpen={showAttributions}
         onClose={() => setShowAttributions(false)}
         title="Attributions"
+        height="45dvh"
       >
         {clues && (
           <div className="space-y-4">
