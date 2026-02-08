@@ -14,6 +14,7 @@ import {
   dismissCheckResult,
 } from '@/store/slices/puzzleSlice'
 import { extractClueMetadata } from '@/utils/answerChecker'
+import { usePuzzleTimer } from '@/hooks/usePuzzleTimer'
 import type { RootState } from '@/store/store'
 import type { Direction } from '@/types'
 import axios from 'axios'
@@ -137,6 +138,7 @@ export function MobileView({
   const [isClueBarHidden, setIsClueBarHidden] = useState(false)
   const [showAttributions, setShowAttributions] = useState(false)
   const isHintModalOpen = useSelector((state: RootState) => state.puzzle.isHintModalOpen)
+  const timerDisplay = usePuzzleTimer(sessionId || undefined)
 
   const clueMetadata = useMemo(() => extractClueMetadata(grid), [grid])
 
@@ -404,6 +406,7 @@ export function MobileView({
           direction={cursor?.direction}
           currentWordState={currentWordState}
           onFetchAnswer={handleFetchHintAnswer}
+          timerDisplay={timerDisplay}
         />
       )}
 

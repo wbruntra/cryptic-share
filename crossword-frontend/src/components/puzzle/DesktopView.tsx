@@ -14,6 +14,7 @@ import {
   dismissCheckResult,
 } from '@/store/slices/puzzleSlice'
 import { extractClueMetadata } from '@/utils/answerChecker'
+import { usePuzzleTimer } from '@/hooks/usePuzzleTimer'
 import type { RootState } from '@/store/store'
 import axios from 'axios'
 
@@ -80,7 +81,7 @@ function useRenderedGrid() {
         isActiveWord,
         answer: answers[r]?.[c] || ' ',
       }
-    })
+    }),
   )
 
   // Calculate current clue number
@@ -105,7 +106,7 @@ function useRenderedGrid() {
 export function DesktopView({
   onClueClick,
   onCellClick,
-  onCheckAnswers
+  onCheckAnswers,
 }: {
   onClueClick: (num: number, dir: 'across' | 'down') => void
   onCellClick: (r: number, c: number) => void
@@ -129,7 +130,7 @@ export function DesktopView({
   const [showAttributions, setShowAttributions] = useState(false)
   const isHintModalOpen = useSelector((state: RootState) => state.puzzle.isHintModalOpen)
   const { renderedGrid, currentClueNumber } = useRenderedGrid()
-
+  const timerDisplay = usePuzzleTimer(sessionId || undefined)
 
   const clueMetadata = useMemo(() => extractClueMetadata(grid), [grid])
 
@@ -276,7 +277,6 @@ export function DesktopView({
         </div>
       </header>
 
-
       <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
         {/* Left sidebar - clues */}
         <div className="flex flex-col gap-4">
@@ -295,9 +295,7 @@ export function DesktopView({
             attributions={attributions}
           />
 
-          {clues && (
-            <AttributionStats attributions={attributions} clues={clues} />
-          )}
+          {clues && <AttributionStats attributions={attributions} clues={clues} />}
         </div>
 
         {/* Right side - grid */}
@@ -351,6 +349,7 @@ export function DesktopView({
           direction={cursor?.direction}
           currentWordState={currentWordState}
           onFetchAnswer={handleFetchHintAnswer}
+          timerDisplay={timerDisplay}
         />
       )}
     </div>
