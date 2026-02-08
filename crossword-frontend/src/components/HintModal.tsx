@@ -8,7 +8,6 @@ import {
 } from '../store/api/sessionApi'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { addPendingExplanation, clearLatestExplanation } from '../store/slices/sessionSlice'
-import { formatTimerTime } from '../hooks/usePuzzleTimer'
 
 interface HintModalProps {
   isOpen: boolean
@@ -20,6 +19,7 @@ interface HintModalProps {
   direction: 'across' | 'down' | undefined
   currentWordState: string[] // The characters currently in the grid for this word
   onFetchAnswer: () => Promise<string>
+  timerDisplay: string
 }
 
 type TabType = 'letters' | 'explain'
@@ -42,11 +42,10 @@ function HintModalContent({
   direction,
   currentWordState,
   onFetchAnswer,
+  timerDisplay,
 }: HintModalContentProps) {
   const dispatch = useAppDispatch()
   const [activeTab, setActiveTab] = useState<TabType>('letters')
-  const timerSeconds = useAppSelector((state) => state.puzzle.timerSeconds)
-  const timerDisplay = formatTimerTime(timerSeconds)
 
   // Letters tab state
   const [modalState, setModalState] = useState<string[]>(() => currentWordState)

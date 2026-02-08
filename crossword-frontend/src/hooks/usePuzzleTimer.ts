@@ -1,6 +1,4 @@
-import { useEffect, useRef } from 'react'
-import { useAppDispatch } from '../store/hooks'
-import { setTimerSeconds } from '../store/slices/puzzleSlice'
+import { useEffect, useRef, useState } from 'react'
 
 const STORAGE_KEY_PREFIX = 'cryptic_timer_'
 const IDLE_THRESHOLD = 60 * 1000
@@ -29,8 +27,8 @@ export const formatTimerTime = (seconds: number) => {
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
 }
 
-export const usePuzzleTimer = (sessionId: string | undefined) => {
-  const dispatch = useAppDispatch()
+export const usePuzzleTimer = (sessionId: string | undefined): { timerDisplay: string } => {
+  const [timerSeconds, setTimerSeconds] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Track last real update to total seconds
@@ -44,9 +42,9 @@ export const usePuzzleTimer = (sessionId: string | undefined) => {
 
     const key = `${STORAGE_KEY_PREFIX}${sessionId}`
 
-    // Load initial time and sync to Redux
+    // Load initial time
     const initialSeconds = loadStoredSeconds(key)
-    dispatch(setTimerSeconds(initialSeconds))
+    setTimerSeconds(initialSeconds)
 
     lastUpdateTimeRef.current = Date.now()
     lastActivityRef.current = Date.now()
@@ -79,13 +77,6 @@ export const usePuzzleTimer = (sessionId: string | undefined) => {
       const delta = Math.floor((now - lastUpdateTimeRef.current) / 1000)
 
       if (delta >= 1) {
-        // We need to read the current value from storage to increment it reliably
-        // without depending on Redux state in this effect (which would cause re-renders/loop)
-        // Or we can just track it in a ref?
-        // Let's rely on reading from storage for truth, or just keep a local ref for the running total.
-        // Reading from storage is safest across tabs, but might race.
-        // Simple increment is fine for now.
-
         const currentStored = loadStoredSeconds(key)
         const newValue = currentStored + delta
 
@@ -97,7 +88,7 @@ export const usePuzzleTimer = (sessionId: string | undefined) => {
           }),
         )
 
-        dispatch(setTimerSeconds(newValue))
+        setTimerSeconds(newValue)
         lastUpdateTimeRef.current = now
       }
     }, 1000)
@@ -108,5 +99,7 @@ export const usePuzzleTimer = (sessionId: string | undefined) => {
       }
       events.forEach((event) => window.removeEventListener(event, handleActivity))
     }
-  }, [sessionId, dispatch])
+  }, [sessionId])
+
+  return { timerDisplay: formatTimerTime(timerSeconds) }
 }

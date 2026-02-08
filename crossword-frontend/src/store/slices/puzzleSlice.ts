@@ -44,7 +44,6 @@ export interface PuzzleState {
   isLoading: boolean
   error: string | null
   lastSyncedAt: number
-  timerSeconds: number
 }
 
 const initialState: PuzzleState = {
@@ -74,7 +73,6 @@ const initialState: PuzzleState = {
   isLoading: false,
   error: null,
   lastSyncedAt: 0,
-  timerSeconds: 0,
 }
 
 // Helper to normalize state to grid dimensions
@@ -298,9 +296,7 @@ const puzzleSlice = createSlice({
       const { clueKey, userId, username, timestamp } = action.payload
       state.attributions[clueKey] = { userId, username, timestamp }
     },
-    setTimerSeconds: (state, action: PayloadAction<number>) => {
-      state.timerSeconds = action.payload
-    },
+
     clearPuzzle: () => initialState,
   },
 })
@@ -326,7 +322,7 @@ export const {
   setCheckResult,
   dismissCheckResult,
   setAttribution,
-  setTimerSeconds,
+
   clearPuzzle,
 } = puzzleSlice.actions
 

@@ -15,8 +15,9 @@ import {
 } from '@/store/slices/puzzleSlice'
 import { extractClueMetadata } from '@/utils/answerChecker'
 import { useAnswerChecker } from '@/hooks/useAnswerChecker'
+import { usePuzzleTimer } from '@/hooks/usePuzzleTimer'
+import { useActiveWordCells } from '@/hooks/useGridOptimized'
 import type { RootState } from '@/store/store'
-// axios removed
 
 // Selectors
 const selectGrid = (state: RootState) => state.puzzle.grid
@@ -34,72 +35,55 @@ const selectErrorCells = (state: RootState) => state.puzzle.errorCells
 const selectIsChecking = (state: RootState) => state.puzzle.isChecking
 const selectCheckResult = (state: RootState) => state.puzzle.checkResult
 
-// Transform grid and answers into rendered cell format
+// Optimized hook that computes rendered grid with O(n) active word lookup
 function useRenderedGrid() {
   const grid = useSelector(selectGrid)
   const answers = useSelector(selectAnswers)
   const cursor = useSelector(selectCursor)
+  const activeWordCells = useActiveWordCells()
 
-  if (grid.length === 0) return { renderedGrid: [], currentClueNumber: null }
+  return useMemo(() => {
+    if (grid.length === 0) return { renderedGrid: [], currentClueNumber: null }
 
-  let currentNumber = 1
-  const renderedGrid = grid.map((row, r) =>
-    row.map((cell, c) => {
-      let number = null
-      if (cell === 'N') {
-        number = currentNumber
-        currentNumber++
-      }
-
-      const isSelected = cursor?.r === r && cursor?.c === c
-      const isPlayableCell = cell !== 'B'
-
-      // Calculate if cell is part of active word
-      let isActiveWord = false
-      if (cursor && isPlayableCell) {
-        if (cursor.direction === 'across' && r === cursor.r) {
-          // Same row - find word boundaries
-          let startC = cursor.c
-          while (startC > 0 && grid[r][startC - 1] !== 'B') startC--
-          let endC = cursor.c
-          while (endC < grid[0].length - 1 && grid[r][endC + 1] !== 'B') endC++
-          if (c >= startC && c <= endC) isActiveWord = true
-        } else if (cursor.direction === 'down' && c === cursor.c) {
-          // Same column - find word boundaries
-          let startR = cursor.r
-          while (startR > 0 && grid[startR - 1][c] !== 'B') startR--
-          let endR = cursor.r
-          while (endR < grid.length - 1 && grid[endR + 1][c] !== 'B') endR++
-          if (r >= startR && r <= endR) isActiveWord = true
+    let currentNumber = 1
+    const renderedGrid = grid.map((row, r) =>
+      row.map((cell, c) => {
+        let number = null
+        if (cell === 'N') {
+          number = currentNumber
+          currentNumber++
         }
+
+        const cellKey = `${r}-${c}`
+        const isSelected = cursor?.r === r && cursor?.c === c
+
+        return {
+          type: cell,
+          number,
+          isSelected,
+          isActiveWord: activeWordCells.has(cellKey),
+          answer: answers[r]?.[c] || ' ',
+        }
+      }),
+    )
+
+    // Calculate current clue number
+    let currentClueNumber = null
+    if (cursor) {
+      let r = cursor.r
+      let c = cursor.c
+      if (cursor.direction === 'across') {
+        while (c > 0 && grid[r][c - 1] !== 'B') c--
+      } else {
+        while (r > 0 && grid[r - 1][c] !== 'B') r--
       }
-
-      return {
-        type: cell,
-        number,
-        isSelected,
-        isActiveWord,
-        answer: answers[r]?.[c] || ' ',
+      if (renderedGrid[r]?.[c]?.number) {
+        currentClueNumber = renderedGrid[r][c].number
       }
-    }),
-  )
-
-  // Calculate current clue number
-  let currentClueNumber = null
-  if (cursor) {
-    let r = cursor.r
-    let c = cursor.c
-    if (cursor.direction === 'across') {
-      while (c > 0 && grid[r][c - 1] !== 'B') c--
-    } else {
-      while (r > 0 && grid[r - 1][c] !== 'B') r--
     }
-    if (renderedGrid[r]?.[c]?.number) {
-      currentClueNumber = renderedGrid[r][c].number
-    }
-  }
 
-  return { renderedGrid, currentClueNumber }
+    return { renderedGrid, currentClueNumber }
+  }, [grid, answers, cursor, activeWordCells])
 }
 
 // Desktop layout
@@ -170,6 +154,9 @@ export function DesktopView({
       dispatch(dismissCheckResult())
     }
   }, [checkResult.show, checkResult.isComplete, checkResult.message, dispatch])
+
+  // Get timer display
+  const { timerDisplay } = usePuzzleTimer(sessionId ?? undefined)
 
   // Setup answer checking
   const { getSolution } = useAnswerChecker()
@@ -339,6 +326,7 @@ export function DesktopView({
           direction={cursor?.direction}
           currentWordState={currentWordState}
           onFetchAnswer={handleFetchHintAnswer}
+          timerDisplay={timerDisplay}
         />
       )}
     </div>
