@@ -79,7 +79,7 @@ function useRenderedGrid() {
         isActiveWord,
         answer: answers[r]?.[c] || ' ',
       }
-    })
+    }),
   )
 
   // Calculate current clue number
@@ -106,7 +106,7 @@ export function MobileView({
   onCellClick,
   onVirtualKeyPress,
   onVirtualDelete,
-  onCheckAnswers
+  onCheckAnswers,
 }: {
   onClueClick: (num: number, dir: Direction) => void
   onCellClick: (r: number, c: number) => void
@@ -131,7 +131,6 @@ export function MobileView({
   const checkResult = useSelector(selectCheckResult)
   const { renderedGrid, currentClueNumber } = useRenderedGrid()
 
-
   // Local UI state
   const [isClueSheetOpen, setIsClueSheetOpen] = useState(false)
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
@@ -145,7 +144,7 @@ export function MobileView({
   const currentClue = useMemo(() => {
     if (!clues || currentClueNumber === null || !cursor?.direction) return null
     const clueList = cursor.direction === 'across' ? clues.across : clues.down
-    return clueList.find(c => c.number === currentClueNumber) || null
+    return clueList.find((c) => c.number === currentClueNumber) || null
   }, [clues, currentClueNumber, cursor])
 
   const currentWordState = useMemo(() => {
@@ -212,7 +211,7 @@ export function MobileView({
   }, [checkResult.show, checkResult.isComplete, checkResult.message, dispatch])
 
   return (
-    <div 
+    <div
       className="play-session-mobile bg-bg -mt-8 overflow-x-hidden"
       style={{ minHeight: 'var(--app-height)' }}
     >
@@ -252,17 +251,17 @@ export function MobileView({
       />
 
       {/* Main content */}
-      <div 
+      <div
         className="px-2"
         style={{
-          paddingBottom: isKeyboardOpen 
+          paddingBottom: isKeyboardOpen
             ? 'calc(var(--virtual-keyboard-height, 280px) + env(safe-area-inset-bottom))'
-            : 'calc(80px + env(safe-area-inset-bottom))'
+            : 'calc(80px + env(safe-area-inset-bottom))',
         }}
       >
         <div className="flex items-center justify-between py-3 px-2 gap-2">
           <h1 className="text-xl font-bold text-text m-0 truncate flex-1">{title}</h1>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-4 shrink-0">
             {errorCells.length > 0 && (
               <button
                 onClick={() => dispatch(clearErrorCells())}
@@ -270,6 +269,20 @@ export function MobileView({
                 aria-label="Clear errors"
               >
                 ✕
+              </button>
+            )}
+            {sessionId && (
+              <button
+                onClick={() => dispatch(setHintModalOpen(true))}
+                disabled={!cursor || !currentClue}
+                className={`w-9 h-9 flex items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 transition-colors ${
+                  !cursor || !currentClue
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'active:bg-blue-500/20'
+                }`}
+                aria-label="Get Hint"
+              >
+                💡
               </button>
             )}
             {sessionId && (
@@ -290,7 +303,6 @@ export function MobileView({
             )}
           </div>
         </div>
-
 
         <div className="bg-surface rounded-xl p-2 shadow-lg border border-border">
           <CrosswordGrid
@@ -332,23 +344,10 @@ export function MobileView({
         </button>
       )}
 
-      {/* Hint button */}
-      <button
-        onClick={() => dispatch(setHintModalOpen(true))}
-        disabled={!cursor || !currentClue}
-        className={`fixed left-6 z-20 w-14 h-14 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 flex items-center justify-center shadow-xl text-2xl cursor-pointer active:scale-95 transition-transform ${
-          !cursor || !currentClue ? 'opacity-50 cursor-not-allowed' : ''
-        }`}
-        style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
-        aria-label="Get hint"
-      >
-        💡
-      </button>
-
       {/* Clue sheet */}
-      <BottomSheet 
-        isOpen={isClueSheetOpen} 
-        onClose={() => setIsClueSheetOpen(false)} 
+      <BottomSheet
+        isOpen={isClueSheetOpen}
+        onClose={() => setIsClueSheetOpen(false)}
         title="Clues"
       >
         {clues && (
