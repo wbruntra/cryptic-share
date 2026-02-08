@@ -1,0 +1,19 @@
+curl 'http://localhost:5174/api/sessions/1icRowc7O5mf/explain' \
+  -X 'POST' \
+  -H 'Accept: application/json, text/plain, */*' \
+  -H 'Accept-Language: en-US,en;q=0.9,es;q=0.8,fr;q=0.7,de;q=0.6,la;q=0.5,gl;q=0.4' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJicnVudHJhZ2VyIiwiaWF0IjoxNzY4NzU4MTc3LCJleHAiOjE3NzEzNTAxNzd9.pMG_jmZEv2sIkxfHV43_pO80FXHGHCml8Utd1YhZvEk' \
+  -H 'Cache-Control: no-cache' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Length: 0' \
+  -b 'talent-connect=eyJ1c2VyX2lkIjoiN0tMRFdLUiIsImF1dGhlZCI6dHJ1ZSwiZW1haWwiOiJhcmlhbm55aW5mb0BnbWFpbC5jb20iLCJ1c2VyX3R5cGUiOiJpbmZsdWVuY2VyIiwiaW5mbHVlbmNlcl9pZCI6InZWVzcxcVYiLCJmdWxsbmFtZSI6IkJyZW5uYW4gTWVqaWEiLCJ0ZWFtX2lkIjoiancySlB3VyIsInByb2ZpbGVfcGljdHVyZV91cmwiOiJodHRwczovL3VzLWVhc3QtMS5saW5vZGVvYmplY3RzLmNvbS90cHAtY29udGVudC9wb3J0cmFpdC94TFNqR3RObUdzVnh1TGRXLmpwZyIsImFnZW5jeV9sb2dvX3VybCI6Imh0dHBzOi8vdXMtZWFzdC0xLmxpbm9kZW9iamVjdHMuY29tL3RwcC1jb250ZW50L2xvZ29zL2pjenktTFRWUWh5LnBuZyIsImFnZW5jeV9sb2dvX2RhcmsiOnRydWV9; talent-connect.sig=FHCeiFgmJsobIdPx_nSubl4hqJ8; talent-manager=eyJhdXRoZWQiOnRydWUsInVzZXJfaWQiOiJEN0t5MzVqIiwiaXNfYWRtaW4iOnRydWUsImlzX3N0YWZmIjp0cnVlLCJhbm9uX2lkIjoicXJ3akNVQVEiLCJoYXNfc2VhcmNoIjpmYWxzZSwic2VsZWN0ZWRUZWFtSWQiOiJZRXhMWHhQIiwidGVhbVNldHRpbmdzIjp7ImNyZWRpdHMiOjY0LCJoYXNTZWFyY2giOnRydWUsImhhc0NhbXBhaWducyI6ZmFsc2UsImhhc0Nhc2VTdHVkaWVzIjp0cnVlLCJkaXNwbGF5RGFya0xvZ28iOmZhbHNlLCJkaXNwbGF5RGFya01vZGUiOmZhbHNlLCJoYXNDcmVhdG9yQ2FsbHMiOjEsImhhc0ZyaWVuZHNTZWFyY2giOmZhbHNlLCJkaXNwbGF5QWNjZW50Q29sb3IiOiIjMDUzNWM4IiwiZGlzcGxheVJvc3RlckJhY2tncm91bmRDb2xvciI6InRwcC1kYXJrLWJsdWUifX0=; talent-manager.sig=dDUka_LfUJU2Q2gTdesbqH_7sgI; logtrail-session=eyJhdXRoZW50aWNhdGVkIjp0cnVlfQ==; logtrail-session.sig=2XCwB4e2ojH8fubCFTvZ6SKs1Fg; mp_8631758f549473b98e14cb71bd8bb360_mixpanel=%7B%22distinct_id%22%3A%22%24device%3Aaa85d56d-8e77-4ff6-b73f-779c5a3aaa9c%22%2C%22%24device_id%22%3A%22aa85d56d-8e77-4ff6-b73f-779c5a3aaa9c%22%2C%22%24initial_referrer%22%3A%22%24direct%22%2C%22%24initial_referring_domain%22%3A%22%24direct%22%2C%22__mps%22%3A%7B%7D%2C%22__mpso%22%3A%7B%22%24initial_referrer%22%3A%22%24direct%22%2C%22%24initial_referring_domain%22%3A%22%24direct%22%7D%2C%22__mpus%22%3A%7B%7D%2C%22__mpa%22%3A%7B%7D%2C%22__mpu%22%3A%7B%7D%2C%22__mpr%22%3A%5B%5D%2C%22__mpap%22%3A%5B%5D%7D; holdem=eyJwbGF5ZXJJZCI6NjN9; holdem.sig=qUDEcK3uKON7-NCGj3dj78v3SFo; sidebar:state=false; adthlete=eyJ1c2VyX2lkIjoiTUxCZ01sWSIsInVzZXJfdHlwZSI6Im1hcmtldGVyIiwib3JnX2lkIjoiNUoyTDFnYiIsImlzX2FkbWluIjpmYWxzZX0=; adthlete.sig=n_a5YRdwIqAkcR2iySlSV3DMQCo' \
+  -H 'Origin: http://localhost:5174' \
+  -H 'Pragma: no-cache' \
+  -H 'Referer: http://localhost:5174/play/1icRowc7O5mf' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36' \
+  -H 'sec-ch-ua: "Not(A:Brand";v="8", "Chromium";v="144", "Google Chrome";v="144"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"'

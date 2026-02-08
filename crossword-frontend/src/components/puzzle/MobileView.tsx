@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { CrosswordGrid } from '@/CrosswordGrid'
 import { FloatingClueBar, VirtualKeyboard, BottomSheet, MobileClueList } from '@/components/mobile'
@@ -178,16 +178,22 @@ export function MobileView({
     }
   }, [cursor, currentClueNumber, getSolution])
 
-  const handleClueSelect = (num: number, dir: Direction) => {
-    setIsClueBarHidden(false)
-    onClueClick(num, dir)
-    setIsClueSheetOpen(false)
-  }
+  const handleClueSelect = useCallback(
+    (num: number, dir: Direction) => {
+      setIsClueBarHidden(false)
+      onClueClick(num, dir)
+      setIsClueSheetOpen(false)
+    },
+    [onClueClick],
+  )
 
-  const handleCellClick = (r: number, c: number) => {
-    setIsClueBarHidden(false)
-    onCellClick(r, c)
-  }
+  const handleCellClick = useCallback(
+    (r: number, c: number) => {
+      setIsClueBarHidden(false)
+      onCellClick(r, c)
+    },
+    [onCellClick],
+  )
 
   // Show alert for check result (when not complete)
   useEffect(() => {

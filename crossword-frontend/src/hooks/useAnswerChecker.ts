@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import {
   setCorrectFlashCells,
@@ -34,20 +34,40 @@ export function useAnswerChecker() {
   const attributions = useSelector(selectAttributions)
   const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Refs for stable callbacks
+  const gridRef = useRef(grid)
+  const answersRef = useRef(answers)
+  const answersEncryptedRef = useRef(answersEncrypted)
+  const attributionsRef = useRef(attributions)
+  const sessionIdRef = useRef(sessionId)
+  const userRef = useRef(user)
+
+  useEffect(() => {
+    gridRef.current = grid
+    answersRef.current = answers
+    answersEncryptedRef.current = answersEncrypted
+    attributionsRef.current = attributions
+    sessionIdRef.current = sessionId
+    userRef.current = user
+  }, [grid, answers, answersEncrypted, attributions, sessionId, user])
+
   const claimWord = useCallback(
     async (clueNumber: number, direction: Direction) => {
-      if (!sessionId) return
+      const currentSessionId = sessionIdRef.current
+      if (!currentSessionId) return
 
       const clueKey = `${clueNumber}-${direction}`
+      const currentAttributions = attributionsRef.current
 
       // Don't claim if already attributed
-      if (attributions[clueKey]) return
+      if (currentAttributions[clueKey]) return
 
-      const userId = user?.id || null
-      const username = user?.username || getNickname() || 'Anonymous'
+      const currentUser = userRef.current
+      const userId = currentUser?.id || null
+      const username = currentUser?.username || getNickname() || 'Anonymous'
 
       try {
-        await axios.post(`/api/sessions/${sessionId}/claim`, {
+        await axios.post(`/api/sessions/${currentSessionId}/claim`, {
           clueKey,
           userId,
           username,
@@ -66,7 +86,7 @@ export function useAnswerChecker() {
         console.error('[useAnswerChecker] Failed to claim word:', error)
       }
     },
-    [sessionId, user, attributions, dispatch],
+    [dispatch],
   )
 
   const checkCurrentWord = useCallback(
@@ -76,9 +96,13 @@ export function useAnswerChecker() {
       answersOverride?: string[],
       onNicknameMissing?: () => void,
     ) => {
-      if (!answersEncrypted || grid.length === 0) return
+      const currentGrid = gridRef.current
+      const currentAnswers = answersRef.current
+      const currentAnswersEncrypted = answersEncryptedRef.current
 
-      const effectiveAnswers = answersOverride || answers
+      if (!currentAnswersEncrypted || currentGrid.length === 0) return
+
+      const effectiveAnswers = answersOverride || currentAnswers
 
       const normalizeEncrypted = (
         value: Record<string, string> | Array<{ number: number; answer: string }>,
@@ -93,11 +117,11 @@ export function useAnswerChecker() {
       }
 
       const result = checkSingleWord(
-        grid,
+        currentGrid,
         effectiveAnswers,
         {
-          across: normalizeEncrypted(answersEncrypted.across),
-          down: normalizeEncrypted(answersEncrypted.down),
+          across: normalizeEncrypted(currentAnswersEncrypted.across),
+          down: normalizeEncrypted(currentAnswersEncrypted.down),
         },
         clueNumber,
         direction,
@@ -111,7 +135,8 @@ export function useAnswerChecker() {
         dispatch(setCorrectFlashCells(cellKeys))
 
         // Check for nickname
-        const username = user?.username || getNickname()
+        const currentUser = userRef.current
+        const username = currentUser?.username || getNickname()
         if (!username) {
           if (onNicknameMissing) {
             onNicknameMissing()
@@ -137,13 +162,17 @@ export function useAnswerChecker() {
 
       return result.isCorrect ? 'correct' : 'incorrect'
     },
-    [grid, answers, answersEncrypted, dispatch, claimWord, user],
+    [dispatch, claimWord],
   )
 
   const checkAllAnswers = useCallback(() => {
     console.log('[useAnswerChecker] checkAllAnswers START')
 
-    if (!answersEncrypted || grid.length === 0) {
+    const currentGrid = gridRef.current
+    const currentAnswers = answersRef.current
+    const currentAnswersEncrypted = answersEncryptedRef.current
+
+    if (!currentAnswersEncrypted || currentGrid.length === 0) {
       console.log('[useAnswerChecker] early return - missing data')
       return
     }
@@ -152,15 +181,15 @@ export function useAnswerChecker() {
 
     try {
       const puzzleAnswers = {
-        across: Array.isArray(answersEncrypted.across)
-          ? answersEncrypted.across
-          : Object.entries(answersEncrypted.across).map(([num, answer]) => ({
+        across: Array.isArray(currentAnswersEncrypted.across)
+          ? currentAnswersEncrypted.across
+          : Object.entries(currentAnswersEncrypted.across).map(([num, answer]) => ({
               number: parseInt(num, 10),
               answer,
             })),
-        down: Array.isArray(answersEncrypted.down)
-          ? answersEncrypted.down
-          : Object.entries(answersEncrypted.down).map(([num, answer]) => ({
+        down: Array.isArray(currentAnswersEncrypted.down)
+          ? currentAnswersEncrypted.down
+          : Object.entries(currentAnswersEncrypted.down).map(([num, answer]) => ({
               number: parseInt(num, 10),
               answer,
             })),
@@ -168,8 +197,8 @@ export function useAnswerChecker() {
 
       console.log('[useAnswerChecker] calling checkSessionAnswers...')
       const { results, totalLetters, filledLetters, errorCells } = checkSessionAnswers(
-        grid,
-        answers,
+        currentGrid,
+        currentAnswers,
         puzzleAnswers,
       )
       console.log('[useAnswerChecker] result:', {
@@ -192,13 +221,14 @@ export function useAnswerChecker() {
     } finally {
       dispatch(setCheckInProgress(false))
     }
-  }, [answersEncrypted, grid, answers, dispatch])
+  }, [dispatch])
 
   const getCurrentClueNumber = useCallback(
     (r: number, c: number, direction: Direction): number | null => {
-      if (grid.length === 0) return null
+      const currentGrid = gridRef.current
+      if (currentGrid.length === 0) return null
 
-      const metadata = extractClueMetadata(grid)
+      const metadata = extractClueMetadata(currentGrid)
 
       // Find the clue that contains this cell
       for (const meta of metadata) {
@@ -208,7 +238,11 @@ export function useAnswerChecker() {
         let currC = meta.col
 
         // Check if our cell is in this word
-        while (currR < grid.length && currC < grid[0].length && grid[currR][currC] !== 'B') {
+        while (
+          currR < currentGrid.length &&
+          currC < currentGrid[0].length &&
+          currentGrid[currR][currC] !== 'B'
+        ) {
           if (currR === r && currC === c) {
             return meta.number
           }
@@ -219,37 +253,36 @@ export function useAnswerChecker() {
 
       return null
     },
-    [grid],
+    [],
   )
 
-  const getSolution = useCallback(
-    (clueNumber: number, direction: Direction): string | null => {
-      if (!answersEncrypted) return null
+  const getSolution = useCallback((clueNumber: number, direction: Direction): string | null => {
+    const currentAnswersEncrypted = answersEncryptedRef.current
+    if (!currentAnswersEncrypted) return null
 
-      const list = direction === 'across' ? answersEncrypted.across : answersEncrypted.down
+    const list =
+      direction === 'across' ? currentAnswersEncrypted.across : currentAnswersEncrypted.down
 
-      // Handle both array and object formats of answersEncrypted
-      let answerEncrypted: string | undefined
+    // Handle both array and object formats of answersEncrypted
+    let answerEncrypted: string | undefined
 
-      if (Array.isArray(list)) {
-        const entry = list.find((a) => a.number === clueNumber)
-        answerEncrypted = entry?.answer
-      } else {
-        answerEncrypted = (list as Record<string, string>)[clueNumber.toString()]
-      }
+    if (Array.isArray(list)) {
+      const entry = list.find((a) => a.number === clueNumber)
+      answerEncrypted = entry?.answer
+    } else {
+      answerEncrypted = (list as Record<string, string>)[clueNumber.toString()]
+    }
 
-      if (!answerEncrypted) return null
+    if (!answerEncrypted) return null
 
-      // Decrypt ROT13
-      const decrypted = answerEncrypted.replace(/[a-zA-Z]/g, (c) => {
-        const base = c <= 'Z' ? 65 : 97
-        return String.fromCharCode(base + ((c.charCodeAt(0) - base + 13) % 26))
-      })
+    // Decrypt ROT13
+    const decrypted = answerEncrypted.replace(/[a-zA-Z]/g, (c) => {
+      const base = c <= 'Z' ? 65 : 97
+      return String.fromCharCode(base + ((c.charCodeAt(0) - base + 13) % 26))
+    })
 
-      return decrypted.toUpperCase().replace(/[^A-Z]/g, '')
-    },
-    [answersEncrypted],
-  )
+    return decrypted.toUpperCase().replace(/[^A-Z]/g, '')
+  }, [])
 
   return { checkCurrentWord, getCurrentClueNumber, checkAllAnswers, claimWord, getSolution }
 }

@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -69,5 +70,10 @@ export default defineConfig({
   },
   build: {
     sourcemap: true, // or 'hidden' / 'inline' depending on your needs
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './vitest.setup.ts',
   },
 })

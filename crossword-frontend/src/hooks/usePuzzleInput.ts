@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { updateCell, moveCursor, toggleDirection } from '@/store/slices/puzzleSlice'
 import { useAnswerChecker } from './useAnswerChecker'
@@ -22,20 +22,40 @@ export function usePuzzleInput(
   const answers = useSelector(selectAnswers)
   const { getCurrentClueNumber } = useAnswerChecker()
 
+  // Refs for stable callbacks
+  const cursorRef = useRef(cursor)
+  const gridRef = useRef(grid)
+  const answersRef = useRef(answers)
+  const isHintModalOpenRef = useRef(isHintModalOpen)
+  const onCheckWordRef = useRef(onCheckWord)
+  const sendCellUpdateRef = useRef(sendCellUpdate)
+
+  useEffect(() => {
+    cursorRef.current = cursor
+    gridRef.current = grid
+    answersRef.current = answers
+    isHintModalOpenRef.current = isHintModalOpen
+    onCheckWordRef.current = onCheckWord
+    sendCellUpdateRef.current = sendCellUpdate
+  }, [cursor, grid, answers, isHintModalOpen, onCheckWord, sendCellUpdate])
+
   const handleUpdateCell = useCallback(
     (value: string): string[] | null => {
-      if (!cursor) return null
+      const currentCursor = cursorRef.current
+      if (!currentCursor) return null
 
-      dispatch(updateCell({ r: cursor.r, c: cursor.c, value }))
-      sendCellUpdate(cursor.r, cursor.c, value)
+      dispatch(updateCell({ r: currentCursor.r, c: currentCursor.c, value }))
+      sendCellUpdateRef.current(currentCursor.r, currentCursor.c, value)
 
-      const newAnswers = [...answers]
-      const row = newAnswers[cursor.r] || ''
-      newAnswers[cursor.r] = row.substring(0, cursor.c) + value + row.substring(cursor.c + 1)
+      const currentAnswers = answersRef.current
+      const newAnswers = [...currentAnswers]
+      const row = newAnswers[currentCursor.r] || ''
+      newAnswers[currentCursor.r] =
+        row.substring(0, currentCursor.c) + value + row.substring(currentCursor.c + 1)
 
       return newAnswers
     },
-    [cursor, answers, dispatch, sendCellUpdate],
+    [dispatch],
   )
 
   const handleMoveCursor = useCallback(
@@ -48,34 +68,18 @@ export function usePuzzleInput(
   // Check if we should verify the current word
   const maybeCheckWord = useCallback(
     (direction: Direction, answersOverride?: string[]) => {
-      if (!cursor || !onCheckWord) return
+      const currentCursor = cursorRef.current
+      const checkCallback = onCheckWordRef.current
+
+      if (!currentCursor || !checkCallback) return
 
       // Get the clue number for the current position
-      const clueNumber = getCurrentClueNumber(cursor.r, cursor.c, direction)
+      const clueNumber = getCurrentClueNumber(currentCursor.r, currentCursor.c, direction)
       if (clueNumber) {
-        onCheckWord(clueNumber, direction, answersOverride)
+        checkCallback(clueNumber, direction, answersOverride)
       }
     },
-    [cursor, onCheckWord, getCurrentClueNumber],
-  )
-
-  // Check if we hit a boundary (black cell or edge of grid)
-  const isAtBoundary = useCallback(
-    (r: number, c: number, direction: Direction, delta: number): boolean => {
-      if (grid.length === 0) return true
-
-      const nextR = direction === 'down' ? r + delta : r
-      const nextC = direction === 'across' ? c + delta : c
-
-      // Check if out of bounds
-      if (nextR < 0 || nextR >= grid.length || nextC < 0 || nextC >= grid[0].length) {
-        return true
-      }
-
-      // Check if next cell is black
-      return grid[nextR][nextC] === 'B'
-    },
-    [grid],
+    [getCurrentClueNumber],
   )
 
   // Physical keyboard handler
@@ -91,7 +95,10 @@ export function usePuzzleInput(
         return
       }
 
-      if (!cursor || isHintModalOpen) return
+      const currentCursor = cursorRef.current
+      const hintOpen = isHintModalOpenRef.current
+
+      if (!currentCursor || hintOpen) return
 
       const key = e.key
 
@@ -99,16 +106,16 @@ export function usePuzzleInput(
       if (key.match(/^[a-zA-Z]$/)) {
         e.preventDefault()
         const updatedAnswers = handleUpdateCell(key.toUpperCase())
-        handleMoveCursor(cursor.direction, 1)
+        handleMoveCursor(currentCursor.direction, 1)
 
         // Check word if we just completed the last letter
-        maybeCheckWord(cursor.direction, updatedAnswers || undefined)
+        maybeCheckWord(currentCursor.direction, updatedAnswers || undefined)
       }
       // Backspace
       else if (key === 'Backspace') {
         e.preventDefault()
         handleUpdateCell(' ')
-        handleMoveCursor(cursor.direction, -1)
+        handleMoveCursor(currentCursor.direction, -1)
       }
       // Arrow keys
       else if (key === 'ArrowUp') {
@@ -133,28 +140,25 @@ export function usePuzzleInput(
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [
-    cursor,
-    isHintModalOpen,
-    handleUpdateCell,
-    handleMoveCursor,
-    dispatch,
-    isAtBoundary,
-    maybeCheckWord,
-  ])
+  }, [handleUpdateCell, handleMoveCursor, dispatch, maybeCheckWord])
 
   // Return handlers for virtual keyboard
   return {
-    onVirtualKeyPress: (key: string) => {
-      if (!cursor) return
-      const updatedAnswers = handleUpdateCell(key.toUpperCase())
-      handleMoveCursor(cursor.direction, 1)
-      maybeCheckWord(cursor.direction, updatedAnswers || undefined)
-    },
-    onVirtualDelete: () => {
-      if (!cursor) return
+    onVirtualKeyPress: useCallback(
+      (key: string) => {
+        const currentCursor = cursorRef.current
+        if (!currentCursor) return
+        const updatedAnswers = handleUpdateCell(key.toUpperCase())
+        handleMoveCursor(currentCursor.direction, 1)
+        maybeCheckWord(currentCursor.direction, updatedAnswers || undefined)
+      },
+      [handleUpdateCell, handleMoveCursor, maybeCheckWord],
+    ),
+    onVirtualDelete: useCallback(() => {
+      const currentCursor = cursorRef.current
+      if (!currentCursor) return
       handleUpdateCell(' ')
-      handleMoveCursor(cursor.direction, -1)
-    },
+      handleMoveCursor(currentCursor.direction, -1)
+    }, [handleUpdateCell, handleMoveCursor]),
   }
 }

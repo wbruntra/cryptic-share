@@ -26,7 +26,7 @@ export interface ProcessingResponse {
 export const sessionApi = createApi({
   reducerPath: 'sessionApi',
   baseQuery: axiosBaseQuery({
-    baseUrl: '/api/sessions',
+    baseUrl: '/api/sessions/',
   }),
   tagTypes: ['Explanation'],
   endpoints: (builder) => ({
