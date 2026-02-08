@@ -1,8 +1,9 @@
-import React, { PropsWithChildren } from 'react'
+import React from 'react'
+import type { PropsWithChildren } from 'react'
 import { render } from '@testing-library/react'
 import type { RenderOptions } from '@testing-library/react'
 import { Provider } from 'react-redux'
-import { configureStore } from '@reduxjs/toolkit'
+import { configureStore, combineReducers } from '@reduxjs/toolkit'
 import type { RootState } from './store/store'
 import puzzleReducer from './store/slices/puzzleSlice'
 // Import other reducers as needed, but for crossword perf tests we mainly need puzzle
@@ -15,10 +16,10 @@ interface ExtendedRenderOptions extends Omit<RenderOptions, 'queries'> {
 
 export function setupStore(preloadedState?: Partial<RootState>) {
   return configureStore({
-    reducer: {
+    reducer: combineReducers({
       puzzle: puzzleReducer,
       // Add other reducers if needed for specific tests
-    },
+    }),
     preloadedState: preloadedState as any,
   })
 }
@@ -31,7 +32,7 @@ export function renderWithProviders(
     ...renderOptions
   }: ExtendedRenderOptions = {},
 ) {
-  function Wrapper({ children }: PropsWithChildren<{}>): JSX.Element {
+  function Wrapper({ children }: PropsWithChildren<{}>): React.JSX.Element {
     return <Provider store={store}>{children}</Provider>
   }
   return { store, ...render(ui, { wrapper: Wrapper, ...renderOptions }) }
