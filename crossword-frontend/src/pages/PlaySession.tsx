@@ -9,6 +9,7 @@ import { usePuzzleInput } from '@/hooks/usePuzzleInput'
 import { useCursorSelection } from '@/hooks/useCursorSelection'
 import { useAnswerChecker } from '@/hooks/useAnswerChecker'
 import { setNickname } from '@/utils/sessionManager'
+import { usePuzzleTimer } from '@/hooks/usePuzzleTimer'
 import type { RootState } from '@/store/store'
 import type { Direction } from '@/types'
 
@@ -38,6 +39,9 @@ export function PlaySession() {
 
   // Setup answer checking
   const { checkCurrentWord, checkAllAnswers, claimWord } = useAnswerChecker()
+
+  // Start puzzle timer
+  usePuzzleTimer(sessionId)
 
   // Wrapper to log when checkAllAnswers is called
   const handleCheckAllAnswers = () => {

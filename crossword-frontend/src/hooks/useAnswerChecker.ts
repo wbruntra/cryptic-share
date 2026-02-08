@@ -222,5 +222,34 @@ export function useAnswerChecker() {
     [grid],
   )
 
-  return { checkCurrentWord, getCurrentClueNumber, checkAllAnswers, claimWord }
+  const getSolution = useCallback(
+    (clueNumber: number, direction: Direction): string | null => {
+      if (!answersEncrypted) return null
+
+      const list = direction === 'across' ? answersEncrypted.across : answersEncrypted.down
+
+      // Handle both array and object formats of answersEncrypted
+      let answerEncrypted: string | undefined
+
+      if (Array.isArray(list)) {
+        const entry = list.find((a) => a.number === clueNumber)
+        answerEncrypted = entry?.answer
+      } else {
+        answerEncrypted = (list as Record<string, string>)[clueNumber.toString()]
+      }
+
+      if (!answerEncrypted) return null
+
+      // Decrypt ROT13
+      const decrypted = answerEncrypted.replace(/[a-zA-Z]/g, (c) => {
+        const base = c <= 'Z' ? 65 : 97
+        return String.fromCharCode(base + ((c.charCodeAt(0) - base + 13) % 26))
+      })
+
+      return decrypted.toUpperCase().replace(/[^A-Z]/g, '')
+    },
+    [answersEncrypted],
+  )
+
+  return { checkCurrentWord, getCurrentClueNumber, checkAllAnswers, claimWord, getSolution }
 }

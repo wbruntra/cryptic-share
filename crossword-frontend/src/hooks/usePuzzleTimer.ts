@@ -1,4 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
+import { useAppDispatch } from '../store/hooks'
+import { setTimerSeconds } from '../store/slices/puzzleSlice'
 
 const STORAGE_KEY_PREFIX = 'cryptic_timer_'
 const IDLE_THRESHOLD = 60 * 1000
@@ -16,11 +18,19 @@ const loadStoredSeconds = (key: string) => {
   return 0
 }
 
+export const formatTimerTime = (seconds: number) => {
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = seconds % 60
+
+  if (h > 0) {
+    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+  }
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+}
+
 export const usePuzzleTimer = (sessionId: string | undefined) => {
-  const initialKey = sessionId ? `${STORAGE_KEY_PREFIX}${sessionId}` : null
-  const [elapsedSeconds, setElapsedSeconds] = useState(() =>
-    initialKey ? loadStoredSeconds(initialKey) : 0,
-  )
+  const dispatch = useAppDispatch()
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Track last real update to total seconds
@@ -33,6 +43,11 @@ export const usePuzzleTimer = (sessionId: string | undefined) => {
     if (!sessionId) return
 
     const key = `${STORAGE_KEY_PREFIX}${sessionId}`
+
+    // Load initial time and sync to Redux
+    const initialSeconds = loadStoredSeconds(key)
+    dispatch(setTimerSeconds(initialSeconds))
+
     lastUpdateTimeRef.current = Date.now()
     lastActivityRef.current = Date.now()
 
@@ -42,9 +57,6 @@ export const usePuzzleTimer = (sessionId: string | undefined) => {
     }
 
     const events = ['mousedown', 'keydown', 'touchstart']
-    // Throttle adding listeners? No, the handler is cheap (just assigning a ref)
-    // But we might want to throttle the actual assignment if it was heavy.
-    // Assigning a number to a ref is extremely cheap.
     events.forEach((event) => window.addEventListener(event, handleActivity))
 
     // Start timer
@@ -53,15 +65,12 @@ export const usePuzzleTimer = (sessionId: string | undefined) => {
 
       // 1. Check if tab is visible
       if (document.hidden) {
-        // If hidden, we don't count time.
-        // We just update lastUpdateTimeRef to now so we don't accidentally add a huge chunk later.
         lastUpdateTimeRef.current = now
         return
       }
 
       // 2. Check for idleness
       if (now - lastActivityRef.current > IDLE_THRESHOLD) {
-        // User is idle. Do not count time.
         lastUpdateTimeRef.current = now
         return
       }
@@ -70,18 +79,25 @@ export const usePuzzleTimer = (sessionId: string | undefined) => {
       const delta = Math.floor((now - lastUpdateTimeRef.current) / 1000)
 
       if (delta >= 1) {
-        setElapsedSeconds((prev: number) => {
-          const newValue = prev + delta
-          // Save to local storage
-          localStorage.setItem(
-            key,
-            JSON.stringify({
-              totalSeconds: newValue,
-              lastTimestamp: now,
-            }),
-          )
-          return newValue
-        })
+        // We need to read the current value from storage to increment it reliably
+        // without depending on Redux state in this effect (which would cause re-renders/loop)
+        // Or we can just track it in a ref?
+        // Let's rely on reading from storage for truth, or just keep a local ref for the running total.
+        // Reading from storage is safest across tabs, but might race.
+        // Simple increment is fine for now.
+
+        const currentStored = loadStoredSeconds(key)
+        const newValue = currentStored + delta
+
+        localStorage.setItem(
+          key,
+          JSON.stringify({
+            totalSeconds: newValue,
+            lastTimestamp: now,
+          }),
+        )
+
+        dispatch(setTimerSeconds(newValue))
         lastUpdateTimeRef.current = now
       }
     }, 1000)
@@ -92,18 +108,5 @@ export const usePuzzleTimer = (sessionId: string | undefined) => {
       }
       events.forEach((event) => window.removeEventListener(event, handleActivity))
     }
-  }, [sessionId])
-
-  const formatTime = (seconds: number) => {
-    const h = Math.floor(seconds / 3600)
-    const m = Math.floor((seconds % 3600) / 60)
-    const s = seconds % 60
-
-    if (h > 0) {
-      return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-    }
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-  }
-
-  return formatTime(elapsedSeconds)
+  }, [sessionId, dispatch])
 }

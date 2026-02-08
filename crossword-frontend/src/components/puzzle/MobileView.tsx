@@ -14,10 +14,10 @@ import {
   dismissCheckResult,
 } from '@/store/slices/puzzleSlice'
 import { extractClueMetadata } from '@/utils/answerChecker'
-import { usePuzzleTimer } from '@/hooks/usePuzzleTimer'
+import { useAnswerChecker } from '@/hooks/useAnswerChecker'
 import type { RootState } from '@/store/store'
 import type { Direction } from '@/types'
-import axios from 'axios'
+// axios removed
 
 // Selectors
 const selectGrid = (state: RootState) => state.puzzle.grid
@@ -138,7 +138,6 @@ export function MobileView({
   const [isClueBarHidden, setIsClueBarHidden] = useState(false)
   const [showAttributions, setShowAttributions] = useState(false)
   const isHintModalOpen = useSelector((state: RootState) => state.puzzle.isHintModalOpen)
-  const timerDisplay = usePuzzleTimer(sessionId || undefined)
 
   const clueMetadata = useMemo(() => extractClueMetadata(grid), [grid])
 
@@ -173,31 +172,22 @@ export function MobileView({
     return cells
   }, [cursor, grid, answers])
 
+  // Setup answer checking
+  const { getSolution } = useAnswerChecker()
+
   const handleFetchHintAnswer = useMemo(() => {
     return async () => {
-      if (!cursor || !currentClueNumber || !sessionId) {
+      if (!cursor || !currentClueNumber) {
         throw new Error('No active clue')
       }
 
-      const response = await axios.post<{
-        success: boolean
-        value?: string
-        cached?: boolean
-        processing?: boolean
-        requestId?: string
-        message?: string
-      }>(`/api/sessions/${sessionId}/hint`, {
-        type: 'word',
-        target: { number: currentClueNumber, direction: cursor.direction },
-        dryRun: true,
-      })
-
-      if (response.data.success) {
-        return response.data.value || ''
+      const solution = getSolution(currentClueNumber, cursor.direction)
+      if (solution) {
+        return solution
       }
-      throw new Error('Hint request failed')
+      throw new Error('Hint not found')
     }
-  }, [cursor, currentClueNumber, sessionId])
+  }, [cursor, currentClueNumber, getSolution])
 
   const handleClueSelect = (num: number, dir: Direction) => {
     setIsClueBarHidden(false)
@@ -406,7 +396,6 @@ export function MobileView({
           direction={cursor?.direction}
           currentWordState={currentWordState}
           onFetchAnswer={handleFetchHintAnswer}
-          timerDisplay={timerDisplay}
         />
       )}
 
