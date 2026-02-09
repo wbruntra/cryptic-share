@@ -20,7 +20,7 @@ Use Bun instead of node/npm for all commands, including running scripts and mana
 The backend uses **native Bun.serve** with a custom HTTP router (no Express):
 
 - **HTTP Router**: Custom lightweight router with path parameter extraction (`/http/router.ts`)
-- **WebSocket**: Native Bun WebSocket integration for real-time updates
+- **SSE**: Server-Sent Events for real-time updates
 - **Request Logging**: Custom HTTP logger (`/http/logger.ts`) for request/response timing
 - **Body Parsing**: Custom JSON parser in server fetch handler
 - **Error Handling**: HttpError exceptions with automatic JSON error responses

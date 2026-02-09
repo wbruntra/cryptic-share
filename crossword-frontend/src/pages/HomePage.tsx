@@ -22,7 +22,7 @@ export function HomePage() {
   const [loading, setLoading] = useState(true)
   const [navigating, setNavigating] = useState<number | null>(null)
   const navigate = useNavigate()
-  const { user, refreshSessions } = useAuth()
+  const { user, refreshSessions, logout } = useAuth()
 
   useEffect(() => {
     axios
@@ -97,9 +97,7 @@ export function HomePage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-8 pb-12">
       <section>
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-text border-l-4 border-primary pl-4">
-            Puzzles
-          </h2>
+          <h2 className="text-2xl font-bold text-text border-l-4 border-primary pl-4">Puzzles</h2>
           <label className="flex items-center gap-2 cursor-pointer select-none text-text-secondary hover:text-text transition-colors">
             <input
               type="checkbox"
@@ -121,7 +119,7 @@ export function HomePage() {
             {visiblePuzzles.map((puzzle) => {
               const status = puzzleStatus.get(puzzle.id)
               const isNavigating = navigating === puzzle.id
-              const session = sessions.find(s => s.puzzle_id === puzzle.id)
+              const session = sessions.find((s) => s.puzzle_id === puzzle.id)
 
               return (
                 <div
@@ -144,7 +142,7 @@ export function HomePage() {
                         </span>
                       )}
                     </div>
-                    
+
                     {/* Completion percentage */}
                     {session && typeof session.completion_pct === 'number' && (
                       <div>
@@ -160,13 +158,15 @@ export function HomePage() {
                         </div>
                       </div>
                     )}
-                    
+
                     {/* Owner info for friend sessions */}
-                    {session && session.owner_username && session.owner_username !== user?.username && (
-                      <div className="text-xs text-gray-500">
-                        <span className="font-medium">Owner:</span> {session.owner_username}
-                      </div>
-                    )}
+                    {session &&
+                      session.owner_username &&
+                      session.owner_username !== user?.username && (
+                        <div className="text-xs text-gray-500">
+                          <span className="font-medium">Owner:</span> {session.owner_username}
+                        </div>
+                      )}
                   </div>
 
                   <button
@@ -182,13 +182,39 @@ export function HomePage() {
             {visiblePuzzles.length === 0 && (
               <div className="col-span-full py-16 text-center bg-surface rounded-2xl border-2 border-dashed border-border shadow-inner">
                 <p className="text-text-secondary italic">
-                  {puzzles.length > 0 ? 'No active puzzles found.' : 'No puzzles found. Create one!'}
+                  {puzzles.length > 0
+                    ? 'No active puzzles found.'
+                    : 'No puzzles found. Create one!'}
                 </p>
               </div>
             )}
           </div>
         )}
       </section>
+
+      {user && (
+        <button
+          onClick={logout}
+          className="fixed bottom-6 right-6 opacity-30 hover:opacity-100 bg-surface border border-border text-text-secondary hover:text-red-500 hover:border-red-500/30 px-4 py-2 rounded-full shadow-lg transition-all duration-300 text-sm font-medium z-50 flex items-center gap-2"
+        >
+          <span>Logout</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+        </button>
+      )}
     </div>
   )
 }

@@ -39,21 +39,17 @@ export function NavBar() {
           >
             Home
           </Link>
-          <Link
-            to="/admin"
-            className="text-text-secondary no-underline font-medium hover:text-primary transition-colors"
-          >
-            Admin
-          </Link>
+          {user?.isAdmin && (
+            <Link
+              to="/admin"
+              className="text-text-secondary no-underline font-medium hover:text-primary transition-colors"
+            >
+              Admin
+            </Link>
+          )}
           {user ? (
             <div className="flex items-center gap-4">
               <span className="text-text-secondary">{user.username}</span>
-              <button
-                onClick={logout}
-                className="text-text-secondary hover:text-red-500 transition-colors"
-              >
-                Logout
-              </button>
             </div>
           ) : (
             <Link
@@ -165,13 +161,15 @@ export function NavBar() {
               >
                 Home
               </Link>
-              <Link
-                to="/admin"
-                onClick={() => setIsMenuOpen(false)}
-                className="px-4 py-3 text-text no-underline hover:bg-input-bg transition-colors"
-              >
-                Admin
-              </Link>
+              {user?.isAdmin && (
+                <Link
+                  to="/admin"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="px-4 py-3 text-text no-underline hover:bg-input-bg transition-colors"
+                >
+                  Admin
+                </Link>
+              )}
               <div className="border-t border-border" />
               {user ? (
                 <div className="px-4 py-3 flex flex-col gap-2">

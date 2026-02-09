@@ -199,7 +199,7 @@ export function usePuzzleSync(sessionId: string | undefined) {
       }
 
       if (isConnected) {
-        // Send via REST API instead of WebSocket
+        // Send via REST API
         axios
           .post(`/api/sessions/${sessionId}/cell${socketId ? `?socketId=${socketId}` : ''}`, {
             r,

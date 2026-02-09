@@ -22,7 +22,7 @@ const selectAnswersEncrypted = (state: RootState) => state.puzzle.answersEncrypt
 const selectSessionId = (state: RootState) => state.puzzle.sessionId
 const selectAttributions = (state: RootState) => state.puzzle.attributions
 
-const FLASH_DURATION_MS = 300
+const FLASH_DURATION_MS = 500
 
 export function useAnswerChecker() {
   const dispatch = useDispatch<AppDispatch>()
@@ -41,6 +41,20 @@ export function useAnswerChecker() {
   const attributionsRef = useRef(attributions)
   const sessionIdRef = useRef(sessionId)
   const userRef = useRef(user)
+
+  // Cleanup on unmount to prevent stuck flash state
+  useEffect(() => {
+    return () => {
+      if (flashTimeoutRef.current) {
+        clearTimeout(flashTimeoutRef.current)
+      }
+      // Ideally we would clear flash cells here too, but dispatch in cleanup
+      // can be tricky if the store is already torn down.
+      // Instead, relying on the component lifecycle or clearPuzzle()
+      // helps, but dispatching here is safer than leaving it stuck.
+      dispatch(clearFlashCells())
+    }
+  }, [dispatch])
 
   useEffect(() => {
     gridRef.current = grid

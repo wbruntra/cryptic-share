@@ -29,7 +29,7 @@ async function parseRequestBody(req: Request): Promise<any> {
 }
 
 /**
- * Bun server with native WebSocket support
+ * Bun server with SSE support
  */
 export const bunServer = Bun.serve({
   port,
@@ -117,7 +117,6 @@ export const bunServer = Bun.serve({
 })
 
 console.log(`Backend server running at http://localhost:${port}`)
-// console.log(`WebSocket available at ws://localhost:${port}/ws`)
 
 // Start SSE Heartbeat
 SSEService.startHeartbeat()

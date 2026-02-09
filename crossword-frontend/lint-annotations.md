@@ -6,11 +6,6 @@
   - **Impact:** extra render cascades while modal is open.
   - **Action:** refactored to remount content on open and derive explanation state (no effect-driven setState).
 
-- `src/context/SocketContext.tsx`
-  - `react-hooks/set-state-in-effect` for `setSocket`.
-  - **Impact:** extra render during socket setup; can cascade in provider.
-  - **Action:** use a ref for socket instance, state only for connection status/id.
-
 - `src/pages/EditPuzzle.tsx`
   - `react-hooks/set-state-in-effect` for syncing puzzle data and validation.
   - **Impact:** render cascades on data fetch / editing.
@@ -29,7 +24,6 @@
 ## Medium/low impact (deferred)
 - `no-unused-vars` warnings (e.g., `ImageCropperDialog.tsx`, `NavBar.tsx`, `PlaySession.tsx`).
 - `no-explicit-any` errors in API and utils files.
-- `react-refresh/only-export-components` warnings in `SocketContext.tsx`.
 - Dependency warnings (`react-hooks/exhaustive-deps`) in `PlaySession.tsx` and `ExplanationReviewPage.tsx`.
 
 ## Notes

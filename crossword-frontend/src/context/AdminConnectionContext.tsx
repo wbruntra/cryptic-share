@@ -38,7 +38,6 @@ export const AdminConnectionProvider: React.FC<AdminConnectionProviderProps> = (
         console.error('[AdminConnection] SSE Error:', err)
         setIsConnected(false)
         store.dispatch(connectionLost())
-        es.close()
       }
 
       es.addEventListener('connection_established', (e: MessageEvent) => {

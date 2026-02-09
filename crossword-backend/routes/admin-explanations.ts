@@ -103,7 +103,7 @@ async function handleCheckRegenerationStatus(ctx: Context) {
 }
 
 // POST /api/admin/explanations/regenerate
-// Trigger regeneration of an explanation (async via WebSocket)
+// Trigger regeneration of an explanation (async via SSE)
 async function handleRegenerateExplanation(ctx: Context) {
   const body = ctx.body as any
   const { clue, answer, feedback, previousExplanation, socketId } = body || {}

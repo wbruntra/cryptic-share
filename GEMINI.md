@@ -8,7 +8,7 @@ Cryptic Share is a full-stack web application for playing and collaborating on c
 
 *   **Runtime:** [Bun](https://bun.com) (used for both frontend and backend tooling)
 *   **Frontend:** React, TypeScript, Vite, Tailwind CSS
-*   **Backend:** Express.js, TypeScript, Socket.io, SQLite, Knex.js
+*   **Backend:** Bun.serve, TypeScript, SSE, SQLite, Knex.js
 *   **AI Integration:** OpenAI/Anthropic/Google Gemini (for clue explanations)
 
 ## Directory Structure
@@ -57,7 +57,7 @@ This project exclusively uses **Bun** as the package manager and runtime. Ensure
 *   **Components:** Use functional components with Hooks.
 *   **Styling:** Use Tailwind CSS utility classes. Avoid custom CSS files where possible.
 *   **State Management:** React Context and Hooks are used for state management.
-*   **Networking:** `axios` is used for HTTP requests; `socket.io-client` for real-time updates.
+*   **Networking:** `axios` is used for HTTP requests; SSE is used for real-time updates.
 
 ### Backend
 

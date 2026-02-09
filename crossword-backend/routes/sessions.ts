@@ -53,6 +53,18 @@ async function handleSessionEvents(ctx: Context) {
       writer.write(
         `event: connection_established\ndata: ${JSON.stringify({ socketId: clientId })}\n\n`,
       )
+
+      // Send initial puzzle snapshot for resync
+      void (async () => {
+        try {
+          const state = await SessionService.getSessionState(sessionId)
+          if (state) {
+            writer.write(`event: puzzle_updated\ndata: ${JSON.stringify({ state })}\n\n`)
+          }
+        } catch (error) {
+          console.error('Error sending session snapshot on SSE connect:', error)
+        }
+      })()
     },
     cancel() {
       // Called when client disconnects
@@ -464,34 +476,23 @@ async function handleExplainClue(ctx: Context) {
           decryptedAnswer,
         )
 
-        // Emit via WebSocket
-        const { bunServer } = await import('../bin/server')
-        bunServer.publish(
-          sessionId,
-          JSON.stringify({
-            type: 'explanation_ready',
-            requestId,
-            clueNumber,
-            direction,
-            explanation,
-            success: true,
-          }),
-        )
+        await Broadcaster.broadcast(sessionId, 'explanation_ready', {
+          requestId,
+          clueNumber,
+          direction,
+          explanation,
+          success: true,
+        })
       } catch (error) {
         console.error('Background explanation error:', error)
         try {
-          const { bunServer } = await import('../bin/server')
-          bunServer.publish(
-            sessionId,
-            JSON.stringify({
-              type: 'explanation_ready',
-              requestId,
-              clueNumber,
-              direction,
-              success: false,
-              error: 'Failed to generate explanation',
-            }),
-          )
+          await Broadcaster.broadcast(sessionId, 'explanation_ready', {
+            requestId,
+            clueNumber,
+            direction,
+            success: false,
+            error: 'Failed to generate explanation',
+          })
         } catch (e) {
           console.error('Failed to emit error socket event:', e)
         }

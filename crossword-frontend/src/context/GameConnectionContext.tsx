@@ -134,7 +134,6 @@ export const GameConnectionProvider: React.FC<GameConnectionProviderProps> = ({
         setIsConnected(false)
         setSocketId(null)
         store.dispatch(connectionLost())
-        es.close()
         // Native EventSource auto-reconnects for network issues
       }
 

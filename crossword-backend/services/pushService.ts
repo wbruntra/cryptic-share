@@ -86,7 +86,7 @@ export class PushService {
   }
 
   /**
-   * Clear the notified flag for a subscription (called when user reconnects via WebSocket)
+    * Clear the notified flag for a subscription (called when user reconnects)
    */
   static async clearNotifiedFlag(sessionId: string, endpoint: string): Promise<void> {
     await db('session_subscriptions')

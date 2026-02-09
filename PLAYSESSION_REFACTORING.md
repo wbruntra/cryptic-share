@@ -19,12 +19,12 @@ The PlaySession flow now uses Redux as the single source of truth. The old monol
   - `crossword-frontend/src/pages/PlaySession.tsx`
 
 ### Sync model
-- Socket updates handle real-time collaboration.
+- SSE updates handle real-time collaboration.
 - Periodic polling was removed to avoid refresh churn and highlight glitches.
 - Sync triggers are now:
   - initial page load
   - tab visibility change
-  - socket reconnect
+  - SSE reconnect
 
 ### Check Answers
 - Restored **client-side** checking using encrypted answers from the session payload.
@@ -33,11 +33,11 @@ The PlaySession flow now uses Redux as the single source of truth. The old monol
 
 ### Attribution
 - Correct word completion triggers a claim to `/api/sessions/:sessionId/claim`.
-- Attributions are updated locally and via socket `word_claimed` events.
+- Attributions are updated locally and via SSE `word_claimed` events.
 
 ### Hint/Explanation
 - The existing `HintModal` is wired into both desktop and mobile views.
-- Uses existing RTK Query + socket flow for explanation generation.
+- Uses existing RTK Query + SSE flow for explanation generation.
 
 ## Major Files Changed
 - `crossword-frontend/src/store/slices/puzzleSlice.ts`
@@ -61,7 +61,7 @@ These items are still open for completion:
    - Load local progress when offline or before server sync
 
 2. **Cleanup + lint debt outside PlaySession**
-   - Existing lint warnings/errors in unrelated files (SocketContext, admin pages, etc.) are untouched
+  - Existing lint warnings/errors in unrelated files (admin pages, etc.) are untouched
    - These should be cleaned separately to avoid regressions
 
 3. **Optional polish**
