@@ -20,7 +20,7 @@
   "scripts": {
     "api": "cd crossword-backend && bun run dev",
     "frontend": "cd crossword-frontend && bun run dev",
-    "dev": "concurrently \"bun run api\" \"bun run frontend\""
+    "dev": "bun run --parallel api frontend"
   },
   "dependencies": {
     "concurrently": "^9.2.1"
