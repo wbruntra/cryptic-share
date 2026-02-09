@@ -37,12 +37,12 @@ export const GridCell = memo(function GridCell({
 
   if (isBlack) {
     bgClass = 'bg-black'
-  } else if (cell.isSelected) {
-    bgClass = 'bg-selection'
   } else if (isCorrectFlash) {
     bgClass = 'bg-green-500 dark:bg-green-600'
   } else if (isIncorrectFlash) {
     bgClass = 'bg-red-500 dark:bg-red-600'
+  } else if (cell.isSelected) {
+    bgClass = 'bg-selection'
   } else if (isError) {
     bgClass = 'bg-[#ffeb3b] dark:bg-[#fbc02d]'
   } else if (isChanged) {
@@ -75,12 +75,8 @@ export const GridCell = memo(function GridCell({
       className={`
           w-10 h-10 md:w-11 md:h-11 flex items-center justify-center relative select-none font-mono cursor-pointer transition-colors duration-100
           ${bgClass}
-          ${cell.isSelected ? '!text-black z-10' : ''}
-          ${
-            !isBlack && !cell.isSelected && (isCorrectFlash || isIncorrectFlash)
-              ? 'text-white font-bold'
-              : ''
-          }
+          ${cell.isSelected && !isCorrectFlash && !isIncorrectFlash ? '!text-black z-10' : ''}
+          ${!isBlack && (isCorrectFlash || isIncorrectFlash) ? 'text-white font-bold' : ''}
           ${
             !isBlack &&
             !cell.isSelected &&

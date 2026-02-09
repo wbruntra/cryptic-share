@@ -1,5 +1,10 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import type { CellType, Direction, Clue } from '@/types'
+import {
+  socketReceivedPuzzleUpdated,
+  socketReceivedCellUpdated,
+  socketReceivedWordClaimed,
+} from '../actions/socketActions'
 
 interface Cursor {
   r: number
@@ -298,6 +303,58 @@ const puzzleSlice = createSlice({
     },
 
     clearPuzzle: () => initialState,
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(socketReceivedPuzzleUpdated, (state, action) => {
+        const serverState = action.payload.state
+        if (!serverState || state.grid.length === 0) return
+
+        const normalizedServer = normalizeToGrid(
+          serverState,
+          state.grid.length,
+          state.grid[0].length,
+        )
+
+        // Find changed cells
+        const changedCells: string[] = []
+        for (let r = 0; r < normalizedServer.length; r++) {
+          const localRow = state.answers[r] || ''
+          const serverRow = normalizedServer[r] || ''
+          for (let c = 0; c < serverRow.length; c++) {
+            if (localRow[c] !== serverRow[c]) {
+              changedCells.push(`${r}-${c}`)
+            }
+          }
+        }
+
+        state.answers = normalizedServer
+        state.changedCells = changedCells
+        state.showChangeNotification = changedCells.length > 0
+        state.lastSyncedAt = Date.now()
+      })
+      .addCase(socketReceivedCellUpdated, (state, action) => {
+        const { r, c, value } = action.payload
+        if (r >= 0 && r < state.answers.length) {
+          const row = state.answers[r] || ''
+          const oldVal = row[c]
+          state.answers[r] = row.substring(0, c) + value + row.substring(c + 1)
+          state.lastSyncedAt = Date.now()
+
+          if (oldVal !== value) {
+            const cellKey = `${r}-${c}`
+            // Add to changedCells if not present
+            if (!state.changedCells.includes(cellKey)) {
+              state.changedCells.push(cellKey)
+            }
+            state.showChangeNotification = true
+          }
+        }
+      })
+      .addCase(socketReceivedWordClaimed, (state, action) => {
+        const { clueKey, userId, username, timestamp } = action.payload
+        state.attributions[clueKey] = { userId, username, timestamp }
+      })
   },
 })
 

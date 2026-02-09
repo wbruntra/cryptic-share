@@ -8,7 +8,6 @@ import {
   updateCell,
 } from '@/store/slices/puzzleSlice'
 import { joinSession, leaveSession } from '@/store/slices/socketSlice'
-import { sendCellUpdate } from '@/store/actions/socketActions'
 import type { AppDispatch, RootState } from '@/store/store'
 import axios from 'axios'
 import { getLocalSessionById, saveLocalSession } from '@/utils/sessionManager'
@@ -200,7 +199,16 @@ export function usePuzzleSync(sessionId: string | undefined) {
       }
 
       if (isConnected) {
-        dispatch(sendCellUpdate({ sessionId, r, c, value }))
+        // Send via REST API instead of WebSocket
+        axios
+          .post(`/api/sessions/${sessionId}/cell${socketId ? `?socketId=${socketId}` : ''}`, {
+            r,
+            c,
+            value,
+          })
+          .catch((err) => {
+            console.warn('[usePuzzleSync] Failed to send cell update via REST:', err)
+          })
       }
     },
   }

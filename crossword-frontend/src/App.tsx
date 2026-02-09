@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom'
 import { HomePage } from './pages/HomePage'
 import { PlaySession } from './pages/PlaySession'
 import { PuzzleCreator } from './pages/PuzzleCreator'
@@ -10,16 +10,23 @@ import { SessionListPage } from './pages/SessionListPage'
 import AuthPage from './pages/AuthPage'
 import { NavBar } from './components/NavBar'
 import { useViewportCssVars } from './utils/useViewportCssVars'
-import { SocketProvider } from './context/SocketContext'
+import { AdminConnectionProvider } from './context/AdminConnectionContext'
 
 function App() {
   useViewportCssVars()
 
   return (
-    <SocketProvider>
-      <BrowserRouter>
-        <NavBar />
-        <Routes>
+    <BrowserRouter>
+      <NavBar />
+      <Routes>
+        {/* Admin and General Routes - Use AdminConnectionProvider (SSE) */}
+        <Route
+          element={
+            <AdminConnectionProvider>
+              <Outlet />
+            </AdminConnectionProvider>
+          }
+        >
           <Route path="/" element={<HomePage />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/admin" element={<AdminDashboard />} />
@@ -28,10 +35,12 @@ function App() {
           <Route path="/admin/puzzles/:id/explanations" element={<ExplanationReviewPage />} />
           <Route path="/create" element={<PuzzleCreator />} />
           <Route path="/edit/:puzzleId" element={<EditPuzzle />} />
-          <Route path="/play/:sessionId" element={<PlaySession />} />
-        </Routes>
-      </BrowserRouter>
-    </SocketProvider>
+        </Route>
+
+        {/* Gameplay Routes - Use GameConnectionProvider (SSE) internally */}
+        <Route path="/play/:sessionId" element={<PlaySession />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 

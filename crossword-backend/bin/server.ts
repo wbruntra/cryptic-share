@@ -3,20 +3,9 @@ import { Router } from '../http/router'
 import { httpLogger } from '../http/logger'
 import { getAuthUser } from '../middleware/auth'
 import { registerRoutes } from '../routes'
-import {
-  handleWebSocketMessage,
-  handleWebSocketOpen,
-  handleWebSocketClose,
-  type WebSocketData,
-} from '../services/wsService'
+import { SSEService } from '../services/sseService'
 
 const port = Number(process.env.PORT || 8921)
-
-// Generate unique socket IDs
-let socketCounter = 0
-function generateSocketId(): string {
-  return `ws-${Date.now()}-${++socketCounter}`
-}
 
 // Create the HTTP router
 const router = new Router()
@@ -42,8 +31,9 @@ async function parseRequestBody(req: Request): Promise<any> {
 /**
  * Bun server with native WebSocket support
  */
-export const bunServer = Bun.serve<WebSocketData>({
+export const bunServer = Bun.serve({
   port,
+  idleTimeout: 180, // 3 minutes for SSE connections
 
   async fetch(req, server) {
     const url = new URL(req.url)
@@ -52,23 +42,10 @@ export const bunServer = Bun.serve<WebSocketData>({
 
     httpLogger.onRequest(method, pathname)
 
-    try {
-      // Handle WebSocket upgrade on /ws path
-      if (pathname === '/ws') {
-        const success = server.upgrade(req, {
-          data: {
-            sessionId: null,
-            socketId: generateSocketId(),
-          },
-        })
-        if (success) {
-          httpLogger.onResponse(method, pathname, 101) // 101 Switching Protocols
-          return undefined // Upgrade successful
-        }
-        httpLogger.onResponse(method, pathname, 500)
-        return new Response('WebSocket upgrade failed', { status: 500 })
-      }
+    // Parse body for POST/PUT/PATCH requests
+    let body: any = null
 
+    try {
       // Parse body for POST/PUT/PATCH requests
       let body: any = null
       if (['POST', 'PUT', 'PATCH'].includes(method)) {
@@ -137,20 +114,10 @@ export const bunServer = Bun.serve<WebSocketData>({
       )
     }
   },
-
-  websocket: {
-    open(ws) {
-      handleWebSocketOpen(ws)
-    },
-    message(ws, message) {
-      handleWebSocketMessage(ws, message)
-    },
-    close(ws) {
-      handleWebSocketClose(ws)
-    },
-  },
 })
 
 console.log(`Backend server running at http://localhost:${port}`)
-console.log(`WebSocket available at ws://localhost:${port}/ws`)
+// console.log(`WebSocket available at ws://localhost:${port}/ws`)
 
+// Start SSE Heartbeat
+SSEService.startHeartbeat()

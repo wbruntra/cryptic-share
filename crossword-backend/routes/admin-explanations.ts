@@ -4,6 +4,7 @@ import { requireAdmin } from '../middleware/auth'
 import db from '../db-knex'
 import { regenerateCrypticClueExplanation } from '../utils/openai'
 import { ExplanationService } from '../services/explanationService'
+import { SSEService } from '../services/sseService'
 
 export function registerAdminExplanationRoutes(router: Router) {
   router.get('/api/admin/explanations/:puzzleId', handleGetExplanations)
@@ -67,9 +68,7 @@ async function handleCheckRegenerationStatus(ctx: Context) {
   const { requestId } = ctx.params as any
 
   try {
-    const record = await db('explanation_regenerations')
-      .where({ request_id: requestId })
-      .first()
+    const record = await db('explanation_regenerations').where({ request_id: requestId }).first()
 
     if (!record) {
       throw new HttpError(404, { error: 'Request not found' })
@@ -124,9 +123,7 @@ async function handleRegenerateExplanation(ctx: Context) {
       clue_text: clue,
       answer,
       feedback: feedback || null,
-      previous_explanation_json: previousExplanation
-        ? JSON.stringify(previousExplanation)
-        : null,
+      previous_explanation_json: previousExplanation ? JSON.stringify(previousExplanation) : null,
       status: 'pending',
     })
   } catch (error) {
@@ -150,7 +147,7 @@ async function handleRegenerateExplanation(ctx: Context) {
     // Process in background
     setImmediate(async () => {
       try {
-        const { bunServer } = await import('../bin/server')
+        // const { bunServer } = await import('../bin/server') // No longer needed
 
         const newExplanation = await regenerateCrypticClueExplanation({
           clue,
@@ -172,14 +169,13 @@ async function handleRegenerateExplanation(ctx: Context) {
         }
 
         console.log(`[Regenerate] Completed ${requestId}. Emitting to ${socketId}`)
-        bunServer.publish(socketId, JSON.stringify({
-          type: 'admin_explanation_ready',
+        SSEService.sendToClient(socketId, 'admin_explanation_ready', {
           success: true,
           explanation: newExplanation,
           clue,
           answer,
           requestId,
-        }))
+        })
       } catch (error) {
         console.error('Error in async regeneration:', error)
         try {
@@ -194,12 +190,11 @@ async function handleRegenerateExplanation(ctx: Context) {
           console.error('Error updating regeneration record (error):', updateError)
         }
         const { bunServer } = await import('../bin/server')
-        bunServer.publish(socketId, JSON.stringify({
-          type: 'admin_explanation_ready',
+        SSEService.sendToClient(socketId, 'admin_explanation_ready', {
           success: false,
           error: 'Failed to regenerate explanation',
           requestId,
-        }))
+        })
       }
     })
 

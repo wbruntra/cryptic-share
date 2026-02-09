@@ -2,6 +2,8 @@ import crypto from 'crypto'
 import { Router, jsonResponse, HttpError, type Context } from '../http/router'
 import { authenticateUser, optionalAuthenticateUser } from '../middleware/auth'
 import { SessionService } from '../services/sessionService'
+import { SSEService } from '../services/sseService'
+import { Broadcaster } from '../services/broadcaster'
 
 export function registerSessionRoutes(router: Router) {
   router.get('/api/sessions', handleGetUserSessions)
@@ -15,6 +17,89 @@ export function registerSessionRoutes(router: Router) {
   router.post('/api/sessions/:sessionId/explain', handleExplainClue)
   router.post('/api/sessions/:sessionId/report-explanation', handleReportExplanation)
   router.post('/api/sessions/:sessionId/claim', handleClaimWord)
+
+  // SSE and Gameplay Routes
+  router.get('/api/sessions/:sessionId/events', handleSessionEvents)
+  router.post('/api/sessions/:sessionId/cell', handleUpdateCell)
+}
+
+// SSE Request Handler
+async function handleSessionEvents(ctx: Context) {
+  const { sessionId } = ctx.params as any
+  const { res } = ctx as any // Bun server standard response is native Object, but we need the raw response object if using node-style?
+  // Wait, Bun.serve uses standard Request/Response.
+  // For SSE in Bun, we return a Response with a ReadableStream or just keep the connection open if we were using Node.
+  // BUT this backend is using `Bun.serve` directly in `bin/server.ts`.
+  // The router expects us to return a `Response` object.
+
+  // To do SSE in Bun.serve:
+  // Return a Response causing an infinite stream.
+
+  let clientId: string
+
+  const stream = new ReadableStream({
+    start(controller) {
+      // Create a "response-like" object that SSEService can write to
+      const writer = {
+        write(data: string) {
+          controller.enqueue(new TextEncoder().encode(data))
+        },
+      } as any
+
+      // Add client
+      clientId = SSEService.addClient(sessionId, writer)
+
+      // Send initial connection message
+      writer.write(
+        `event: connection_established\ndata: ${JSON.stringify({ socketId: clientId })}\n\n`,
+      )
+    },
+    cancel() {
+      // Called when client disconnects
+      if (clientId) {
+        SSEService.removeClient(clientId)
+      }
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    },
+  })
+}
+
+// Update single cell
+async function handleUpdateCell(ctx: Context) {
+  const { sessionId } = ctx.params as any
+  const body = ctx.body as any
+  const { r, c, value } = body || {}
+
+  if (r === undefined || c === undefined || value === undefined) {
+    throw new HttpError(400, { error: 'Missing r, c, or value' })
+  }
+
+  try {
+    // 1. Update DB/Cache
+    await SessionService.updateCell(sessionId, r, c, value)
+
+    // 2. Broadcast
+    // We don't have a reliable "senderId" from REST requests unless we pass it in headers or body.
+    // For now, we can omit it, meaning the sender will receive the update too.
+    // Frontend handles "echo" updates gracefully (ignoring if matches current state).
+    // Or we can generate a temporary ID?
+    // Let's pass 'REST_SENDER' or similar if we don't have one, but ideally frontend sends a client ID.
+    const senderId = ctx.query.get('socketId') || 'REST_API'
+
+    await Broadcaster.broadcastCellUpdate(sessionId, r, c, value, senderId)
+
+    return jsonResponse({ success: true })
+  } catch (error) {
+    console.error('Error updating cell:', error)
+    throw new HttpError(500, { error: 'Failed to update cell' })
+  }
 }
 
 // Get all sessions for the authenticated user
@@ -63,7 +148,7 @@ async function handleCreateSession(ctx: Context) {
 
   try {
     const sessionId = await SessionService.createOrResetSession(
-      user?.id as number | null || null,
+      (user?.id as number | null) || null,
       puzzleId,
       anonymousId,
     )
@@ -83,11 +168,15 @@ async function handleGoToPuzzle(ctx: Context) {
     throw new HttpError(400, { error: 'Missing puzzleId' })
   }
 
-  console.log(`[/go] User: ${user?.username || 'anonymous'}, AnonymousId: ${anonymousId || 'none'}, PuzzleId: ${puzzleId}`)
+  console.log(
+    `[/go] User: ${user?.username || 'anonymous'}, AnonymousId: ${
+      anonymousId || 'none'
+    }, PuzzleId: ${puzzleId}`,
+  )
 
   try {
     const result = await SessionService.getOrCreateSession(
-      user?.id as number | null || null,
+      (user?.id as number | null) || null,
       puzzleId,
       anonymousId,
     )
@@ -377,26 +466,32 @@ async function handleExplainClue(ctx: Context) {
 
         // Emit via WebSocket
         const { bunServer } = await import('../bin/server')
-        bunServer.publish(sessionId, JSON.stringify({
-          type: 'explanation_ready',
-          requestId,
-          clueNumber,
-          direction,
-          explanation,
-          success: true,
-        }))
-      } catch (error) {
-        console.error('Background explanation error:', error)
-        try {
-          const { bunServer } = await import('../bin/server')
-          bunServer.publish(sessionId, JSON.stringify({
+        bunServer.publish(
+          sessionId,
+          JSON.stringify({
             type: 'explanation_ready',
             requestId,
             clueNumber,
             direction,
-            success: false,
-            error: 'Failed to generate explanation',
-          }))
+            explanation,
+            success: true,
+          }),
+        )
+      } catch (error) {
+        console.error('Background explanation error:', error)
+        try {
+          const { bunServer } = await import('../bin/server')
+          bunServer.publish(
+            sessionId,
+            JSON.stringify({
+              type: 'explanation_ready',
+              requestId,
+              clueNumber,
+              direction,
+              success: false,
+              error: 'Failed to generate explanation',
+            }),
+          )
         } catch (e) {
           console.error('Failed to emit error socket event:', e)
         }
@@ -459,18 +554,22 @@ async function handleClaimWord(ctx: Context) {
   }
 
   try {
-    const claimed = await SessionService.recordWordAttribution(sessionId, clueKey, userId || null, username)
+    const claimed = await SessionService.recordWordAttribution(
+      sessionId,
+      clueKey,
+      userId || null,
+      username,
+    )
 
     if (claimed) {
-      const { bunServer } = await import('../bin/server')
       const timestamp = new Date().toISOString()
-      bunServer.publish(sessionId, JSON.stringify({
-        type: 'word_claimed',
+
+      await Broadcaster.broadcast(sessionId, 'word_claimed', {
         clueKey,
         userId: userId || null,
         username,
         timestamp,
-      }))
+      })
     }
 
     return jsonResponse({ success: true, claimed })

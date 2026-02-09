@@ -5,7 +5,6 @@ import puzzleReducer from './slices/puzzleSlice'
 import socketReducer from './slices/socketSlice'
 import { adminApi } from './api/adminApi'
 import { sessionApi } from './api/sessionApi'
-import { socketMiddleware } from './middleware/socketMiddleware'
 
 export const store = configureStore({
   reducer: {
@@ -17,10 +16,7 @@ export const store = configureStore({
     [sessionApi.reducerPath]: sessionApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware()
-      .concat(adminApi.middleware)
-      .concat(sessionApi.middleware)
-      .concat(socketMiddleware),
+    getDefaultMiddleware().concat(adminApi.middleware).concat(sessionApi.middleware),
 })
 
 export type RootState = ReturnType<typeof store.getState>
