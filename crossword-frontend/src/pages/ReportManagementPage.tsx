@@ -3,9 +3,8 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { useGetReportsQuery } from '../store/api/adminApi'
-import { useAppSelector, useAppDispatch } from '../store/hooks'
+import { useAppDispatch } from '../store/hooks'
 import { useAuth } from '../context/AuthContext'
-import { clearLatestExplanation } from '../store/slices/adminSlice'
 import type { Report } from '../store/slices/adminSlice'
 
 interface Explanation {
@@ -62,39 +61,6 @@ export function ReportManagementPage() {
     setRegenerating(true)
     setProcessingMessage('Checking regeneration status...')
   }, [storageKey, requestId])
-
-  const socketId = useAppSelector((state) => state.socket.socketId)
-  const { latestExplanation, latestExplanationError, latestExplanationRequestId } = useAppSelector(
-    (state) => state.admin,
-  )
-
-  // Listen for socket events via Redux state
-  useEffect(() => {
-    if (!latestExplanation && !latestExplanationError) return
-    if (
-      latestExplanationRequestId &&
-      requestIdRef.current &&
-      latestExplanationRequestId !== requestIdRef.current
-    ) {
-      return
-    }
-
-    if (latestExplanation) {
-      setNewExplanation(latestExplanation)
-      setRegenerating(false)
-      setProcessingMessage('')
-      setRequestId(null)
-      localStorage.removeItem(storageKey)
-    } else if (latestExplanationError) {
-      alert('Failed to regenerate: ' + latestExplanationError)
-      setRegenerating(false)
-      setProcessingMessage('')
-      setRequestId(null)
-      localStorage.removeItem(storageKey)
-    }
-
-    dispatch(clearLatestExplanation())
-  }, [latestExplanation, latestExplanationError, latestExplanationRequestId, storageKey, dispatch])
 
   useEffect(() => {
     if (!pendingReportId || reports.length === 0) return
@@ -157,7 +123,6 @@ export function ReportManagementPage() {
         clue: selectedReport.clue_text,
         answer: selectedReport.answer,
         feedback: selectedReport.feedback,
-        socketId: socketId, // Send socket ID for async processing
       })
 
       if (res.data.processing) {
@@ -172,9 +137,7 @@ export function ReportManagementPage() {
             }),
           )
         }
-        // Keep regenerating true, wait for socket event
       } else {
-        // Fallback or immediate response
         setNewExplanation(res.data)
         setRegenerating(false)
         localStorage.removeItem(storageKey)

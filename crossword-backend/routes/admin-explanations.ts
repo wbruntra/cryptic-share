@@ -4,7 +4,6 @@ import { requireAdmin } from '../middleware/auth'
 import db from '../db-knex'
 import { regenerateCrypticClueExplanation } from '../utils/openai'
 import { ExplanationService } from '../services/explanationService'
-import { SSEService } from '../services/sseService'
 
 export function registerAdminExplanationRoutes(router: Router) {
   router.get('/api/admin/explanations/:puzzleId', handleGetExplanations)
@@ -106,16 +105,14 @@ async function handleCheckRegenerationStatus(ctx: Context) {
 // Trigger regeneration of an explanation (async via SSE)
 async function handleRegenerateExplanation(ctx: Context) {
   const body = ctx.body as any
-  const { clue, answer, feedback, previousExplanation, socketId } = body || {}
+  const { clue, answer, feedback, previousExplanation } = body || {}
 
   if (!clue || !answer) {
     throw new HttpError(400, { error: 'Missing clue or answer' })
   }
 
   const requestId = crypto.randomUUID()
-  console.log(
-    `[Regenerate] Request received. SocketID: ${socketId || 'NONE'}. RequestID: ${requestId}`,
-  )
+  console.log(`[Regenerate] Request received. RequestID: ${requestId}`)
 
   try {
     await db('explanation_regenerations').insert({
@@ -130,77 +127,21 @@ async function handleRegenerateExplanation(ctx: Context) {
     console.error('Error recording regeneration request:', error)
   }
 
-  if (socketId) {
-    // Return immediately with 202 Accepted
-    const response = new Response(
-      JSON.stringify({
-        processing: true,
-        message: 'Regeneration started...',
-        requestId,
-      }),
-      {
-        status: 202,
-        headers: { 'Content-Type': 'application/json' },
-      },
-    )
+  // Return immediately with 202 Accepted - client polls for result
+  const response = new Response(
+    JSON.stringify({
+      processing: true,
+      message: 'Regeneration started...',
+      requestId,
+    }),
+    {
+      status: 202,
+      headers: { 'Content-Type': 'application/json' },
+    },
+  )
 
-    // Process in background
-    setImmediate(async () => {
-      try {
-        // const { bunServer } = await import('../bin/server') // No longer needed
-
-        const newExplanation = await regenerateCrypticClueExplanation({
-          clue,
-          answer,
-          feedback: feedback || 'Admin requested regeneration',
-          previousExplanation,
-        })
-
-        try {
-          await db('explanation_regenerations')
-            .where({ request_id: requestId })
-            .update({
-              status: 'success',
-              explanation_json: JSON.stringify(newExplanation),
-              updated_at: db.fn.now(),
-            })
-        } catch (updateError) {
-          console.error('Error updating regeneration record (success):', updateError)
-        }
-
-        console.log(`[Regenerate] Completed ${requestId}. Emitting to ${socketId}`)
-        SSEService.sendToClient(socketId, 'admin_explanation_ready', {
-          success: true,
-          explanation: newExplanation,
-          clue,
-          answer,
-          requestId,
-        })
-      } catch (error) {
-        console.error('Error in async regeneration:', error)
-        try {
-          await db('explanation_regenerations')
-            .where({ request_id: requestId })
-            .update({
-              status: 'error',
-              error_message: (error as Error)?.message || 'Failed to regenerate explanation',
-              updated_at: db.fn.now(),
-            })
-        } catch (updateError) {
-          console.error('Error updating regeneration record (error):', updateError)
-        }
-        const { bunServer } = await import('../bin/server')
-        SSEService.sendToClient(socketId, 'admin_explanation_ready', {
-          success: false,
-          error: 'Failed to regenerate explanation',
-          requestId,
-        })
-      }
-    })
-
-    return response
-  } else {
-    // Fallback to sync for scripts/legacy
+  // Process in background
+  setImmediate(async () => {
     try {
       const newExplanation = await regenerateCrypticClueExplanation({
         clue,
@@ -218,13 +159,12 @@ async function handleRegenerateExplanation(ctx: Context) {
             updated_at: db.fn.now(),
           })
       } catch (updateError) {
-        console.error('Error updating regeneration record (sync success):', updateError)
+        console.error('Error updating regeneration record (success):', updateError)
       }
 
-      return jsonResponse(newExplanation)
+      console.log(`[Regenerate] Completed ${requestId}`)
     } catch (error) {
-      console.error('Error regenerating explanation:', error)
-
+      console.error('Error in async regeneration:', error)
       try {
         await db('explanation_regenerations')
           .where({ request_id: requestId })
@@ -234,12 +174,12 @@ async function handleRegenerateExplanation(ctx: Context) {
             updated_at: db.fn.now(),
           })
       } catch (updateError) {
-        console.error('Error updating regeneration record (sync error):', updateError)
+        console.error('Error updating regeneration record (error):', updateError)
       }
-
-      throw new HttpError(500, { error: 'Failed to regenerate explanation' })
     }
-  }
+  })
+
+  return response
 }
 
 // POST /api/admin/explanations/save

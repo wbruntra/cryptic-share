@@ -35,7 +35,7 @@ async function handleSessionEvents(ctx: Context) {
   // To do SSE in Bun.serve:
   // Return a Response causing an infinite stream.
 
-  let clientId: string
+  let clientId: string | null = null
 
   const stream = new ReadableStream({
     start(controller) {

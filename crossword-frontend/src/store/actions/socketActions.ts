@@ -36,11 +36,6 @@ export const setSocketInstance = createAction<{
   send: (data: object) => void
 }>('socket/setSocketInstance')
 
-export interface ExplanationPayload {
-  clue_type: string
-  explanation: Record<string, unknown>
-}
-
 export const socketReceivedExplanation = createAction<{
   requestId: string
   clueNumber: number
@@ -49,12 +44,3 @@ export const socketReceivedExplanation = createAction<{
   explanation?: Record<string, unknown>
   error?: string
 }>('socket/receivedExplanation')
-
-export const socketReceivedAdminExplanation = createAction<{
-  requestId?: string
-  success: boolean
-  explanation?: ExplanationPayload
-  error?: string
-}>('socket/receivedAdminExplanation')
-
-export const clearAdminExplanation = createAction('socket/clearAdminExplanation')

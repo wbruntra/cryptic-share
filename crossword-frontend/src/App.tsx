@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { HomePage } from './pages/HomePage'
 import { PlaySession } from './pages/PlaySession'
 import { PuzzleCreator } from './pages/PuzzleCreator'
@@ -10,7 +10,6 @@ import { SessionListPage } from './pages/SessionListPage'
 import AuthPage from './pages/AuthPage'
 import { NavBar } from './components/NavBar'
 import { useViewportCssVars } from './utils/useViewportCssVars'
-import { AdminConnectionProvider } from './context/AdminConnectionContext'
 
 function App() {
   useViewportCssVars()
@@ -19,23 +18,14 @@ function App() {
     <BrowserRouter>
       <NavBar />
       <Routes>
-        {/* Admin and General Routes - Use AdminConnectionProvider (SSE) */}
-        <Route
-          element={
-            <AdminConnectionProvider>
-              <Outlet />
-            </AdminConnectionProvider>
-          }
-        >
-          <Route path="/" element={<HomePage />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/sessions" element={<SessionListPage />} />
-          <Route path="/admin/reports" element={<ReportManagementPage />} />
-          <Route path="/admin/puzzles/:id/explanations" element={<ExplanationReviewPage />} />
-          <Route path="/create" element={<PuzzleCreator />} />
-          <Route path="/edit/:puzzleId" element={<EditPuzzle />} />
-        </Route>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/auth" element={<AuthPage />} />
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/sessions" element={<SessionListPage />} />
+        <Route path="/admin/reports" element={<ReportManagementPage />} />
+        <Route path="/admin/puzzles/:id/explanations" element={<ExplanationReviewPage />} />
+        <Route path="/create" element={<PuzzleCreator />} />
+        <Route path="/edit/:puzzleId" element={<EditPuzzle />} />
 
         {/* Gameplay Routes - Use GameConnectionProvider (SSE) internally */}
         <Route path="/play/:sessionId" element={<PlaySession />} />

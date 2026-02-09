@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import axios from 'axios'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
-import { fetchClueExplanations, clearLatestExplanation } from '../store/slices/adminSlice'
+import { fetchClueExplanations } from '../store/slices/adminSlice'
 import type { ClueExplanation } from '../store/slices/adminSlice'
 
 interface NewExplanation {
@@ -13,9 +13,7 @@ interface NewExplanation {
 export function ExplanationReviewPage() {
   const { id } = useParams<{ id: string }>()
   const dispatch = useAppDispatch()
-  const { clueExplanations, explanationStatus, latestExplanation, latestExplanationError, latestExplanationRequestId } =
-    useAppSelector((state) => state.admin)
-  const socketId = useAppSelector((state) => state.socket.socketId)
+  const { clueExplanations, explanationStatus } = useAppSelector((state) => state.admin)
 
   const [expandedClue, setExpandedClue] = useState<string | null>(null) // "number-direction"
   const [regenerating, setRegenerating] = useState(false)
@@ -59,29 +57,6 @@ export function ExplanationReviewPage() {
     setRegenerating(true)
     setProcessingMessage('Checking regeneration status...')
   }, [storageKey, requestId])
-
-  useEffect(() => {
-    if (!latestExplanation && !latestExplanationError) return
-    if (latestExplanationRequestId && requestIdRef.current && latestExplanationRequestId !== requestIdRef.current) {
-      return
-    }
-
-    if (latestExplanation) {
-      setNewExplanation(latestExplanation)
-      setRegenerating(false)
-      setProcessingMessage('')
-      setRequestId(null)
-      localStorage.removeItem(storageKey)
-    } else if (latestExplanationError) {
-      alert('Failed to regenerate: ' + latestExplanationError)
-      setRegenerating(false)
-      setProcessingMessage('')
-      setRequestId(null)
-      localStorage.removeItem(storageKey)
-    }
-
-    dispatch(clearLatestExplanation())
-  }, [latestExplanation, latestExplanationError, latestExplanationRequestId, storageKey, dispatch])
 
   useEffect(() => {
     if (id) {
@@ -141,7 +116,6 @@ export function ExplanationReviewPage() {
         answer: clue.answer,
         feedback: 'Admin manual regeneration',
         previousExplanation: currentExp,
-        socketId: socketId, // Send socket ID for async processing
       })
 
       if (res.data.processing) {
@@ -156,7 +130,6 @@ export function ExplanationReviewPage() {
             }),
           )
         }
-        // Keep regenerating true, wait for socket event
       } else {
         setNewExplanation(res.data)
         setRegenerating(false)

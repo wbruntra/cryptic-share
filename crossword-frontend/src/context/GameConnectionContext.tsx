@@ -47,7 +47,6 @@ export const GameConnectionProvider: React.FC<GameConnectionProviderProps> = ({
   const eventSourceRef = useRef<EventSource | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [socketId, setSocketId] = useState<string | null>(null)
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Send cell update via REST
   const sendCellUpdate = useCallback(

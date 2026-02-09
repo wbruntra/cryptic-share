@@ -1,6 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import axios from 'axios'
-import { socketReceivedAdminExplanation, type ExplanationPayload } from '../actions/socketActions'
 
 export interface Session {
   session_id: string
@@ -38,18 +37,12 @@ interface AdminState {
   clueExplanations: ClueExplanation[]
   explanationStatus: 'idle' | 'loading' | 'succeeded' | 'failed'
   error: string | null
-  latestExplanation: ExplanationPayload | null
-  latestExplanationError: string | null
-  latestExplanationRequestId: string | null
 }
 
 const initialState: AdminState = {
   clueExplanations: [],
   explanationStatus: 'idle',
   error: null,
-  latestExplanation: null,
-  latestExplanationError: null,
-  latestExplanationRequestId: null,
 }
 
 // Thunks
@@ -68,11 +61,6 @@ const adminSlice = createSlice({
     clearError: (state) => {
       state.error = null
     },
-    clearLatestExplanation: (state) => {
-      state.latestExplanation = null
-      state.latestExplanationError = null
-      state.latestExplanationRequestId = null
-    },
   },
   extraReducers: (builder) => {
     builder
@@ -87,19 +75,8 @@ const adminSlice = createSlice({
         state.explanationStatus = 'failed'
         state.error = action.error.message || 'Failed to fetch explanations'
       })
-
-      .addCase(socketReceivedAdminExplanation, (state, action) => {
-        if (action.payload.success && action.payload.explanation) {
-          state.latestExplanation = action.payload.explanation
-          state.latestExplanationError = null
-        } else {
-          state.latestExplanationError = action.payload.error || 'Failed to generate explanation'
-          state.latestExplanation = null
-        }
-        state.latestExplanationRequestId = action.payload.requestId || null
-      })
   },
 })
 
-export const { clearError, clearLatestExplanation } = adminSlice.actions
+export const { clearError } = adminSlice.actions
 export default adminSlice.reducer
