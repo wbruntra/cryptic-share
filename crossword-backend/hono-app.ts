@@ -1,5 +1,4 @@
 import { Hono } from 'hono'
-import { logger } from 'hono/logger'
 import jwt from 'jsonwebtoken'
 import { JWT_SECRET } from './config'
 import type { AuthUser } from './hono-middleware/auth'
@@ -21,8 +20,30 @@ type Variables = {
 // Create app with typed variables
 export const app = new Hono<{ Variables: Variables }>()
 
-// Logging middleware
-app.use('*', logger())
+// Logging middleware - single line per request (Morgan dev-style) with ANSI colors
+app.use('*', async (c, next) => {
+  const start = Date.now()
+  const method = c.req.method
+  const urlObj = new URL(c.req.url)
+  const url = urlObj.pathname + (urlObj.search || '')
+
+  await next()
+
+  const status = c.res.status || 0
+  const time = Date.now() - start
+  const user = c.get('user') as any
+
+  // ANSI color helpers
+  const RESET = '\u001b[0m'
+  const colorStatus = (s: number) => (s >= 500 ? '\u001b[31m' : s >= 400 ? '\u001b[33m' : s >= 300 ? '\u001b[36m' : '\u001b[32m')
+  const colorMethod = (m: string) => (m === 'GET' ? '\u001b[34m' : m === 'POST' ? '\u001b[35m' : m === 'PUT' ? '\u001b[33m' : '\u001b[36m')
+
+  const methodStr = `${colorMethod(method)}${method}${RESET}`
+  const statusStr = `${colorStatus(status)}${status}${RESET}`
+  const userStr = user && user.id ? ` user=${user.id}` : ''
+
+  console.log(`${methodStr} ${url} ${statusStr} ${time}ms${userStr}`)
+})
 
 // Auth middleware - extract user from JWT if present
 app.use('/api/*', async (c, next) => {
