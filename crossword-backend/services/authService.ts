@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import db from '../db-knex'
+import db from '@/db-knex'
 import { JWT_SECRET } from '../config'
 
 export class AuthService {
@@ -43,11 +43,9 @@ export class AuthService {
     }
 
     const isAdmin = Boolean(user.is_admin)
-    const token = jwt.sign(
-      { id: user.id, username: user.username, isAdmin },
-      JWT_SECRET,
-      { expiresIn: '30d' },
-    )
+    const token = jwt.sign({ id: user.id, username: user.username, isAdmin }, JWT_SECRET, {
+      expiresIn: '30d',
+    })
     return { token, user: { id: user.id, username: user.username, isAdmin } }
   }
 }

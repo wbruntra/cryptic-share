@@ -1,24 +1,18 @@
 import crypto from 'crypto'
-import { Router, jsonResponse, HttpError, type Context } from '../http/router'
-import { requireAdmin } from '../middleware/auth'
+import { Hono } from 'hono'
+import { HTTPException } from 'hono/http-exception'
+import { requireAdmin, type AuthUser } from '../hono-middleware/auth'
 import db from '../db-knex'
 import { regenerateCrypticClueExplanation } from '../utils/openai'
-import { ExplanationService } from '../services/explanationService'
 
-export function registerAdminExplanationRoutes(router: Router) {
-  router.get('/api/admin/explanations/:puzzleId', handleGetExplanations)
-  router.get('/api/admin/reports', handleGetReports)
-  router.get('/api/admin/explanations/regenerate/:requestId', handleCheckRegenerationStatus)
-  router.post('/api/admin/explanations/regenerate', handleRegenerateExplanation)
-  router.post('/api/admin/explanations/save', handleSaveExplanation)
-  router.post('/api/admin/reports', handleCreateReport)
-}
+type Variables = { user: AuthUser | null }
+
+const adminExplanations = new Hono<{ Variables: Variables }>()
 
 // GET /api/admin/explanations/:puzzleId
-// Fetch all explanations for a specific puzzle, including any user reports
-async function handleGetExplanations(ctx: Context) {
-  requireAdmin(ctx)
-  const { puzzleId } = ctx.params as any
+adminExplanations.get('/:puzzleId', async (c) => {
+  requireAdmin(c)
+  const puzzleId = c.req.param('puzzleId')
 
   try {
     const explanations = await db('clue_explanations')
@@ -31,17 +25,16 @@ async function handleGetExplanations(ctx: Context) {
       )
       .orderBy(['clue_number', 'direction'])
 
-    return jsonResponse(explanations)
+    return c.json(explanations)
   } catch (error) {
     console.error('Error fetching explanations:', error)
-    throw new HttpError(500, { error: 'Failed to fetch explanations' })
+    throw new HTTPException(500, { message: 'Failed to fetch explanations' })
   }
-}
+})
 
 // GET /api/admin/reports
-// Fetch all pending reports
-async function handleGetReports(ctx: Context) {
-  requireAdmin(ctx)
+adminExplanations.get('/reports', async (c) => {
+  requireAdmin(c)
 
   try {
     const reports = await db('explanation_reports')
@@ -54,27 +47,26 @@ async function handleGetReports(ctx: Context) {
       .select('explanation_reports.*', 'clue_explanations.answer', 'clue_explanations.clue_text')
       .orderBy('explanation_reports.reported_at', 'desc')
 
-    return jsonResponse(reports)
+    return c.json(reports)
   } catch (error) {
     console.error('Error fetching reports:', error)
-    throw new HttpError(500, { error: 'Failed to fetch reports' })
+    throw new HTTPException(500, { message: 'Failed to fetch reports' })
   }
-}
+})
 
-// GET /api/admin/explanations/regenerate/:requestId
-// Check regeneration status (for polling fallback)
-async function handleCheckRegenerationStatus(ctx: Context) {
-  const { requestId } = ctx.params as any
+// GET /api/admin/explanations/regenerate/:requestId - Check status
+adminExplanations.get('/regenerate/:requestId', async (c) => {
+  const requestId = c.req.param('requestId')
 
   try {
     const record = await db('explanation_regenerations').where({ request_id: requestId }).first()
 
     if (!record) {
-      throw new HttpError(404, { error: 'Request not found' })
+      throw new HTTPException(404, { message: 'Request not found' })
     }
 
     if (record.status === 'success' && record.explanation_json) {
-      return jsonResponse({
+      return c.json({
         requestId,
         status: 'success',
         explanation: JSON.parse(record.explanation_json),
@@ -82,33 +74,32 @@ async function handleCheckRegenerationStatus(ctx: Context) {
     }
 
     if (record.status === 'error') {
-      return jsonResponse({
+      return c.json({
         requestId,
         status: 'error',
         error: record.error_message || 'Failed to regenerate explanation',
       })
     }
 
-    return jsonResponse({
+    return c.json({
       requestId,
       status: 'pending',
       message: 'Regeneration in progress...',
     })
   } catch (error: any) {
-    if (error instanceof HttpError) throw error
+    if (error instanceof HTTPException) throw error
     console.error('Error checking regeneration status:', error)
-    throw new HttpError(500, { error: 'Failed to check regeneration status' })
+    throw new HTTPException(500, { message: 'Failed to check regeneration status' })
   }
-}
+})
 
 // POST /api/admin/explanations/regenerate
-// Trigger regeneration of an explanation (async via SSE)
-async function handleRegenerateExplanation(ctx: Context) {
-  const body = ctx.body as any
-  const { clue, answer, feedback, previousExplanation } = body || {}
+adminExplanations.post('/regenerate', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const { clue, answer, feedback, previousExplanation } = body
 
   if (!clue || !answer) {
-    throw new HttpError(400, { error: 'Missing clue or answer' })
+    throw new HTTPException(400, { message: 'Missing clue or answer' })
   }
 
   const requestId = crypto.randomUUID()
@@ -126,19 +117,6 @@ async function handleRegenerateExplanation(ctx: Context) {
   } catch (error) {
     console.error('Error recording regeneration request:', error)
   }
-
-  // Return immediately with 202 Accepted - client polls for result
-  const response = new Response(
-    JSON.stringify({
-      processing: true,
-      message: 'Regeneration started...',
-      requestId,
-    }),
-    {
-      status: 202,
-      headers: { 'Content-Type': 'application/json' },
-    },
-  )
 
   // Process in background
   setImmediate(async () => {
@@ -179,17 +157,23 @@ async function handleRegenerateExplanation(ctx: Context) {
     }
   })
 
-  return response
-}
+  return c.json(
+    {
+      processing: true,
+      message: 'Regeneration started...',
+      requestId,
+    },
+    202,
+  )
+})
 
 // POST /api/admin/explanations/save
-// Save an explanation and resolve pertinent reports
-async function handleSaveExplanation(ctx: Context) {
-  const body = ctx.body as any
-  const { puzzleId, clueNumber, direction, clueText, answer, explanation } = body || {}
+adminExplanations.post('/save', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const { puzzleId, clueNumber, direction, clueText, answer, explanation } = body
 
   if (!puzzleId || !clueNumber || !direction || !explanation) {
-    throw new HttpError(400, { error: 'Missing required fields' })
+    throw new HTTPException(400, { message: 'Missing required fields' })
   }
 
   try {
@@ -216,21 +200,20 @@ async function handleSaveExplanation(ctx: Context) {
       })
       .update({ explanation_updated: 1 })
 
-    return jsonResponse({ success: true, resolvedReports: updatedCount })
+    return c.json({ success: true, resolvedReports: updatedCount })
   } catch (error) {
     console.error('Error saving explanation:', error)
-    throw new HttpError(500, { error: 'Failed to save explanation' })
+    throw new HTTPException(500, { message: 'Failed to save explanation' })
   }
-}
+})
 
 // POST /api/admin/reports
-// File a manual report
-async function handleCreateReport(ctx: Context) {
-  const body = ctx.body as any
-  const { puzzleId, clueNumber, direction, feedback } = body || {}
+adminExplanations.post('/reports', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  const { puzzleId, clueNumber, direction, feedback } = body
 
   if (!puzzleId || !clueNumber || !direction || !feedback) {
-    throw new HttpError(400, { error: 'Missing required fields' })
+    throw new HTTPException(400, { message: 'Missing required fields' })
   }
 
   try {
@@ -242,9 +225,11 @@ async function handleCreateReport(ctx: Context) {
       explanation_updated: 0,
     })
 
-    return jsonResponse({ success: true })
+    return c.json({ success: true })
   } catch (error) {
     console.error('Error creating report:', error)
-    throw new HttpError(500, { error: 'Failed to create report' })
+    throw new HTTPException(500, { message: 'Failed to create report' })
   }
-}
+})
+
+export { adminExplanations }
