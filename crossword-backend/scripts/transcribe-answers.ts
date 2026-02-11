@@ -1,6 +1,11 @@
 import { transcribeAnswers } from '../utils/openai'
 import { resolve } from 'path'
 
+// Remove accent marks from string
+const removeAccents = (str: string): string => {
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
 // ROT13 implementation
 const rot13 = (str: string): string => {
   return str.replace(/[a-zA-Z]/g, (char) => {
@@ -24,17 +29,17 @@ const main = async () => {
     const file = Bun.file(absolutePath)
     const result = await transcribeAnswers(file)
 
-    // Apply ROT13 to all answers
+    // Apply accent removal and ROT13 to all answers
     if (result.puzzles && Array.isArray(result.puzzles)) {
       result.puzzles.forEach((puzzle: any) => {
         if (puzzle.across) {
           puzzle.across.forEach((clue: any) => {
-            if (clue.answer) clue.answer = rot13(clue.answer)
+            if (clue.answer) clue.answer = rot13(removeAccents(clue.answer))
           })
         }
         if (puzzle.down) {
           puzzle.down.forEach((clue: any) => {
-            if (clue.answer) clue.answer = rot13(clue.answer)
+            if (clue.answer) clue.answer = rot13(removeAccents(clue.answer))
           })
         }
       })
