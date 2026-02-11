@@ -75,38 +75,34 @@ export function ImageCropperDialog({
       const scaleX = image.naturalWidth / image.width
       const scaleY = image.naturalHeight / image.height
 
-      // This is important for high pixel density displays
-      const pixelRatio = window.devicePixelRatio
+      const cropWidth = completedCrop.width * scaleX
+      const cropHeight = completedCrop.height * scaleY
+      const maxOutputSize = 1600
+      const resizeScale = Math.min(1, maxOutputSize / Math.max(cropWidth, cropHeight))
 
-      canvas.width = Math.floor(completedCrop.width * scaleX * pixelRatio)
-      canvas.height = Math.floor(completedCrop.height * scaleY * pixelRatio)
+      const outputWidth = Math.floor(cropWidth * resizeScale)
+      const outputHeight = Math.floor(cropHeight * resizeScale)
 
-      ctx.scale(pixelRatio, pixelRatio)
+      canvas.width = outputWidth
+      canvas.height = outputHeight
+
+      ctx.imageSmoothingEnabled = true
       ctx.imageSmoothingQuality = 'high'
 
       const cropX = completedCrop.x * scaleX
       const cropY = completedCrop.y * scaleY
 
-      const centerX = image.naturalWidth / 2
-      const centerY = image.naturalHeight / 2
-
-      ctx.save()
-
-      // Translate to draw the image at the correct position
-      ctx.translate(-cropX, -cropY)
       ctx.drawImage(
         image,
+        cropX,
+        cropY,
+        cropWidth,
+        cropHeight,
         0,
         0,
-        image.naturalWidth,
-        image.naturalHeight,
-        0,
-        0,
-        image.naturalWidth,
-        image.naturalHeight,
+        outputWidth,
+        outputHeight,
       )
-
-      ctx.restore()
 
       canvas.toBlob(
         (blob) => {
@@ -118,7 +114,7 @@ export function ImageCropperDialog({
           }
         },
         'image/jpeg',
-        0.95,
+        0.9,
       )
     } catch (e) {
       console.error(e)
