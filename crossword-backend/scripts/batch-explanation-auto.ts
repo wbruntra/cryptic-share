@@ -489,8 +489,22 @@ async function createBatchesForAllPuzzles() {
 
   console.log('\n💡 Next steps:')
   console.log('   1. Wait for batches to complete (typically 1-24 hours)')
-  console.log('   2. Run: bun run batch-retrieve')
+  console.log('   2. Run: bun run scripts/batch-explanation-auto.ts apply')
   console.log('   3. Results will be automatically downloaded and applied')
+}
+
+function printHelp() {
+  console.log('\nBatch explanation automation')
+  console.log('\nUsage: bun run scripts/batch-explanation-auto.ts <command> [options]')
+  console.log('\nCommands:')
+  console.log('  prepare         Find puzzles and create explanation batches')
+  console.log('                  Options: --dry-run (preview only, do not create batches)')
+  console.log('  apply           Retrieve completed batches and save explanations')
+  console.log('\nExamples:')
+  console.log('  bun run scripts/batch-explanation-auto.ts prepare')
+  console.log('  bun run scripts/batch-explanation-auto.ts prepare --dry-run')
+  console.log('  bun run scripts/batch-explanation-auto.ts apply')
+  console.log('')
 }
 
 async function retrieveAndApplyCompletedBatches() {
@@ -732,22 +746,37 @@ async function processBatchResults(batchId: string) {
 async function main() {
   const command = process.argv[2]
   const dryRunFlag = process.argv.includes('--dry-run')
+  let exitCode = 0
 
   try {
-    if (command === 'retrieve') {
-      await retrieveAndApplyCompletedBatches()
-    } else {
+    if (!command || command === 'help' || command === '--help' || command === '-h') {
+      printHelp()
+      return
+    }
+
+    if (command === 'prepare') {
       if (dryRunFlag) {
         await dryRun()
       } else {
         await createBatchesForAllPuzzles()
       }
+      return
     }
+
+    if (command === 'apply' || command === 'retrieve') {
+      await retrieveAndApplyCompletedBatches()
+      return
+    }
+
+    console.error(`\n❌ Unknown command: ${command}`)
+    printHelp()
+    exitCode = 1
   } catch (error) {
     console.error('\n❌ Fatal error:', error)
-    process.exit(1)
+    exitCode = 1
   } finally {
-    process.exit(0)
+    await db.destroy()
+    process.exit(exitCode)
   }
 }
 
