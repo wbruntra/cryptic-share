@@ -111,6 +111,12 @@ export function AdminDashboard() {
         </div>
         <div className="flex gap-4 w-full sm:w-auto">
           <Link
+            to="/admin/missing-clues"
+            className="flex-1 sm:flex-none px-6 py-3 rounded-xl bg-surface border-2 border-primary text-primary font-bold shadow-sm hover:bg-primary/5 hover:shadow-md active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
+          >
+            Missing Clues Queue
+          </Link>
+          <Link
             to="/admin/reports"
             className="flex-1 sm:flex-none px-6 py-3 rounded-xl bg-surface border-2 border-primary text-primary font-bold shadow-sm hover:bg-primary/5 hover:shadow-md active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
           >

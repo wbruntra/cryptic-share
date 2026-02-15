@@ -48,6 +48,17 @@ puzzles.get('/', async (c) => {
   }
 })
 
+// GET /api/puzzles/missing-clues
+puzzles.get('/missing-clues', async (c) => {
+  try {
+    const rows = await PuzzleService.getPuzzlesMissingClues()
+    return c.json(rows)
+  } catch (error) {
+    console.error('Error fetching puzzles missing clues:', error)
+    throw new HTTPException(500, { message: 'Failed to fetch puzzles missing clues' })
+  }
+})
+
 // GET /api/puzzles/:id
 puzzles.get('/:id', async (c) => {
   const id = c.req.param('id')

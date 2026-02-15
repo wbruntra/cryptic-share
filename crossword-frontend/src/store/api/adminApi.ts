@@ -11,6 +11,13 @@ export interface PuzzleDetail {
   answers: any
 }
 
+export interface PuzzleMissingCluesSummary {
+  id: number
+  title: string
+  book?: string
+  puzzle_number?: number
+}
+
 export const adminApi = createApi({
   reducerPath: 'adminApi',
   baseQuery: axiosBaseQuery({
@@ -35,6 +42,10 @@ export const adminApi = createApi({
     }),
     getPuzzles: builder.query<PuzzleSummary[], void>({
       query: () => ({ url: '../../api/puzzles', method: 'GET' }),
+      providesTags: ['Puzzle'],
+    }),
+    getPuzzlesMissingClues: builder.query<PuzzleMissingCluesSummary[], void>({
+      query: () => ({ url: '../../api/puzzles/missing-clues', method: 'GET' }),
       providesTags: ['Puzzle'],
     }),
     getPuzzleById: builder.query<PuzzleDetail, string>({
@@ -70,6 +81,7 @@ export const adminApi = createApi({
 export const {
   useGetReportsQuery,
   useGetPuzzlesQuery,
+  useGetPuzzlesMissingCluesQuery,
   useDeletePuzzleMutation,
   useRenamePuzzleMutation,
   useGetSessionsQuery,

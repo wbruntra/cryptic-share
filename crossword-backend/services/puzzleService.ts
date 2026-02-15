@@ -6,6 +6,44 @@ export class PuzzleService {
     return await db('puzzles').select('id', 'title')
   }
 
+  static async getPuzzlesMissingClues() {
+    const puzzles: any[] = await db('puzzles').select('id', 'title', 'grid', 'clues', 'book', 'puzzle_number')
+
+    const isPlaceholder = (value: string) => {
+      const normalized = value.trim().toUpperCase()
+      return normalized === '[CLUE PENDING]' || normalized === 'CLUE PENDING'
+    }
+
+    const hasAnyRealClue = (list: any): boolean => {
+      if (!Array.isArray(list) || list.length === 0) return false
+      return list.some((item) => {
+        const clue = typeof item?.clue === 'string' ? item.clue : ''
+        return clue.trim().length > 0 && !isPlaceholder(clue)
+      })
+    }
+
+    const hasMissingClues = (cluesRaw: unknown): boolean => {
+      try {
+        const clues = typeof cluesRaw === 'string' ? JSON.parse(cluesRaw) : cluesRaw
+        const hasAcross = hasAnyRealClue((clues as any)?.across)
+        const hasDown = hasAnyRealClue((clues as any)?.down)
+        return !(hasAcross && hasDown)
+      } catch {
+        return true
+      }
+    }
+
+    return puzzles
+      .filter((p) => typeof p.grid === 'string' && p.grid.trim().length > 0)
+      .filter((p) => hasMissingClues(p.clues))
+      .map((p) => ({
+        id: p.id,
+        title: p.title,
+        book: p.book,
+        puzzle_number: p.puzzle_number,
+      }))
+  }
+
   static async getPuzzleById(id: number) {
     const puzzle: any = await db('puzzles').where({ id }).first()
 
