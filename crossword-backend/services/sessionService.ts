@@ -276,8 +276,14 @@ export class SessionService {
   }
 
   // In-memory cache for active sessions to reduce DB reads/writes
-  // Map<sessionId, { state: string[], lastAccess: number, dirty: boolean }>
-  private static cache = new Map<string, { state: string[]; lastAccess: number; dirty: boolean }>()
+  // Map<sessionId, { state: string[], lastAccess: number, dirty: boolean, letter_count?: number | null, is_complete?: boolean }>
+  private static cache = new Map<string, {
+    state: string[]
+    lastAccess: number
+    dirty: boolean
+    letter_count?: number | null
+    is_complete?: boolean
+  }>()
   private static saveTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
   private static async getCachedOrLoad(sessionId: string): Promise<string[] | null> {
@@ -287,7 +293,11 @@ export class SessionService {
       return cached.state
     }
 
-    const session = await db('puzzle_sessions').where({ session_id: sessionId }).first()
+    const session = await db('puzzle_sessions')
+      .join('puzzles', 'puzzle_sessions.puzzle_id', 'puzzles.id')
+      .where('puzzle_sessions.session_id', sessionId)
+      .select('puzzle_sessions.*', 'puzzles.letter_count')
+      .first()
     if (!session) return null
 
     let state: string[] = []
@@ -298,7 +308,13 @@ export class SessionService {
       console.error('Failed to parse session state', e)
     }
 
-    this.cache.set(sessionId, { state, lastAccess: Date.now(), dirty: false })
+    this.cache.set(sessionId, {
+      state,
+      lastAccess: Date.now(),
+      dirty: false,
+      letter_count: session.letter_count,
+      is_complete: Boolean(session.is_complete),
+    })
     return state
   }
 
@@ -319,21 +335,37 @@ export class SessionService {
           const filledCount = countFilledLetters(cached.state)
 
           // Get puzzle's letter_count for comparison
-          const session = await db('puzzle_sessions')
-            .join('puzzles', 'puzzle_sessions.puzzle_id', 'puzzles.id')
-            .where('puzzle_sessions.session_id', sessionId)
-            .select('puzzles.letter_count', 'puzzle_sessions.is_complete')
-            .first()
+          let letterCount = cached.letter_count
+          let currentIsComplete = cached.is_complete
 
-          const isComplete = session?.letter_count != null && filledCount >= session.letter_count
+          // Lazy load if missing from cache
+          if (letterCount === undefined || currentIsComplete === undefined) {
+            const session = await db('puzzle_sessions')
+              .join('puzzles', 'puzzle_sessions.puzzle_id', 'puzzles.id')
+              .where('puzzle_sessions.session_id', sessionId)
+              .select('puzzles.letter_count', 'puzzle_sessions.is_complete')
+              .first()
+
+            if (session) {
+              letterCount = session.letter_count
+              currentIsComplete = Boolean(session.is_complete)
+              // Update cache
+              cached.letter_count = letterCount
+              cached.is_complete = currentIsComplete
+            }
+          }
+
+          const isComplete = letterCount != null && filledCount >= letterCount
 
           // Only update is_complete if it changed
           const updateData: any = {
             state: JSON.stringify(cached.state),
             updated_at: now,
           }
-          if (isComplete !== Boolean(session?.is_complete)) {
+          if (isComplete !== currentIsComplete) {
             updateData.is_complete = isComplete
+            // Update cache to reflect new status
+            cached.is_complete = isComplete
           }
 
           await db('puzzle_sessions').where({ session_id: sessionId }).update(updateData)
