@@ -286,6 +286,42 @@ export class SessionService {
   }>()
   private static saveTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
+  private static MAX_CACHE_SIZE = 1000
+  private static CACHE_CLEANUP_THRESHOLD = 0.9
+
+  private static evictCache() {
+    if (this.cache.size < this.MAX_CACHE_SIZE) return
+
+    // Calculate how many items to remove to reach threshold
+    const targetSize = Math.floor(this.MAX_CACHE_SIZE * this.CACHE_CLEANUP_THRESHOLD)
+    const itemsToRemove = this.cache.size - targetSize
+    if (itemsToRemove <= 0) return
+
+    // Get candidates (non-dirty entries)
+    // We only evict non-dirty entries to avoid data loss
+    const entries = Array.from(this.cache.entries())
+    const candidates = entries.filter(([_, val]) => !val.dirty)
+
+    // Sort by lastAccess (oldest first)
+    candidates.sort((a, b) => a[1].lastAccess - b[1].lastAccess)
+
+    // Remove oldest candidates
+    const count = Math.min(itemsToRemove, candidates.length)
+    for (let i = 0; i < count; i++) {
+      this.cache.delete(candidates[i][0])
+    }
+  }
+
+  private static setCache(
+    sessionId: string,
+    data: { state: string[]; lastAccess: number; dirty: boolean }
+  ) {
+    if (!this.cache.has(sessionId)) {
+      this.evictCache()
+    }
+    this.cache.set(sessionId, data)
+  }
+
   private static async getCachedOrLoad(sessionId: string): Promise<string[] | null> {
     const cached = this.cache.get(sessionId)
     if (cached) {
@@ -308,7 +344,7 @@ export class SessionService {
       console.error('Failed to parse session state', e)
     }
 
-    this.cache.set(sessionId, {
+    this.setCache(sessionId, {
       state,
       lastAccess: Date.now(),
       dirty: false,
@@ -458,7 +494,7 @@ export class SessionService {
       const parsed = JSON.parse(session.state)
       sessionState = migrateLegacyState(parsed)
       // Populate cache
-      this.cache.set(sessionId, { state: sessionState, lastAccess: Date.now(), dirty: false })
+      this.setCache(sessionId, { state: sessionState, lastAccess: Date.now(), dirty: false })
     }
 
     // Parse attributions
@@ -481,7 +517,7 @@ export class SessionService {
     // legacy direct update
     const migratedState = migrateLegacyState(state)
     // Update cache
-    this.cache.set(sessionId, { state: migratedState, lastAccess: Date.now(), dirty: true })
+    this.setCache(sessionId, { state: migratedState, lastAccess: Date.now(), dirty: true })
     this.scheduleSave(sessionId)
     return true
   }
