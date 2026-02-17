@@ -112,6 +112,16 @@ export async function getCorrectAnswersStructure(puzzleId: number) {
   return { puzzle, puzzleAnswers }
 }
 
+interface CachedPuzzleData {
+  grid: CellType[][]
+  metadata: ClueMetadata[]
+  totalLetters: number
+  rawGrid: string
+}
+
+const puzzleCache = new Map<number, CachedPuzzleData>()
+const MAX_CACHE_SIZE = 100
+
 export async function checkSessionAnswers(
   puzzleId: number,
   sessionState: string[],
@@ -123,10 +133,35 @@ export async function checkSessionAnswers(
 }> {
   const { puzzle, puzzleAnswers } = await getCorrectAnswersStructure(puzzleId)
 
-  const grid: CellType[][] = puzzle.grid
-    .split('\n')
-    .map((row: string) => row.trim().split(' ') as CellType[])
-  const metadata = extractClueMetadata(grid)
+  let cached = puzzleCache.get(puzzleId)
+
+  // Invalidate if grid changed
+  if (!cached || cached.rawGrid !== puzzle.grid) {
+    const grid: CellType[][] = puzzle.grid
+      .split('\n')
+      .map((row: string) => row.trim().split(' ') as CellType[])
+    const metadata = extractClueMetadata(grid)
+
+    let totalLetters = 0
+    for (let r = 0; r < grid.length; r++) {
+      for (let c = 0; c < grid[0].length; c++) {
+        if (grid[r][c] !== 'B') {
+          totalLetters++
+        }
+      }
+    }
+
+    cached = { grid, metadata, totalLetters, rawGrid: puzzle.grid }
+
+    if (puzzleCache.size >= MAX_CACHE_SIZE) {
+      const firstKey = puzzleCache.keys().next().value
+      if (firstKey !== undefined) puzzleCache.delete(firstKey)
+    }
+
+    puzzleCache.set(puzzleId, cached)
+  }
+
+  const { grid, metadata, totalLetters } = cached
 
   const results: CheckResult[] = []
 
@@ -173,14 +208,12 @@ export async function checkSessionAnswers(
     }
   }
 
-  // Count total letters in grid and filled letters in sessionState
-  let totalLetters = 0
+  // Count filled letters in sessionState (totalLetters is cached)
   let filledLetters = 0
 
   for (let r = 0; r < grid.length; r++) {
     for (let c = 0; c < grid[0].length; c++) {
       if (grid[r][c] !== 'B') {
-        totalLetters++
         const char = getCharAt(sessionState, r, c)
         if (char && char.trim() !== '') {
           filledLetters++
