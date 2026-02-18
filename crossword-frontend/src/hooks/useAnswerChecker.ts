@@ -10,6 +10,7 @@ import {
 } from '@/store/slices/puzzleSlice'
 import { checkSingleWord, extractClueMetadata, checkSessionAnswers } from '@/utils/answerChecker'
 import { useAuth } from '@/context/AuthContext'
+import { useGameConnection } from '@/context/GameConnectionContext'
 import { getNickname } from '@/utils/sessionManager'
 import axios from 'axios'
 import type { AppDispatch, RootState } from '@/store/store'
@@ -27,6 +28,7 @@ const FLASH_DURATION_MS = 500
 export function useAnswerChecker() {
   const dispatch = useDispatch<AppDispatch>()
   const { user } = useAuth()
+  const { sendAnswerFeedback } = useGameConnection()
   const grid = useSelector(selectGrid)
   const answers = useSelector(selectAnswers)
   const answersEncrypted = useSelector(selectAnswersEncrypted)
@@ -148,6 +150,12 @@ export function useAnswerChecker() {
       if (result.isCorrect) {
         dispatch(setCorrectFlashCells(cellKeys))
 
+        // Broadcast feedback to other session participants
+        const currentSessionId = sessionIdRef.current
+        if (currentSessionId) {
+          sendAnswerFeedback(currentSessionId, cellKeys, true)
+        }
+
         // Check for nickname
         const currentUser = userRef.current
         const username = currentUser?.username || getNickname()
@@ -163,6 +171,12 @@ export function useAnswerChecker() {
         }
       } else {
         dispatch(setIncorrectFlashCells(cellKeys))
+
+        // Broadcast feedback to other session participants
+        const currentSessionId = sessionIdRef.current
+        if (currentSessionId) {
+          sendAnswerFeedback(currentSessionId, cellKeys, false)
+        }
       }
 
       // Clear flash after duration
@@ -176,7 +190,7 @@ export function useAnswerChecker() {
 
       return result.isCorrect ? 'correct' : 'incorrect'
     },
-    [dispatch, claimWord],
+    [dispatch, claimWord, sendAnswerFeedback],
   )
 
   const checkAllAnswers = useCallback(() => {

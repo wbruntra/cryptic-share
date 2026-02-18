@@ -44,3 +44,8 @@ export const socketReceivedExplanation = createAction<{
   explanation?: Record<string, unknown>
   error?: string
 }>('socket/receivedExplanation')
+
+export const socketReceivedAnswerFeedback = createAction<{
+  cells: string[]
+  isCorrect: boolean
+}>('socket/receivedAnswerFeedback')

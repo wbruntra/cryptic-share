@@ -40,4 +40,21 @@ export class Broadcaster {
       console.error('[Broadcaster] SSE error', e)
     }
   }
+
+  /**
+   * Broadcast answer feedback (green/red flash) to all session participants
+   */
+  static async broadcastAnswerFeedback(
+    sessionId: string,
+    cells: string[],
+    isCorrect: boolean,
+    senderId: string,
+  ) {
+    const data = { cells, isCorrect }
+    try {
+      SSEService.broadcast(sessionId, 'answer_feedback', data, senderId)
+    } catch (e) {
+      console.error('[Broadcaster] SSE error broadcasting answer feedback', e)
+    }
+  }
 }

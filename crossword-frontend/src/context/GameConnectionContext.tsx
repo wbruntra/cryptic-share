@@ -6,8 +6,10 @@ import {
   socketReceivedCellUpdated,
   socketReceivedWordClaimed,
   socketReceivedExplanation,
+  socketReceivedAnswerFeedback,
 } from '@/store/actions/socketActions'
 import { connectionEstablished, connectionLost } from '@/store/slices/socketSlice'
+import { clearFlashCells } from '@/store/slices/puzzleSlice'
 import axios from 'axios'
 
 interface GameConnectionContextValue {
@@ -24,6 +26,11 @@ interface GameConnectionContextValue {
     clueNumber: number,
     direction: 'across' | 'down',
   ) => Promise<any>
+  sendAnswerFeedback: (
+    sessionId: string,
+    cells: string[],
+    isCorrect: boolean,
+  ) => Promise<void>
   isConnected: boolean
 }
 
@@ -32,6 +39,7 @@ export const GameConnectionContext = createContext<GameConnectionContextValue>({
   checkAnswers: async () => {},
   claimWord: async () => {},
   requestExplanation: async () => {},
+  sendAnswerFeedback: async () => {},
   isConnected: false,
 })
 
@@ -47,6 +55,9 @@ export const GameConnectionProvider: React.FC<GameConnectionProviderProps> = ({
   const eventSourceRef = useRef<EventSource | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [socketId, setSocketId] = useState<string | null>(null)
+  const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const FLASH_DURATION_MS = 500
 
   // Send cell update via REST
   const sendCellUpdate = useCallback(
@@ -102,6 +113,21 @@ export const GameConnectionProvider: React.FC<GameConnectionProviderProps> = ({
       }
     },
     [],
+  )
+
+  // Send answer feedback via REST
+  const sendAnswerFeedback = useCallback(
+    async (sid: string, cells: string[], isCorrect: boolean) => {
+      try {
+        await axios.post(`/api/sessions/${sid}/feedback${socketId ? `?socketId=${socketId}` : ''}`, {
+          cells,
+          isCorrect,
+        })
+      } catch (error) {
+        console.error('[GameConnection] Failed to send answer feedback:', error)
+      }
+    },
+    [socketId],
   )
 
   // Connect to SSE
@@ -188,6 +214,22 @@ export const GameConnectionProvider: React.FC<GameConnectionProviderProps> = ({
           }),
         )
       })
+
+      es.addEventListener('answer_feedback', (e: MessageEvent) => {
+        const data = JSON.parse(e.data)
+        store.dispatch(
+          socketReceivedAnswerFeedback({
+            cells: data.cells,
+            isCorrect: data.isCorrect,
+          }),
+        )
+        if (flashTimeoutRef.current) {
+          clearTimeout(flashTimeoutRef.current)
+        }
+        flashTimeoutRef.current = setTimeout(() => {
+          store.dispatch(clearFlashCells())
+        }, FLASH_DURATION_MS)
+      })
     }
 
     connect()
@@ -211,6 +253,7 @@ export const GameConnectionProvider: React.FC<GameConnectionProviderProps> = ({
         checkAnswers,
         claimWord,
         requestExplanation,
+        sendAnswerFeedback,
         isConnected,
       }}
     >

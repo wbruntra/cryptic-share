@@ -541,4 +541,25 @@ sessions.post('/:sessionId/cell', async (c) => {
   }
 })
 
+// POST /api/sessions/:sessionId/feedback - Broadcast answer feedback
+sessions.post('/:sessionId/feedback', async (c) => {
+  const sessionId = c.req.param('sessionId')
+  const body = await c.req.json().catch(() => ({}))
+  const { cells, isCorrect } = body
+
+  if (!Array.isArray(cells) || typeof isCorrect !== 'boolean') {
+    throw new HTTPException(400, { message: 'Missing or invalid cells or isCorrect' })
+  }
+
+  try {
+    const senderId = c.req.query('socketId') || 'REST_API'
+    await Broadcaster.broadcastAnswerFeedback(sessionId, cells, isCorrect, senderId)
+
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error broadcasting answer feedback:', error)
+    throw new HTTPException(500, { message: 'Failed to broadcast answer feedback' })
+  }
+})
+
 export { sessions }

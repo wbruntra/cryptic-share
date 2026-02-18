@@ -4,6 +4,7 @@ import {
   socketReceivedPuzzleUpdated,
   socketReceivedCellUpdated,
   socketReceivedWordClaimed,
+  socketReceivedAnswerFeedback,
 } from '../actions/socketActions'
 
 interface Cursor {
@@ -354,6 +355,16 @@ const puzzleSlice = createSlice({
       .addCase(socketReceivedWordClaimed, (state, action) => {
         const { clueKey, userId, username, timestamp } = action.payload
         state.attributions[clueKey] = { userId, username, timestamp }
+      })
+      .addCase(socketReceivedAnswerFeedback, (state, action) => {
+        const { cells, isCorrect } = action.payload
+        if (isCorrect) {
+          state.correctFlashCells = cells
+          state.incorrectFlashCells = []
+        } else {
+          state.correctFlashCells = []
+          state.incorrectFlashCells = cells
+        }
       })
   },
 })
