@@ -112,7 +112,7 @@ export async function getCorrectAnswersStructure(puzzleId: number) {
   return { puzzle, puzzleAnswers }
 }
 
-interface CachedPuzzleData {
+export interface CachedPuzzleData {
   grid: CellType[][]
   metadata: ClueMetadata[]
   totalLetters: number
@@ -122,22 +122,12 @@ interface CachedPuzzleData {
 const puzzleCache = new Map<number, CachedPuzzleData>()
 const MAX_CACHE_SIZE = 100
 
-export async function checkSessionAnswers(
-  puzzleId: number,
-  sessionState: string[],
-): Promise<{
-  results: CheckResult[]
-  totalClues: number
-  totalLetters: number
-  filledLetters: number
-}> {
-  const { puzzle, puzzleAnswers } = await getCorrectAnswersStructure(puzzleId)
-
+export function getCachedPuzzleData(puzzleId: number, rawGrid: string): CachedPuzzleData {
   let cached = puzzleCache.get(puzzleId)
 
   // Invalidate if grid changed
-  if (!cached || cached.rawGrid !== puzzle.grid) {
-    const grid: CellType[][] = puzzle.grid
+  if (!cached || cached.rawGrid !== rawGrid) {
+    const grid: CellType[][] = rawGrid
       .split('\n')
       .map((row: string) => row.trim().split(' ') as CellType[])
     const metadata = extractClueMetadata(grid)
@@ -151,7 +141,7 @@ export async function checkSessionAnswers(
       }
     }
 
-    cached = { grid, metadata, totalLetters, rawGrid: puzzle.grid }
+    cached = { grid, metadata, totalLetters, rawGrid }
 
     if (puzzleCache.size >= MAX_CACHE_SIZE) {
       const firstKey = puzzleCache.keys().next().value
@@ -159,9 +149,26 @@ export async function checkSessionAnswers(
     }
 
     puzzleCache.set(puzzleId, cached)
+  } else {
+    // Move to end (most recently used)
+    puzzleCache.delete(puzzleId)
+    puzzleCache.set(puzzleId, cached)
   }
+  return cached
+}
 
-  const { grid, metadata, totalLetters } = cached
+export async function checkSessionAnswers(
+  puzzleId: number,
+  sessionState: string[],
+): Promise<{
+  results: CheckResult[]
+  totalClues: number
+  totalLetters: number
+  filledLetters: number
+}> {
+  const { puzzle, puzzleAnswers } = await getCorrectAnswersStructure(puzzleId)
+
+  const { grid, metadata, totalLetters } = getCachedPuzzleData(puzzleId, puzzle.grid)
 
   const results: CheckResult[] = []
 
