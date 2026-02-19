@@ -56,6 +56,8 @@ describe('CrosswordGrid Performance', () => {
         show: false,
       },
       attributions: {},
+      lockedCells: new Set<string>(),
+      isLockModeEnabled: true,
       isLoading: false,
       error: null,
       lastSyncedAt: 0,
