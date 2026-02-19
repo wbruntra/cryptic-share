@@ -7,6 +7,7 @@ import { AttributionStats } from '@/components/AttributionStats'
 import { HintModal } from '@/components/HintModal'
 import { ChangeNotification } from '@/components/ChangeNotification'
 import { Modal } from '@/components/Modal'
+import { Toast } from '@/components/Toast'
 import {
   clearErrorCells,
   dismissChangeNotification,
@@ -130,6 +131,19 @@ export function MobileView({
   const [showAttributions, setShowAttributions] = useState(false)
   const isHintModalOpen = useSelector((state: RootState) => state.puzzle.isHintModalOpen)
 
+  // Toast state for notifications
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
+
+  const handleNotificationClick = async () => {
+    if (isSubscribed) {
+      await unsubscribe()
+      setToastMessage('Notifications turned off')
+    } else {
+      await subscribe()
+      setToastMessage('Notifications enabled - you will receive alerts when words are claimed')
+    }
+  }
+
   const clueMetadata = useMemo(() => extractClueMetadata(grid), [grid])
 
   // Get current clue
@@ -217,6 +231,12 @@ export function MobileView({
         show={showChangeNotification}
         onDismiss={() => dispatch(dismissChangeNotification())}
         message="Partner made changes"
+      />
+
+      <Toast
+        show={!!toastMessage}
+        message={toastMessage || ''}
+        onDismiss={() => setToastMessage(null)}
       />
 
       {/* Check Result Modal - shown when puzzle is complete */}
@@ -322,13 +342,7 @@ export function MobileView({
             )}
             {isSupported && sessionId && (
               <button
-                onClick={() => {
-                  if (isSubscribed) {
-                    void unsubscribe()
-                  } else {
-                    void subscribe()
-                  }
-                }}
+                onClick={handleNotificationClick}
                 disabled={isLoading}
                 className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-colors ${
                   isSubscribed
