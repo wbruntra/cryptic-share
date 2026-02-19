@@ -17,6 +17,7 @@ import { extractClueMetadata } from '@/utils/answerChecker'
 import { useAnswerChecker } from '@/hooks/useAnswerChecker'
 import { usePuzzleTimer } from '@/hooks/usePuzzleTimer'
 import { useActiveWordCells } from '@/hooks/useGridOptimized'
+import { usePuzzleNotifications } from '@/hooks/usePuzzleNotifications'
 import type { RootState } from '@/store/store'
 import type { Direction } from '@/types'
 
@@ -117,6 +118,7 @@ export function MobileView({
   const isChecking = useSelector(selectIsChecking)
   const checkResult = useSelector(selectCheckResult)
   const { renderedGrid, currentClueNumber } = useRenderedGrid()
+  const { isSupported, isSubscribed, isLoading, subscribe, unsubscribe } = usePuzzleNotifications(sessionId ?? '')
 
   // Local UI state
   const [isClueSheetOpen, setIsClueSheetOpen] = useState(false)
@@ -301,6 +303,27 @@ export function MobileView({
                 aria-label="Show stats"
               >
                 📊
+              </button>
+            )}
+            {isSupported && sessionId && (
+              <button
+                onClick={() => {
+                  if (isSubscribed) {
+                    void unsubscribe()
+                  } else {
+                    void subscribe()
+                  }
+                }}
+                disabled={isLoading}
+                className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-colors ${
+                  isSubscribed
+                    ? 'bg-primary/10 border-primary text-primary'
+                    : 'bg-surface border-border text-text-secondary'
+                } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                aria-label={isSubscribed ? 'Unsubscribe from notifications' : 'Subscribe to notifications'}
+                title={isSubscribed ? 'Unsubscribe from puzzle notifications' : 'Get notified when words are claimed'}
+              >
+                {isSubscribed ? '🔔' : '🔕'}
               </button>
             )}
           </div>

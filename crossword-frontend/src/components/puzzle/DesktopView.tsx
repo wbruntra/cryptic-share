@@ -17,6 +17,7 @@ import { extractClueMetadata } from '@/utils/answerChecker'
 import { useAnswerChecker } from '@/hooks/useAnswerChecker'
 import { usePuzzleTimer } from '@/hooks/usePuzzleTimer'
 import { useActiveWordCells } from '@/hooks/useGridOptimized'
+import { usePuzzleNotifications } from '@/hooks/usePuzzleNotifications'
 import type { RootState } from '@/store/store'
 
 // Selectors
@@ -114,6 +115,7 @@ export function DesktopView({
   const [showAttributions, setShowAttributions] = useState(false)
   const isHintModalOpen = useSelector((state: RootState) => state.puzzle.isHintModalOpen)
   const { renderedGrid, currentClueNumber } = useRenderedGrid()
+  const { isSupported, isSubscribed, isLoading, subscribe, unsubscribe } = usePuzzleNotifications(sessionId ?? '')
 
   const clueMetadata = useMemo(() => extractClueMetadata(grid), [grid])
 
@@ -249,6 +251,27 @@ export function DesktopView({
               ) : (
                 '🔍'
               )}
+            </button>
+          )}
+          {isSupported && sessionId && (
+            <button
+              onClick={() => {
+                if (isSubscribed) {
+                  void unsubscribe()
+                } else {
+                  void subscribe()
+                }
+              }}
+              disabled={isLoading}
+              className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-colors ${
+                isSubscribed
+                  ? 'bg-primary/10 border-primary text-primary'
+                  : 'bg-surface border-border text-text-secondary hover:border-primary hover:text-primary'
+              } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              aria-label={isSubscribed ? 'Unsubscribe from notifications' : 'Subscribe to notifications'}
+              title={isSubscribed ? 'Unsubscribe from puzzle notifications' : 'Get notified when words are claimed'}
+            >
+              {isSubscribed ? '🔔' : '🔕'}
             </button>
           )}
         </div>

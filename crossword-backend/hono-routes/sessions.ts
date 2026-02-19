@@ -6,6 +6,8 @@ import { requireAuth, optionalAuth, type AuthUser } from '../hono-middleware/aut
 import { SessionService } from '../services/sessionService'
 import { SSEService } from '../services/sseService'
 import { Broadcaster } from '../services/broadcaster'
+import { PushService } from '../services/pushService'
+import db from '../db-knex'
 
 type Variables = { user: AuthUser | null }
 
@@ -458,6 +460,23 @@ sessions.post('/:sessionId/claim', async (c) => {
         username,
         timestamp,
       })
+
+      // Trigger push notifications for other subscribers
+      try {
+        // Get puzzle title for the notification
+        const session = await db('puzzle_sessions')
+          .join('puzzles', 'puzzle_sessions.puzzle_id', 'puzzles.id')
+          .where('puzzle_sessions.session_id', sessionId)
+          .select('puzzles.title')
+          .first()
+
+        if (session) {
+          void PushService.notifyOnWordClaim(sessionId, session.title, userId || null)
+        }
+      } catch (notifyError) {
+        // Don't fail the claim if notifications fail
+        console.error('[Push] Error triggering notification:', notifyError)
+      }
     }
 
     return c.json({ success: true, claimed })

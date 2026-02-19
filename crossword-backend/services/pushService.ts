@@ -18,6 +18,9 @@ interface PushSubscription {
   }
 }
 
+// 20-minute cooldown in milliseconds
+const NOTIFICATION_COOLDOWN_MS = 20 * 60 * 1000
+
 export class PushService {
   /**
    * Get VAPID public key for frontend subscription
@@ -27,120 +30,106 @@ export class PushService {
   }
 
   /**
-   * Save a GLOBAL push subscription (device registration only)
+   * Subscribe a user to push notifications for a specific session
    */
-  static async saveSubscription(subscription: PushSubscription): Promise<void> {
+  static async subscribeToSession(
+    sessionId: string,
+    userId: number,
+    subscription: PushSubscription,
+  ): Promise<void> {
     const { endpoint, keys } = subscription
 
-    // Upsert global subscription
-    const existing = await db('push_subscriptions').where({ endpoint }).first()
-
-    if (existing) {
-      await db('push_subscriptions').where({ endpoint }).update({
-        p256dh: keys.p256dh,
-        auth: keys.auth,
-      })
-      console.log(`[Push] Updated global subscription for ${endpoint.slice(0, 20)}...`)
-    } else {
-      await db('push_subscriptions').insert({
-        endpoint,
-        p256dh: keys.p256dh,
-        auth: keys.auth,
-      })
-      console.log(`[Push] Created NEW global subscription for ${endpoint.slice(0, 20)}...`)
-    }
-  }
-
-  /**
-   * Link an endpoint to a session (subscribe to updates for THIS puzzle)
-   */
-  static async linkSession(sessionId: string, endpoint: string): Promise<void> {
-    // Only link if the global subscription exists (safety check)
-    const sub = await db('push_subscriptions').where({ endpoint }).first()
-    if (!sub) {
-      console.warn(`[Push] Cannot link session ${sessionId}: Endpoint not found globally`)
-      return
-    }
-
-    // Upsert session link
-    // Use onConflict to handle race conditions where multiple events try to link simultaneously
-    await db('session_subscriptions')
+    // Upsert subscription (one per user per session)
+    await db('session_push_subscriptions')
       .insert({
         session_id: sessionId,
+        user_id: userId,
         endpoint,
-        notified: false,
+        p256dh: keys.p256dh,
+        auth: keys.auth,
       })
-      .onConflict(['session_id', 'endpoint'])
-      .merge({ notified: false }) // Reset notified flag if it exists
+      .onConflict(['session_id', 'user_id'])
+      .merge({
+        endpoint,
+        p256dh: keys.p256dh,
+        auth: keys.auth,
+        last_notified_at: null, // Reset cooldown on resubscribe
+      })
 
-    console.log(`[Push] Linked endpoint to session ${sessionId}`)
+    console.log(`[Push] User ${userId} subscribed to session ${sessionId}`)
   }
 
   /**
-   * Remove a push subscription globally
+   * Unsubscribe a user from push notifications for a session
    */
-  static async removeSubscription(endpoint: string): Promise<void> {
-    await db('push_subscriptions').where({ endpoint }).del()
-    // Cascade delete handles session_subscriptions usually, but let's be safe
-    await db('session_subscriptions').where({ endpoint }).del()
+  static async unsubscribeFromSession(sessionId: string, userId: number): Promise<void> {
+    await db('session_push_subscriptions')
+      .where({ session_id: sessionId, user_id: userId })
+      .del()
+
+    console.log(`[Push] User ${userId} unsubscribed from session ${sessionId}`)
   }
 
   /**
-    * Clear the notified flag for a subscription (called when user reconnects)
+   * Check if a user is subscribed to a session
    */
-  static async clearNotifiedFlag(sessionId: string, endpoint: string): Promise<void> {
-    await db('session_subscriptions')
-      .where({ session_id: sessionId, endpoint })
-      .update({ notified: false })
+  static async isSubscribed(sessionId: string, userId: number): Promise<boolean> {
+    const subscription = await db('session_push_subscriptions')
+      .where({ session_id: sessionId, user_id: userId })
+      .first()
+
+    return !!subscription
   }
 
   /**
-   * Notify all participants of a session who haven't been notified yet.
-   * Only sends ONE notification per subscription until they reconnect.
+   * Notify all subscribers of a session when a word is claimed.
+   * Excludes the user who made the claim and respects the 20-min cooldown.
    */
-  static async notifySessionParticipants(
+  static async notifyOnWordClaim(
     sessionId: string,
     puzzleTitle: string,
-    excludeEndpoints: string[] = [],
+    claimingUserId: number | null,
   ): Promise<void> {
     if (!vapidPublicKey || !vapidPrivateKey) {
       console.warn('[Push] Push notifications not configured (missing VAPID keys)')
       return
     }
 
-    console.log(
-      `[Push] Looking for subscriptions for session ${sessionId}, excluding [${excludeEndpoints.length}] endpoints`,
-    )
+    const now = new Date()
+    const cooldownThreshold = new Date(now.getTime() - NOTIFICATION_COOLDOWN_MS)
 
-    // Get all subscriptions for this session that haven't been notified
-    // Join with global push_subscriptions to get keys
-    const subscriptions = await db('session_subscriptions')
-      .join('push_subscriptions', 'session_subscriptions.endpoint', 'push_subscriptions.endpoint')
-      .where('session_subscriptions.session_id', sessionId)
-      .where('session_subscriptions.notified', false)
-      .whereNotIn('session_subscriptions.endpoint', excludeEndpoints)
-      .select(
-        'session_subscriptions.id as link_id',
-        'push_subscriptions.endpoint',
-        'push_subscriptions.p256dh',
-        'push_subscriptions.auth',
-      )
+    console.log(`[Push] Notifying subscribers for session ${sessionId} (word claimed)`)
 
-    if (subscriptions.length > 0) {
-      console.log(
-        `[Push] Found ${subscriptions.length} eligible subscriptions for session ${sessionId}`,
-      )
-    } else {
+    // Get all subscriptions for this session
+    // - Exclude the user who made the claim
+    // - Only include subscriptions where last_notified_at is null or > 20 mins ago
+    let subscriptionsQuery = db('session_push_subscriptions')
+      .where('session_id', sessionId)
+      .where(function () {
+        this.whereNull('last_notified_at').orWhere('last_notified_at', '<', cooldownThreshold)
+      })
+
+    // Exclude the claiming user if they have a userId
+    if (claimingUserId) {
+      subscriptionsQuery = subscriptionsQuery.whereNot('user_id', claimingUserId)
+    }
+
+    const subscriptions = await subscriptionsQuery.select('*')
+
+    if (subscriptions.length === 0) {
+      console.log(`[Push] No eligible subscribers for session ${sessionId}`)
       return
     }
 
+    console.log(`[Push] Found ${subscriptions.length} eligible subscribers for session ${sessionId}`)
+
     const payload = JSON.stringify({
-      title: 'Puzzle Updated',
-      body: `Someone made changes to "${puzzleTitle}"`,
+      title: 'Word Claimed!',
+      body: `Someone solved a word in "${puzzleTitle}"`,
       url: `/play/${sessionId}`,
     })
 
-    // Send notifications and mark as notified
+    // Send notifications and update last_notified_at
     for (const sub of subscriptions) {
       try {
         await webpush.sendNotification(
@@ -154,26 +143,41 @@ export class PushService {
           payload,
         )
 
-        // Mark as notified so we don't send again until reconnect
-        await db('session_subscriptions').where({ id: sub.link_id }).update({ notified: true })
+        // Update last_notified_at to now
+        await db('session_push_subscriptions')
+          .where({ id: sub.id })
+          .update({ last_notified_at: now.toISOString() })
 
-        console.log(`[Push] Notification sent to ${sub.endpoint.slice(0, 20)}...`)
+        console.log(`[Push] Notification sent to user ${sub.user_id} for session ${sessionId}`)
       } catch (error: any) {
         // Handle expired/invalid subscriptions
         if (error.statusCode === 404 || error.statusCode === 410) {
-          console.log(`[Push] Removing expired subscription: ${sub.endpoint}`)
-          await this.removeSubscription(sub.endpoint)
+          console.log(`[Push] Removing expired subscription for user ${sub.user_id} in session ${sessionId}`)
+          await db('session_push_subscriptions').where({ id: sub.id }).del()
         } else {
-          console.error('[Push] Notification error:', error)
+          console.error(`[Push] Notification error for user ${sub.user_id}:`, error)
         }
       }
     }
   }
 
   /**
-   * Get subscriptions for a session (for checking connected users)
+   * Get all subscriptions for a session (for admin/debugging)
    */
   static async getSessionSubscriptions(sessionId: string) {
-    return db('session_subscriptions').where({ session_id: sessionId })
+    return db('session_push_subscriptions')
+      .where({ session_id: sessionId })
+      .select('user_id', 'last_notified_at', 'created_at')
+  }
+
+  /**
+   * Clean up all subscriptions for a user (called on account deletion)
+   */
+  static async removeAllUserSubscriptions(userId: number): Promise<void> {
+    const count = await db('session_push_subscriptions')
+      .where({ user_id: userId })
+      .del()
+
+    console.log(`[Push] Removed ${count} subscriptions for deleted user ${userId}`)
   }
 }
