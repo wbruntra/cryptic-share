@@ -1,4 +1,4 @@
-import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
+import { createSlice, createSelector, type PayloadAction } from '@reduxjs/toolkit'
 import type { CellType, Direction, Clue } from '@/types'
 import {
   socketReceivedPuzzleUpdated,
@@ -6,6 +6,7 @@ import {
   socketReceivedWordClaimed,
   socketReceivedAnswerFeedback,
 } from '../actions/socketActions'
+import { getCellsForClue } from '@/utils/lockCells'
 
 interface Cursor {
   r: number
@@ -43,8 +44,11 @@ export interface PuzzleState {
     show: boolean
   }
 
-  // Attributions (who solved which word)
+  // Attributions (who solved which word) — locked cells are derived from this
   attributions: Record<string, { userId: number | null; username: string; timestamp: string }>
+
+  // Lock mode toggle
+  isLockModeEnabled: boolean
 
   // Meta
   isLoading: boolean
@@ -76,6 +80,7 @@ const initialState: PuzzleState = {
     show: false,
   },
   attributions: {},
+  isLockModeEnabled: true,
   isLoading: false,
   error: null,
   lastSyncedAt: 0,
@@ -303,6 +308,10 @@ const puzzleSlice = createSlice({
       state.attributions[clueKey] = { userId, username, timestamp }
     },
 
+    toggleLockMode: (state) => {
+      state.isLockModeEnabled = !state.isLockModeEnabled
+    },
+
     clearPuzzle: () => initialState,
   },
   extraReducers: (builder) => {
@@ -390,8 +399,28 @@ export const {
   setCheckResult,
   dismissCheckResult,
   setAttribution,
-
+  toggleLockMode,
   clearPuzzle,
 } = puzzleSlice.actions
+
+/**
+ * Derives the set of locked cell keys ("r-c") from attributions.
+ * Cells belonging to a claimed/correct word are locked.
+ * Memoized — only recomputes when grid or attributions change.
+ */
+export const selectLockedCells = createSelector(
+  (state: { puzzle: PuzzleState }) => state.puzzle.grid,
+  (state: { puzzle: PuzzleState }) => state.puzzle.attributions,
+  (grid, attributions) => {
+    const locked = new Set<string>()
+    if (!grid || grid.length === 0) return locked
+    for (const clueKey of Object.keys(attributions)) {
+      const [numberStr, direction] = clueKey.split('-')
+      const cells = getCellsForClue(grid, parseInt(numberStr, 10), direction as Direction)
+      for (const cell of cells) locked.add(cell)
+    }
+    return locked
+  },
+)
 
 export default puzzleSlice.reducer

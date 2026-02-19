@@ -12,6 +12,7 @@ import {
   dismissChangeNotification,
   setHintModalOpen,
   dismissCheckResult,
+  toggleLockMode,
 } from '@/store/slices/puzzleSlice'
 import { extractClueMetadata } from '@/utils/answerChecker'
 import { useAnswerChecker } from '@/hooks/useAnswerChecker'
@@ -35,6 +36,7 @@ const selectSessionId = (state: RootState) => state.puzzle.sessionId
 const selectErrorCells = (state: RootState) => state.puzzle.errorCells
 const selectIsChecking = (state: RootState) => state.puzzle.isChecking
 const selectCheckResult = (state: RootState) => state.puzzle.checkResult
+const selectIsLockModeEnabled = (state: RootState) => state.puzzle.isLockModeEnabled
 
 // Optimized hook that computes rendered grid with O(n) active word lookup
 function useRenderedGrid() {
@@ -112,6 +114,7 @@ export function DesktopView({
   const errorCells = useSelector(selectErrorCells)
   const isChecking = useSelector(selectIsChecking)
   const checkResult = useSelector(selectCheckResult)
+  const isLockModeEnabled = useSelector(selectIsLockModeEnabled)
   const [showAttributions, setShowAttributions] = useState(false)
   const isHintModalOpen = useSelector((state: RootState) => state.puzzle.isHintModalOpen)
   const { renderedGrid, currentClueNumber } = useRenderedGrid()
@@ -253,6 +256,18 @@ export function DesktopView({
               )}
             </button>
           )}
+          <button
+            onClick={() => dispatch(toggleLockMode())}
+            className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-colors ${
+              isLockModeEnabled
+                ? 'bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400'
+                : 'bg-surface border-border text-text-secondary hover:border-green-500 hover:text-green-600'
+            }`}
+            aria-label={isLockModeEnabled ? 'Lock mode enabled' : 'Lock mode disabled'}
+            title={isLockModeEnabled ? 'Lock mode: Correct words are locked' : 'Lock mode: All cells editable'}
+          >
+            {isLockModeEnabled ? '🔒' : '🔓'}
+          </button>
           {isSupported && sessionId && (
             <button
               onClick={() => {

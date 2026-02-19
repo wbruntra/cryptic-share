@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { updateCell, moveCursor, toggleDirection } from '@/store/slices/puzzleSlice'
+import { updateCell, moveCursor, toggleDirection, selectLockedCells } from '@/store/slices/puzzleSlice'
 import { useAnswerChecker } from './useAnswerChecker'
 import type { AppDispatch, RootState } from '@/store/store'
 import type { Direction } from '@/types'
@@ -10,6 +10,7 @@ const selectCursor = (state: RootState) => state.puzzle.cursor
 const selectGrid = (state: RootState) => state.puzzle.grid
 const selectAnswers = (state: RootState) => state.puzzle.answers
 const selectIsHintModalOpen = (state: RootState) => state.puzzle.isHintModalOpen
+const selectIsLockModeEnabled = (state: RootState) => state.puzzle.isLockModeEnabled
 
 export function usePuzzleInput(
   sendCellUpdate: (r: number, c: number, value: string) => void,
@@ -20,6 +21,8 @@ export function usePuzzleInput(
   const isHintModalOpen = useSelector(selectIsHintModalOpen)
   const grid = useSelector(selectGrid)
   const answers = useSelector(selectAnswers)
+  const lockedCells = useSelector(selectLockedCells)
+  const isLockModeEnabled = useSelector(selectIsLockModeEnabled)
   const { getCurrentClueNumber } = useAnswerChecker()
 
   // Refs for stable callbacks
@@ -29,6 +32,8 @@ export function usePuzzleInput(
   const isHintModalOpenRef = useRef(isHintModalOpen)
   const onCheckWordRef = useRef(onCheckWord)
   const sendCellUpdateRef = useRef(sendCellUpdate)
+  const lockedCellsRef = useRef(lockedCells)
+  const isLockModeEnabledRef = useRef(isLockModeEnabled)
 
   useEffect(() => {
     cursorRef.current = cursor
@@ -37,12 +42,21 @@ export function usePuzzleInput(
     isHintModalOpenRef.current = isHintModalOpen
     onCheckWordRef.current = onCheckWord
     sendCellUpdateRef.current = sendCellUpdate
-  }, [cursor, grid, answers, isHintModalOpen, onCheckWord, sendCellUpdate])
+    lockedCellsRef.current = lockedCells
+    isLockModeEnabledRef.current = isLockModeEnabled
+  }, [cursor, grid, answers, isHintModalOpen, onCheckWord, sendCellUpdate, lockedCells, isLockModeEnabled])
 
   const handleUpdateCell = useCallback(
     (value: string): string[] | null => {
       const currentCursor = cursorRef.current
       if (!currentCursor) return null
+
+      // Check if cell is locked and lock mode is enabled
+      const cellKey = `${currentCursor.r}-${currentCursor.c}`
+      if (isLockModeEnabledRef.current && lockedCellsRef.current.has(cellKey)) {
+        // Cell is locked - don't update, but return current answers so cursor still moves
+        return [...answersRef.current]
+      }
 
       dispatch(updateCell({ r: currentCursor.r, c: currentCursor.c, value }))
       sendCellUpdateRef.current(currentCursor.r, currentCursor.c, value)

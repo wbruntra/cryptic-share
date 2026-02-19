@@ -12,6 +12,7 @@ import {
   dismissChangeNotification,
   setHintModalOpen,
   dismissCheckResult,
+  toggleLockMode,
 } from '@/store/slices/puzzleSlice'
 import { extractClueMetadata } from '@/utils/answerChecker'
 import { useAnswerChecker } from '@/hooks/useAnswerChecker'
@@ -36,6 +37,7 @@ const selectSessionId = (state: RootState) => state.puzzle.sessionId
 const selectErrorCells = (state: RootState) => state.puzzle.errorCells
 const selectIsChecking = (state: RootState) => state.puzzle.isChecking
 const selectCheckResult = (state: RootState) => state.puzzle.checkResult
+const selectIsLockModeEnabled = (state: RootState) => state.puzzle.isLockModeEnabled
 
 // Optimized hook that computes rendered grid with O(n) active word lookup
 function useRenderedGrid() {
@@ -117,6 +119,7 @@ export function MobileView({
   const errorCells = useSelector(selectErrorCells)
   const isChecking = useSelector(selectIsChecking)
   const checkResult = useSelector(selectCheckResult)
+  const isLockModeEnabled = useSelector(selectIsLockModeEnabled)
   const { renderedGrid, currentClueNumber } = useRenderedGrid()
   const { isSupported, isSubscribed, isLoading, subscribe, unsubscribe } = usePuzzleNotifications(sessionId ?? '')
 
@@ -296,6 +299,18 @@ export function MobileView({
                 )}
               </button>
             )}
+            <button
+              onClick={() => dispatch(toggleLockMode())}
+              className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-colors ${
+                isLockModeEnabled
+                  ? 'bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400'
+                  : 'bg-surface border-border text-text-secondary active:border-green-500 active:text-green-600'
+              }`}
+              aria-label={isLockModeEnabled ? 'Lock mode enabled' : 'Lock mode disabled'}
+              title={isLockModeEnabled ? 'Lock mode: Correct words are locked' : 'Lock mode: All cells editable'}
+            >
+              {isLockModeEnabled ? '🔒' : '🔓'}
+            </button>
             {sessionId && (
               <button
                 onClick={() => setShowAttributions(true)}
