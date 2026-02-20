@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 
 interface ToastProps {
   show: boolean
@@ -7,21 +7,22 @@ interface ToastProps {
   duration?: number
 }
 
-export function Toast({
-  show,
-  message,
-  onDismiss,
-  duration = 2000,
-}: ToastProps) {
+export function Toast({ show, message, onDismiss, duration = 2000 }: ToastProps) {
+  const onDismissRef = useRef(onDismiss)
+
+  useEffect(() => {
+    onDismissRef.current = onDismiss
+  }, [onDismiss])
+
   useEffect(() => {
     if (show) {
       const timer = setTimeout(() => {
-        onDismiss()
+        onDismissRef.current()
       }, duration)
 
       return () => clearTimeout(timer)
     }
-  }, [show, duration, onDismiss])
+  }, [show, duration])
 
   if (!show) return null
 
