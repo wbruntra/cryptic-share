@@ -89,11 +89,38 @@ export class PushService {
     sessionId: string,
     puzzleTitle: string,
     claimingUserId: number | null,
+    claimingUsername: string,
+    clueKey: string,
   ): Promise<void> {
     if (!vapidPublicKey || !vapidPrivateKey) {
       console.warn('[Push] Push notifications not configured (missing VAPID keys)')
       return
     }
+
+    // Try to look up the decrypted answer word for the clue
+    let word: string | null = null
+    try {
+      const direction = clueKey.endsWith('-across') ? 'across' : 'down'
+      const number = parseInt(clueKey.replace(/-(?:across|down)$/, ''))
+      const sessionRow = await db('puzzle_sessions')
+        .where('session_id', sessionId)
+        .select('puzzle_id')
+        .first()
+      if (sessionRow) {
+        const { getCorrectAnswersStructure, rot13 } = await import('../utils/answerChecker')
+        const { puzzleAnswers } = await getCorrectAnswersStructure(sessionRow.puzzle_id)
+        const answerEntry = puzzleAnswers?.[direction]?.find((a: any) => a.number === number)
+        if (answerEntry) {
+          word = rot13(answerEntry.answer).toUpperCase().replace(/[^A-Z]/g, '')
+        }
+      }
+    } catch (e) {
+      // Fall back gracefully if answer lookup fails
+    }
+
+    const notificationBody = word
+      ? `${claimingUsername} solved ${word} (${clueKey}) in "${puzzleTitle}"`
+      : `${claimingUsername} solved ${clueKey} in "${puzzleTitle}"`
 
     const now = new Date()
     const cooldownThreshold = new Date(now.getTime() - NOTIFICATION_COOLDOWN_MS)
@@ -125,7 +152,7 @@ export class PushService {
 
     const payload = JSON.stringify({
       title: 'Word Claimed!',
-      body: `Someone solved a word in "${puzzleTitle}"`,
+      body: notificationBody,
       url: `/play/${sessionId}`,
     })
 

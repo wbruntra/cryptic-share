@@ -471,7 +471,7 @@ sessions.post('/:sessionId/claim', async (c) => {
           .first()
 
         if (session) {
-          void PushService.notifyOnWordClaim(sessionId, session.title, userId || null)
+          void PushService.notifyOnWordClaim(sessionId, session.title, userId || null, username, clueKey)
         }
       } catch (notifyError) {
         // Don't fail the claim if notifications fail
