@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
-declare const self: ServiceWorkerGlobalScope
+import type { PrecacheEntry } from 'workbox-precaching'
+declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: Array<PrecacheEntry | string> }
 
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching'
 

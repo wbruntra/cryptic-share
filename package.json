@@ -1,28 +1,27 @@
 {
   "name": "cryptic-share",
   "version": "1.0.0",
-  "description": "crossword sharer",
-  "homepage": "https://github.com/wbruntra/cryptic-share#readme",
-  "bugs": {
-    "url": "https://github.com/wbruntra/cryptic-share/issues"
-  },
+  "author": "",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/wbruntra/cryptic-share.git"
   },
-  "license": "ISC",
-  "author": "",
-  "type": "commonjs",
   "main": "gemini.js",
+  "bugs": {
+    "url": "https://github.com/wbruntra/cryptic-share/issues"
+  },
+  "description": "crossword sharer",
   "directories": {
     "doc": "docs"
   },
+  "homepage": "https://github.com/wbruntra/cryptic-share#readme",
+  "license": "ISC",
   "scripts": {
+    "postinstall": "bun install --cwd common && bun install --cwd crossword-frontend && bun install --cwd crossword-backend",
     "api": "cd crossword-backend && bun run dev",
     "frontend": "cd crossword-frontend && bun run dev",
-    "dev": "bun run --parallel api frontend"
+    "dev": "bun run --parallel api frontend",
+    "build:frontend": "cd crossword-frontend && bun run build"
   },
-  "dependencies": {
-    "concurrently": "^9.2.1"
-  }
+  "type": "module"
 }
