@@ -149,7 +149,19 @@ export function useAnswerChecker() {
 
       if (result.isCorrect) {
         dispatch(setCorrectFlashCells(cellKeys))
+      } else {
+        dispatch(setIncorrectFlashCells(cellKeys))
+      }
 
+      // Always schedule flash clear, regardless of what happens next
+      if (flashTimeoutRef.current) {
+        clearTimeout(flashTimeoutRef.current)
+      }
+      flashTimeoutRef.current = setTimeout(() => {
+        dispatch(clearFlashCells())
+      }, FLASH_DURATION_MS)
+
+      if (result.isCorrect) {
         // Broadcast feedback to other session participants
         const currentSessionId = sessionIdRef.current
         if (currentSessionId) {
@@ -170,23 +182,12 @@ export function useAnswerChecker() {
           void claimWord(clueNumber, direction)
         }
       } else {
-        dispatch(setIncorrectFlashCells(cellKeys))
-
         // Broadcast feedback to other session participants
         const currentSessionId = sessionIdRef.current
         if (currentSessionId) {
           sendAnswerFeedback(currentSessionId, cellKeys, false)
         }
       }
-
-      // Clear flash after duration
-      if (flashTimeoutRef.current) {
-        clearTimeout(flashTimeoutRef.current)
-      }
-
-      flashTimeoutRef.current = setTimeout(() => {
-        dispatch(clearFlashCells())
-      }, FLASH_DURATION_MS)
 
       return result.isCorrect ? 'correct' : 'incorrect'
     },

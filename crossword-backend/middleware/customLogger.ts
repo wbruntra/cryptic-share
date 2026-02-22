@@ -10,7 +10,7 @@ export default async (c, next) => {
     ignoredPaths.some((p) => urlObj.pathname.startsWith(p)) ||
     ignoredPatterns.some((r) => r.test(urlObj.pathname))
   ) {
-    return
+    return next()
   }
 
   await next()
