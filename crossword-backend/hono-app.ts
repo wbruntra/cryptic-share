@@ -11,7 +11,7 @@ import { clues } from './hono-routes/clues'
 import { push } from './hono-routes/push'
 import { adminSessions } from './hono-routes/admin-sessions'
 import { adminExplanations } from './hono-routes/admin-explanations'
-import customLogger from './middleware/customLogger'
+import { createLogger } from './middleware/customLogger'
 
 // Extend Hono context with our user type
 type Variables = {
@@ -21,7 +21,11 @@ type Variables = {
 // Create app with typed variables
 export const app = new Hono<{ Variables: Variables }>()
 
-app.use('*', customLogger)
+app.use('*', createLogger({
+  ignoredPatterns: [/^\/api\/sessions\/[^/]+\/cell$/],
+  ignoredPaths: ['/api/notifications'],
+  getUserId: (c) => c.get('user')?.id,
+}))
 
 // Auth middleware - extract user from JWT if present
 app.use('/api/*', async (c, next) => {
