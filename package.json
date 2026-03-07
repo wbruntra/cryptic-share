@@ -21,7 +21,7 @@
     "api": "cd crossword-backend && bun run dev",
     "frontend": "cd crossword-frontend && bun run dev",
     "dev": "bun run --parallel api frontend",
-    "build:frontend": "cd crossword-frontend && bun run build"
+    "build": "cd crossword-frontend && bun run build"
   },
   "type": "module"
 }

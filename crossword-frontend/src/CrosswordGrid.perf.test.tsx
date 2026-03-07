@@ -61,6 +61,7 @@ describe('CrosswordGrid Performance', () => {
       isLoading: false,
       error: null,
       lastSyncedAt: 0,
+      puzzleComplete: false,
     },
   }
 
