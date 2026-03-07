@@ -252,6 +252,39 @@ export function useAnswerChecker() {
     }
   }, [dispatch])
 
+  // Silent check — returns true if all cells are filled and correct, without dispatching any UI state.
+  // Accepts answersOverride so it can use the latest local answers before Redux re-renders.
+  const checkIsPuzzleComplete = useCallback((answersOverride?: string[]): boolean => {
+    const currentGrid = gridRef.current
+    const currentAnswers = answersOverride ?? answersRef.current
+    const currentAnswersEncrypted = answersEncryptedRef.current
+
+    if (!currentAnswersEncrypted || currentGrid.length === 0) return false
+
+    const puzzleAnswers = {
+      across: Array.isArray(currentAnswersEncrypted.across)
+        ? currentAnswersEncrypted.across
+        : Object.entries(currentAnswersEncrypted.across).map(([num, answer]) => ({
+            number: parseInt(num, 10),
+            answer,
+          })),
+      down: Array.isArray(currentAnswersEncrypted.down)
+        ? currentAnswersEncrypted.down
+        : Object.entries(currentAnswersEncrypted.down).map(([num, answer]) => ({
+            number: parseInt(num, 10),
+            answer,
+          })),
+    }
+
+    const { totalLetters, filledLetters, errorCells } = checkSessionAnswers(
+      currentGrid,
+      currentAnswers,
+      puzzleAnswers,
+    )
+
+    return filledLetters === totalLetters && errorCells.length === 0
+  }, [])
+
   const getCurrentClueNumber = useCallback(
     (r: number, c: number, direction: Direction): number | null => {
       const currentGrid = gridRef.current
@@ -313,5 +346,5 @@ export function useAnswerChecker() {
     return decrypted.toUpperCase().replace(/[^A-Z]/g, '')
   }, [])
 
-  return { checkCurrentWord, getCurrentClueNumber, checkAllAnswers, claimWord, getSolution }
+  return { checkCurrentWord, getCurrentClueNumber, checkAllAnswers, checkIsPuzzleComplete, claimWord, getSolution }
 }

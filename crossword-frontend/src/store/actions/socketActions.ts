@@ -49,3 +49,5 @@ export const socketReceivedAnswerFeedback = createAction<{
   cells: string[]
   isCorrect: boolean
 }>('socket/receivedAnswerFeedback')
+
+export const socketReceivedPuzzleComplete = createAction('socket/receivedPuzzleComplete')

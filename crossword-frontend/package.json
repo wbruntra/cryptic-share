@@ -13,8 +13,10 @@
   "dependencies": {
     "@reduxjs/toolkit": "^2.11.2",
     "@tailwindcss/vite": "^4.1.18",
+    "@types/canvas-confetti": "^1.9.0",
     "axios": "^1.13.2",
     "browser-image-compression": "^2.0.2",
+    "canvas-confetti": "^1.9.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-image-crop": "^11.0.10",

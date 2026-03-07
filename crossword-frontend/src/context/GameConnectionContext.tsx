@@ -7,6 +7,7 @@ import {
   socketReceivedWordClaimed,
   socketReceivedExplanation,
   socketReceivedAnswerFeedback,
+  socketReceivedPuzzleComplete,
 } from '@/store/actions/socketActions'
 import { connectionEstablished, connectionLost } from '@/store/slices/socketSlice'
 import { clearFlashCells } from '@/store/slices/puzzleSlice'
@@ -31,6 +32,7 @@ interface GameConnectionContextValue {
     cells: string[],
     isCorrect: boolean,
   ) => Promise<void>
+  sendPuzzleComplete: (sessionId: string) => Promise<void>
   isConnected: boolean
 }
 
@@ -40,6 +42,7 @@ export const GameConnectionContext = createContext<GameConnectionContextValue>({
   claimWord: async () => {},
   requestExplanation: async () => {},
   sendAnswerFeedback: async () => {},
+  sendPuzzleComplete: async () => {},
   isConnected: false,
 })
 
@@ -125,6 +128,21 @@ export const GameConnectionProvider: React.FC<GameConnectionProviderProps> = ({
         })
       } catch (error) {
         console.error('[GameConnection] Failed to send answer feedback:', error)
+      }
+    },
+    [socketId],
+  )
+
+  // Notify backend that puzzle is complete so it can broadcast to other clients
+  // Backend should: POST /api/sessions/:id/puzzle-complete → emit 'puzzle_complete' SSE to all clients
+  const sendPuzzleComplete = useCallback(
+    async (sid: string) => {
+      try {
+        await axios.post(
+          `/api/sessions/${sid}/puzzle-complete${socketId ? `?socketId=${socketId}` : ''}`,
+        )
+      } catch (error) {
+        console.error('[GameConnection] Failed to send puzzle complete:', error)
       }
     },
     [socketId],
@@ -230,6 +248,10 @@ export const GameConnectionProvider: React.FC<GameConnectionProviderProps> = ({
           store.dispatch(clearFlashCells())
         }, FLASH_DURATION_MS)
       })
+
+      es.addEventListener('puzzle_complete', () => {
+        store.dispatch(socketReceivedPuzzleComplete())
+      })
     }
 
     connect()
@@ -254,6 +276,7 @@ export const GameConnectionProvider: React.FC<GameConnectionProviderProps> = ({
         claimWord,
         requestExplanation,
         sendAnswerFeedback,
+        sendPuzzleComplete,
         isConnected,
       }}
     >

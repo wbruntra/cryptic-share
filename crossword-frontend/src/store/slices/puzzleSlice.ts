@@ -5,6 +5,7 @@ import {
   socketReceivedCellUpdated,
   socketReceivedWordClaimed,
   socketReceivedAnswerFeedback,
+  socketReceivedPuzzleComplete,
 } from '../actions/socketActions'
 import { getCellsForClue } from '@/utils/lockCells'
 
@@ -50,6 +51,9 @@ export interface PuzzleState {
   // Lock mode toggle
   isLockModeEnabled: boolean
 
+  // Puzzle completion
+  puzzleComplete: boolean
+
   // Meta
   isLoading: boolean
   error: string | null
@@ -81,6 +85,7 @@ const initialState: PuzzleState = {
   },
   attributions: {},
   isLockModeEnabled: true,
+  puzzleComplete: false,
   isLoading: false,
   error: null,
   lastSyncedAt: 0,
@@ -312,6 +317,9 @@ const puzzleSlice = createSlice({
       state.isLockModeEnabled = !state.isLockModeEnabled
     },
 
+    setPuzzleComplete: (state, action: PayloadAction<boolean>) => {
+      state.puzzleComplete = action.payload
+    },
     clearPuzzle: () => initialState,
   },
   extraReducers: (builder) => {
@@ -375,6 +383,9 @@ const puzzleSlice = createSlice({
           state.incorrectFlashCells = cells
         }
       })
+      .addCase(socketReceivedPuzzleComplete, (state) => {
+        state.puzzleComplete = true
+      })
   },
 })
 
@@ -400,6 +411,7 @@ export const {
   dismissCheckResult,
   setAttribution,
   toggleLockMode,
+  setPuzzleComplete,
   clearPuzzle,
 } = puzzleSlice.actions
 
