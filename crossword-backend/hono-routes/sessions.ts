@@ -560,6 +560,21 @@ sessions.post('/:sessionId/cell', async (c) => {
   }
 })
 
+// POST /api/sessions/:sessionId/puzzle-complete - Broadcast puzzle completion to all session clients
+sessions.post('/:sessionId/puzzle-complete', async (c) => {
+  const sessionId = c.req.param('sessionId')
+
+  try {
+    const senderId = c.req.query('socketId') || 'REST_API'
+    await Broadcaster.broadcast(sessionId, 'puzzle_complete', {}, senderId)
+
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error broadcasting puzzle complete:', error)
+    throw new HTTPException(500, { message: 'Failed to broadcast puzzle complete' })
+  }
+})
+
 // POST /api/sessions/:sessionId/feedback - Broadcast answer feedback
 sessions.post('/:sessionId/feedback', async (c) => {
   const sessionId = c.req.param('sessionId')
