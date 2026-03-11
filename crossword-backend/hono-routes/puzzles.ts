@@ -40,7 +40,9 @@ puzzles.post('/generate-grid', async (c) => {
 // GET /api/puzzles
 puzzles.get('/', async (c) => {
   try {
-    const allPuzzles = await PuzzleService.getAllPuzzles()
+    const user = c.get('user')
+    const includeUnpublished = user?.isAdmin === true
+    const allPuzzles = await PuzzleService.getAllPuzzles(includeUnpublished)
     return c.json(allPuzzles)
   } catch (error) {
     console.error('Error fetching puzzles:', error)

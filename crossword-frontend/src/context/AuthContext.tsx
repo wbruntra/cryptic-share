@@ -16,6 +16,9 @@ interface AuthContextType {
   register: (u: string, p: string) => Promise<void>
   logout: () => void
   refreshSessions: () => Promise<RemoteSession[]>
+  isAuthModalOpen: boolean
+  openAuthModal: () => void
+  closeAuthModal: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -23,6 +26,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -62,8 +66,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return []
   }
 
+  const openAuthModal = () => setIsAuthModalOpen(true)
+  const closeAuthModal = () => setIsAuthModalOpen(false)
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshSessions }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        register,
+        logout,
+        refreshSessions,
+        isAuthModalOpen,
+        openAuthModal,
+        closeAuthModal,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

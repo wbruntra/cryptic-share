@@ -9,7 +9,7 @@ import { ExplanationReviewPage } from './pages/ExplanationReviewPage'
 import { SessionListPage } from './pages/SessionListPage'
 import { MissingCluesPage } from './pages/MissingCluesPage'
 import { EditPuzzleClues } from './pages/EditPuzzleClues'
-import AuthPage from './pages/AuthPage'
+import { AuthModal } from './components/AuthModal'
 import { NavBar } from './components/NavBar'
 import { useViewportCssVars } from './utils/useViewportCssVars'
 
@@ -19,9 +19,9 @@ function App() {
   return (
     <BrowserRouter>
       <NavBar />
+      <AuthModal />
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/auth" element={<AuthPage />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin/sessions" element={<SessionListPage />} />
         <Route path="/admin/reports" element={<ReportManagementPage />} />

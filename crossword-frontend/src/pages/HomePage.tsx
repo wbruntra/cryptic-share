@@ -8,9 +8,6 @@ import { getLocalSessions, saveLocalSession, getAnonymousId } from '../utils/ses
 
 type PuzzleStatus = 'complete' | 'in-progress' | null
 
-interface PuzzleWithSession extends PuzzleSummary {
-  session?: RemoteSession
-}
 
 const getTimestamp = () => Date.now()
 
@@ -18,11 +15,24 @@ export function HomePage() {
   const [puzzles, setPuzzles] = useState<PuzzleSummary[]>([])
   const [sessions, setSessions] = useState<RemoteSession[]>([])
   const [puzzleStatus, setPuzzleStatus] = useState<Map<number, PuzzleStatus>>(new Map())
-  const [showCompleted, setShowCompleted] = useState(false)
+  const [showCompleted, setShowCompleted] = useState(() => {
+    return localStorage.getItem('homeShowCompleted') === 'true'
+  })
   const [loading, setLoading] = useState(true)
   const [navigating, setNavigating] = useState<number | null>(null)
+  const [viewMode, setViewMode] = useState<'card' | 'table'>(() => {
+    return (localStorage.getItem('homeViewMode') as 'card' | 'table') || 'card'
+  })
   const navigate = useNavigate()
   const { user, refreshSessions, logout } = useAuth()
+
+  useEffect(() => {
+    localStorage.setItem('homeViewMode', viewMode)
+  }, [viewMode])
+
+  useEffect(() => {
+    localStorage.setItem('homeShowCompleted', String(showCompleted))
+  }, [showCompleted])
 
   useEffect(() => {
     axios
@@ -98,15 +108,41 @@ export function HomePage() {
       <section>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-text border-l-4 border-primary pl-4">Puzzles</h2>
-          <label className="flex items-center gap-2 cursor-pointer select-none text-text-secondary hover:text-text transition-colors">
-            <input
-              type="checkbox"
-              checked={showCompleted}
-              onChange={(e) => setShowCompleted(e.target.checked)}
-              className="rounded border-border text-primary focus:ring-primary h-4 w-4"
-            />
-            <span className="text-sm font-medium">Show completed</span>
-          </label>
+          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-4">
+            <div className="flex bg-surface border border-border rounded-lg overflow-hidden shadow-sm">
+              <button
+                onClick={() => setViewMode('card')}
+                className={`px-3 py-1.5 flex items-center justify-center transition-colors cursor-pointer border-none border-r border-border ${
+                  viewMode === 'card'
+                    ? 'bg-primary text-white'
+                    : 'bg-transparent text-text-secondary hover:text-text hover:bg-input-bg'
+                }`}
+                aria-label="Card View"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+              </button>
+              <button
+                onClick={() => setViewMode('table')}
+                className={`px-3 py-1.5 flex items-center justify-center transition-colors cursor-pointer border-none ${
+                  viewMode === 'table'
+                    ? 'bg-primary text-white'
+                    : 'bg-transparent text-text-secondary hover:text-text hover:bg-input-bg'
+                }`}
+                aria-label="Table View"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+              </button>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer select-none text-text-secondary hover:text-text transition-colors">
+              <input
+                type="checkbox"
+                checked={showCompleted}
+                onChange={(e) => setShowCompleted(e.target.checked)}
+                className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+              />
+              <span className="text-sm font-medium">Show completed</span>
+            </label>
+          </div>
         </div>
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -116,7 +152,91 @@ export function HomePage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {visiblePuzzles.map((puzzle) => {
+            {viewMode === 'table' ? (
+              <div className="bg-surface rounded-xl shadow-lg border border-border overflow-hidden col-span-full">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-input-bg border-b border-border">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-sm font-bold text-text">Puzzle</th>
+                        <th className="px-6 py-4 text-left text-sm font-bold text-text">Status</th>
+                        <th className="px-6 py-4 text-left text-sm font-bold text-text">Progress</th>
+                        <th className="px-6 py-4 text-left text-sm font-bold text-text">Owner</th>
+                        <th className="px-6 py-4 text-right text-sm font-bold text-text">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {visiblePuzzles.map((puzzle) => {
+                        const status = puzzleStatus.get(puzzle.id)
+                        const isNavigating = navigating === puzzle.id
+                        const session = sessions.find((s) => s.puzzle_id === puzzle.id)
+
+                        return (
+                          <tr key={puzzle.id} className="hover:bg-input-bg/30 transition-colors">
+                            <td className="px-6 py-4 text-sm font-bold text-text whitespace-nowrap">
+                              {puzzle.title}
+                            </td>
+                            <td className="px-6 py-4 text-sm whitespace-nowrap">
+                              {status === 'complete' && (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-600 dark:text-green-400 font-medium border border-green-500/20">
+                                  ✓ Complete
+                                </span>
+                              )}
+                              {status === 'in-progress' && (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary font-medium border border-primary/20">
+                                  In Progress
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 text-sm whitespace-nowrap">
+                              {session && typeof session.completion_pct === 'number' ? (
+                                <div className="w-24">
+                                  <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                    <span>{session.completion_pct}%</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                    <div
+                                      className="bg-blue-600 h-1.5 rounded-full transition-all"
+                                      style={{ width: `${session.completion_pct}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-text-secondary italic text-xs">-</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-text-secondary whitespace-nowrap">
+                              {session && session.owner_username && session.owner_username !== user?.username ? (
+                                session.owner_username
+                              ) : (
+                                <span className="italic opacity-50">-</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 text-right whitespace-nowrap">
+                              <button
+                                onClick={() => handleGoToPuzzle(puzzle.id, puzzle.title)}
+                                disabled={isNavigating}
+                                className="py-1.5 px-3 text-xs rounded-lg font-bold transition-all shadow-sm active:scale-95 border-none cursor-pointer bg-primary text-white hover:bg-primary-hover disabled:opacity-60 disabled:cursor-wait"
+                              >
+                                {isNavigating ? 'Loading...' : 'Go to Puzzle'}
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                      {visiblePuzzles.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="py-8 text-center text-text-secondary italic">
+                            {puzzles.length > 0 ? 'No active puzzles found.' : 'No puzzles found. Create one!'}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              visiblePuzzles.map((puzzle) => {
               const status = puzzleStatus.get(puzzle.id)
               const isNavigating = navigating === puzzle.id
               const session = sessions.find((s) => s.puzzle_id === puzzle.id)
@@ -178,8 +298,9 @@ export function HomePage() {
                   </button>
                 </div>
               )
-            })}
-            {visiblePuzzles.length === 0 && (
+            })
+            )}
+            {viewMode === 'card' && visiblePuzzles.length === 0 && (
               <div className="col-span-full py-16 text-center bg-surface rounded-2xl border-2 border-dashed border-border shadow-inner">
                 <p className="text-text-secondary italic">
                   {puzzles.length > 0

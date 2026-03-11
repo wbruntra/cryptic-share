@@ -9,7 +9,7 @@ export function NavBar() {
   })
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isNotifPopoverOpen, setIsNotifPopoverOpen] = useState(false)
-  const { user, logout } = useAuth()
+  const { user, logout, openAuthModal } = useAuth()
   const { isSupported, isSubscribed, isLoading, subscribe, unsubscribe } = usePushNotifications()
 
   useEffect(() => {
@@ -52,12 +52,12 @@ export function NavBar() {
               <span className="text-text-secondary">{user.username}</span>
             </div>
           ) : (
-            <Link
-              to="/auth"
-              className="text-text-secondary no-underline font-medium hover:text-primary transition-colors"
+            <button
+              onClick={openAuthModal}
+              className="text-text-secondary no-underline font-medium hover:text-primary transition-colors bg-transparent border-none cursor-pointer"
             >
-              Login
-            </Link>
+              Login/Register
+            </button>
           )}
           {/* {isSupported && (
             <div className="relative">
@@ -185,13 +185,15 @@ export function NavBar() {
                   </button>
                 </div>
               ) : (
-                <Link
-                  to="/auth"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="px-4 py-3 text-text no-underline hover:bg-input-bg transition-colors"
+                <button
+                  onClick={() => {
+                    openAuthModal()
+                    setIsMenuOpen(false)
+                  }}
+                  className="w-full text-left px-4 py-3 text-text no-underline hover:bg-input-bg transition-colors bg-transparent border-none cursor-pointer"
                 >
                   Login
-                </Link>
+                </button>
               )}
               <div className="border-t border-border" />
               {isSupported && (
@@ -212,8 +214,8 @@ export function NavBar() {
                     {isLoading
                       ? 'Loading...'
                       : isSubscribed
-                      ? 'Disable Notifications'
-                      : 'Enable Notifications'}
+                        ? 'Disable Notifications'
+                        : 'Enable Notifications'}
                   </span>
                 </button>
               )}

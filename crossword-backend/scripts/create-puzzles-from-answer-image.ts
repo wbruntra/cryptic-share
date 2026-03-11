@@ -331,6 +331,7 @@ async function main() {
       letter_count: calculateLetterCount(grid),
       puzzle_number: puzzleNumber,
       book: BOOK_ID,
+      is_published: false,
     }
 
     if (existing) {
