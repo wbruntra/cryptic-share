@@ -53,7 +53,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8921',
+        target: 'http://crossword-backend.localhost:1355',
         changeOrigin: true,
       },
     },

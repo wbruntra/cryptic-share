@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "start": "bun run bin/server.ts",
-    "dev": "bun --watch bin/server.ts",
+    "dev": "portless crossword-backend bun --watch bin/server.ts",
     "migrate:make": "knex migrate:make -x ts",
     "migrate:latest": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",

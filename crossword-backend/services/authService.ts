@@ -24,7 +24,7 @@ export class AuthService {
       throw new Error('Failed to create user')
     }
 
-    const token = jwt.sign({ id, username, isAdmin: false }, JWT_SECRET, { expiresIn: '30d' })
+    const token = jwt.sign({ id, username, isAdmin: false }, JWT_SECRET)
     return { token, user: { id, username, isAdmin: false } }
   }
 
@@ -43,9 +43,7 @@ export class AuthService {
     }
 
     const isAdmin = Boolean(user.is_admin)
-    const token = jwt.sign({ id: user.id, username: user.username, isAdmin }, JWT_SECRET, {
-      expiresIn: '30d',
-    })
+    const token = jwt.sign({ id: user.id, username: user.username, isAdmin }, JWT_SECRET)
     return { token, user: { id: user.id, username: user.username, isAdmin } }
   }
 }

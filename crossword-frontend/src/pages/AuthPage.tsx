@@ -23,7 +23,7 @@ const AuthPage: React.FC = () => {
       navigate('/')
     } catch (err) {
       if (err instanceof AxiosError && err.response) {
-        setError(err.response.data.error || 'Authentication failed')
+        setError(err.response.data.message || err.response.data.error || 'Authentication failed')
       } else {
         setError('Authentication failed')
       }
@@ -78,7 +78,7 @@ const AuthPage: React.FC = () => {
           onClick={() => setIsLogin(!isLogin)}
           className="text-primary hover:text-primary-hover text-sm"
         >
-          {/* {isLogin ? 'Need an account? Register' : 'Already have an account? Login'} */}
+          {isLogin ? 'Need an account? Register' : 'Already have an account? Login'}
         </button>
       </div>
     </div>
