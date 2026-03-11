@@ -40,9 +40,9 @@ puzzles.post('/generate-grid', async (c) => {
 // GET /api/puzzles
 puzzles.get('/', async (c) => {
   try {
-    const user = c.get('user')
-    const includeUnpublished = user?.isAdmin === true
-    const allPuzzles = await PuzzleService.getAllPuzzles(includeUnpublished)
+    // We intentionally don't pass includeUnpublished here so that EVEN admins don't see them on the home screen.
+    // Admins have the dedicated "Missing Clues Queue" for those.
+    const allPuzzles = await PuzzleService.getAllPuzzles(false)
     return c.json(allPuzzles)
   } catch (error) {
     console.error('Error fetching puzzles:', error)

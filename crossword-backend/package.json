@@ -11,6 +11,7 @@
     "migrate:rollback": "knex migrate:rollback",
     "create-user": "bun run create-user.ts",
     "create-puzzles-from-answers": "bun run scripts/create-puzzles-from-answer-image.ts",
+    "fix-published-puzzles": "bun run scripts/fix-published-state.ts",
     "batch-explanations": "bun run scripts/batch-explanation-interactive.ts",
     "batch-create": "bun run scripts/batch-explanation-auto.ts prepare",
     "batch-retrieve": "bun run scripts/batch-explanation-auto.ts apply"

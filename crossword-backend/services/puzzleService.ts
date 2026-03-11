@@ -5,7 +5,7 @@ export class PuzzleService {
   static async getAllPuzzles(includeUnpublished = false) {
     const query = db('puzzles').select('id', 'title')
     if (!includeUnpublished) {
-      query.where('is_published', true)
+      query.where((b) => b.where('is_published', true).orWhere('is_published', 1))
     }
     return await query
   }
