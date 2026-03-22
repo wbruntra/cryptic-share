@@ -113,6 +113,16 @@ const puzzleSlice = createSlice({
     loadSessionStart: (state) => {
       state.isLoading = true
       state.error = null
+      state.grid = []
+      state.answers = []
+      state.clues = null
+      state.title = ''
+      state.sessionId = null
+      state.puzzleId = null
+      state.answersEncrypted = null
+      state.cursor = null
+      state.attributions = {}
+      state.puzzleComplete = false
     },
     loadSessionSuccess: (
       state,
