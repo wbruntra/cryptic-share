@@ -9,6 +9,7 @@ import { ExplanationReviewPage } from './pages/ExplanationReviewPage'
 import { SessionListPage } from './pages/SessionListPage'
 import { MissingCluesPage } from './pages/MissingCluesPage'
 import { EditPuzzleClues } from './pages/EditPuzzleClues'
+import { WordplayDemoPage } from './pages/WordplayDemoPage'
 import { AuthModal } from './components/AuthModal'
 import { NavBar } from './components/NavBar'
 import { useViewportCssVars } from './utils/useViewportCssVars'
@@ -30,6 +31,8 @@ function App() {
         <Route path="/admin/puzzles/:id/explanations" element={<ExplanationReviewPage />} />
         <Route path="/create" element={<PuzzleCreator />} />
         <Route path="/edit/:puzzleId" element={<EditPuzzle />} />
+
+        <Route path="/wordplay-demo" element={<WordplayDemoPage />} />
 
         {/* Gameplay Routes - Use GameConnectionProvider (SSE) internally */}
         <Route path="/play/:sessionId" element={<PlaySession />} />
