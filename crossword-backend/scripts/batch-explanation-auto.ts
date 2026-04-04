@@ -1,4 +1,44 @@
+/**
+ * Batch explanation automation for crossword clues.
+ *
+ * This script manages the OpenAI batch API workflow for generating
+ * explanations of cryptic crossword clues automatically.
+ *
+ * USAGE:
+ *   bun scripts/batch-explanation-auto.ts <command> [options]
+ *   bun scripts/batch-explanation-auto.ts --help
+ *
+ * COMMANDS:
+ *   prepare         Find puzzles needing explanations and create batch jobs
+ *   apply           Retrieve completed batches and save explanations to DB
+ *   help, --help    Show this help message
+ *
+ * OPTIONS:
+ *   --dry-run       (with prepare) Preview batch jobs without creating them
+ *   --help, -h      Show this help message
+ *
+ * WORKFLOW:
+ *   1. Run "prepare" to find puzzles and create OpenAI batch jobs
+ *   2. Wait for batches to complete (typically 1-24 hours)
+ *   3. Run "apply" to retrieve results and save to database
+ *
+ * EXAMPLES:
+ *   # Preview what would be processed
+ *   bun scripts/batch-explanation-auto.ts prepare --dry-run
+ *
+ *   # Create actual batch jobs
+ *   bun scripts/batch-explanation-auto.ts prepare
+ *
+ *   # Retrieve and apply completed batches
+ *   bun scripts/batch-explanation-auto.ts apply
+ *
+ * REQUIREMENTS:
+ *   - OPENAI_API_KEY environment variable set
+ *   - Puzzles must exist in database with clues and encrypted answers
+ */
+
 import OpenAI from 'openai'
+import minimist from 'minimist'
 import db from '../db-knex'
 import { generateExplanationMessages, crypticSchema, ExplanationSchema } from '../utils/crypticSchema'
 import { ExplanationService } from '../services/explanationService'
@@ -7,6 +47,44 @@ import he from 'he'
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
+
+const HELP_TEXT = `
+Batch explanation automation for crossword clues.
+
+This script manages the OpenAI batch API workflow for generating
+explanations of cryptic crossword clues automatically.
+
+USAGE:
+  bun scripts/batch-explanation-auto.ts <command> [options]
+
+COMMANDS:
+  prepare         Find puzzles needing explanations and create batch jobs
+  apply           Retrieve completed batches and save explanations to DB
+  help, --help    Show this help message
+
+OPTIONS:
+  --dry-run       (with prepare) Preview batch jobs without creating them
+  --help, -h      Show this help message
+
+WORKFLOW:
+  1. Run "prepare" to find puzzles and create OpenAI batch jobs
+  2. Wait for batches to complete (typically 1-24 hours)
+  3. Run "apply" to retrieve results and save to database
+
+EXAMPLES:
+  # Preview what would be processed
+  bun scripts/batch-explanation-auto.ts prepare --dry-run
+
+  # Create actual batch jobs
+  bun scripts/batch-explanation-auto.ts prepare
+
+  # Retrieve and apply completed batches
+  bun scripts/batch-explanation-auto.ts apply
+
+REQUIREMENTS:
+  - OPENAI_API_KEY environment variable set
+  - Puzzles must exist in database with clues and encrypted answers
+`.trim()
 
 // Helper for ROT13 decryption
 const rot13 = (str: string): string => {
@@ -493,19 +571,6 @@ async function createBatchesForAllPuzzles() {
   console.log('   3. Results will be automatically downloaded and applied')
 }
 
-function printHelp() {
-  console.log('\nBatch explanation automation')
-  console.log('\nUsage: bun run scripts/batch-explanation-auto.ts <command> [options]')
-  console.log('\nCommands:')
-  console.log('  prepare         Find puzzles and create explanation batches')
-  console.log('                  Options: --dry-run (preview only, do not create batches)')
-  console.log('  apply           Retrieve completed batches and save explanations')
-  console.log('\nExamples:')
-  console.log('  bun run scripts/batch-explanation-auto.ts prepare')
-  console.log('  bun run scripts/batch-explanation-auto.ts prepare --dry-run')
-  console.log('  bun run scripts/batch-explanation-auto.ts apply')
-  console.log('')
-}
 
 async function retrieveAndApplyCompletedBatches() {
   console.log('\n' + '='.repeat(60))
@@ -744,18 +809,30 @@ async function processBatchResults(batchId: string) {
 }
 
 async function main() {
-  const command = process.argv[2]
-  const dryRunFlag = process.argv.includes('--dry-run')
+  const argv = minimist(Bun.argv.slice(2), {
+    boolean: ['dry-run', 'help'],
+    alias: {
+      h: 'help',
+    },
+  })
+
   let exitCode = 0
 
   try {
-    if (!command || command === 'help' || command === '--help' || command === '-h') {
-      printHelp()
+    if (argv.help) {
+      console.log(HELP_TEXT)
+      return
+    }
+
+    const command = argv._[0] as string | undefined
+
+    if (!command || command === 'help') {
+      console.log(HELP_TEXT)
       return
     }
 
     if (command === 'prepare') {
-      if (dryRunFlag) {
+      if (argv['dry-run']) {
         await dryRun()
       } else {
         await createBatchesForAllPuzzles()
@@ -768,8 +845,8 @@ async function main() {
       return
     }
 
-    console.error(`\n❌ Unknown command: ${command}`)
-    printHelp()
+    console.error(`\n❌ Unknown command: ${command}\n`)
+    console.log(HELP_TEXT)
     exitCode = 1
   } catch (error) {
     console.error('\n❌ Fatal error:', error)
