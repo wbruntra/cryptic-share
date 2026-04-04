@@ -1,40 +1,97 @@
+/**
+ * Transcribe crossword clues from a PDF using OpenAI vision.
+ *
+ * This script converts PDF pages to images and uses OpenAI to extract
+ * crossword clues, then stores them in the database.
+ *
+ * USAGE:
+ *   bun scripts/transcribe-clues-from-pdf.ts <pdf_file> [options]
+ *   bun scripts/transcribe-clues-from-pdf.ts --help
+ *
+ * PDF NAMING:
+ *   Name your PDF with the pattern: <anything>_<start>_<end>.pdf
+ *   Examples:
+ *     - clues_97_100.pdf → starts at puzzle 97 (3 pages)
+ *     - london_5_12.pdf → starts at puzzle 5 (8 pages)
+ *   The script extracts the starting puzzle number from the filename.
+ *   You can override with --start <n> flag if needed.
+ *
+ * OPTIONS:
+ *   --help         Show this help message
+ *   --book <n>     Book number (default: 3)
+ *   --start <n>    Starting puzzle number (overrides filename)
+ *   --dry-run      Preview changes without saving to DB
+ *   --publish      Mark puzzles as is_published=true
+ *
+ * EXAMPLES:
+ *   # Process puzzles 97-100 from book 3
+ *   bun scripts/transcribe-clues-from-pdf.ts clues_97_100.pdf
+ *
+ *   # Dry run to preview
+ *   bun scripts/transcribe-clues-from-pdf.ts clues_97_100.pdf --dry-run
+ *
+ *   # Different book and publish immediately
+ *   bun scripts/transcribe-clues-from-pdf.ts clues_5_12.pdf --book 2 --publish
+ *
+ * REQUIREMENTS:
+ *   - pdftoppm (from poppler-utils): sudo apt-get install poppler-utils
+ *   - OpenAI API key in environment
+ *   - Puzzles must exist in the database for the given book/puzzle_number
+ */
+
 import { resolve, basename } from 'path'
 import { tmpdir } from 'os'
+import minimist from 'minimist'
 import db from '../db-knex'
 import { getCrosswordClues } from '../utils/openai'
+
+const HELP_TEXT = `
+Transcribe crossword clues from a PDF using OpenAI vision.
+
+USAGE:
+  bun scripts/transcribe-clues-from-pdf.ts <pdf_file> [options]
+
+PDF NAMING:
+  Name your PDF with the pattern: <anything>_<start>_<end>.pdf
+
+  Examples:
+    clues_97_100.pdf   → starts at puzzle 97 (3 pages)
+    london_5_12.pdf    → starts at puzzle 5 (8 pages)
+
+  The script extracts the starting puzzle number from the filename.
+  You can override with --start <n> flag if needed.
+
+OPTIONS:
+  --help             Show this help message
+  --book <n>         Book number (default: 3)
+  --start <n>        Starting puzzle number (overrides filename)
+  --dry-run          Preview changes without saving to DB
+  --publish          Mark puzzles as is_published=true
+
+EXAMPLES:
+  # Process puzzles 97-100 from book 3
+  bun scripts/transcribe-clues-from-pdf.ts clues_97_100.pdf
+
+  # Dry run to preview
+  bun scripts/transcribe-clues-from-pdf.ts clues_97_100.pdf --dry-run
+
+  # Different book and publish immediately
+  bun scripts/transcribe-clues-from-pdf.ts clues_5_12.pdf --book 2 --publish
+
+  # Override filename-based puzzle number
+  bun scripts/transcribe-clues-from-pdf.ts some_file.pdf --start 50
+
+REQUIREMENTS:
+  - pdftoppm (from poppler-utils): sudo apt-get install poppler-utils
+  - OpenAI API key in environment
+  - Puzzles must exist in the database for the given book/puzzle_number
+`.trim()
 
 function parseStartFromFilename(pdfPath: string): number | null {
   const name = basename(pdfPath)
   const match = name.match(/(\d+)_(\d+)\.pdf$/i)
   if (match) return Number(match[1])
   return null
-}
-
-function parseArgs(argv: string[]) {
-  const options = {
-    pdfPath: '',
-    book: '3',
-    startPuzzle: null as number | null,
-    dryRun: false,
-    publish: false,
-  }
-
-  const positional: string[] = []
-
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i]
-    if (!arg) continue
-
-    if (arg === '--dry-run') { options.dryRun = true; continue }
-    if (arg === '--publish') { options.publish = true; continue }
-    if (arg === '--book') { options.book = argv[++i] ?? options.book; continue }
-    if (arg === '--start') { options.startPuzzle = Number(argv[++i]); continue }
-
-    positional.push(arg)
-  }
-
-  options.pdfPath = positional[0] ?? ''
-  return options
 }
 
 async function checkPdftoppm() {
@@ -63,27 +120,49 @@ async function pdfToImages(pdfPath: string): Promise<string[]> {
 }
 
 async function main() {
-  const options = parseArgs(Bun.argv.slice(2))
+  const argv = minimist(Bun.argv.slice(2), {
+    string: ['book', 'start'],
+    boolean: ['dry-run', 'publish', 'help'],
+    alias: {
+      h: 'help',
+      b: 'book',
+      s: 'start',
+    },
+  })
 
-  if (!options.pdfPath) {
-    console.error('Usage: bun scripts/transcribe-clues-from-pdf.ts <pdf_path> [--book <book>] [--start <puzzle_number>] [--dry-run] [--publish]')
+  if (argv.help) {
+    console.log(HELP_TEXT)
+    process.exit(0)
+  }
+
+  const pdfPath = argv._[0] as string | undefined
+
+  if (!pdfPath) {
+    console.error('Error: PDF file path is required\n')
+    console.error(HELP_TEXT)
     process.exit(1)
   }
 
-  const pdfPath = resolve(process.cwd(), options.pdfPath)
+  const resolvedPath = resolve(process.cwd(), pdfPath)
+  const book = argv.book ?? '3'
+  const dryRun = argv['dry-run'] ?? false
+  const publish = argv.publish ?? false
+  const explicitStart = argv.start ? Number(argv.start) : null
 
   await checkPdftoppm()
 
-  const startPuzzle = options.startPuzzle ?? parseStartFromFilename(pdfPath)
+  const startPuzzle = explicitStart ?? parseStartFromFilename(resolvedPath)
   if (startPuzzle === null) {
-    console.error('Could not determine starting puzzle number. Use --start <n> or name the file like clues_97_100.pdf')
+    console.error('Error: Could not determine starting puzzle number')
+    console.error('Use --start <n> or name the file like clues_97_100.pdf\n')
+    console.error(HELP_TEXT)
     process.exit(1)
   }
 
-  console.log(`PDF: ${pdfPath}`)
-  console.log(`Book: ${options.book}, Starting puzzle: ${startPuzzle}`)
-  if (options.dryRun) console.log('DRY RUN — no database changes will be made')
-  if (options.publish) console.log('--publish: puzzles will be marked is_published=true')
+  console.log(`PDF: ${resolvedPath}`)
+  console.log(`Book: ${book}, Starting puzzle: ${startPuzzle}`)
+  if (dryRun) console.log('DRY RUN — no database changes will be made')
+  if (publish) console.log('--publish: puzzles will be marked is_published=true')
 
   console.log('\nConverting PDF pages to images...')
   const imageFiles = await pdfToImages(pdfPath)
@@ -102,11 +181,11 @@ async function main() {
     // Look up puzzle in DB
     const puzzle = await db('puzzles')
       .select('id', 'clues')
-      .where({ book: options.book, puzzle_number: puzzleNumber })
+      .where({ book, puzzle_number: puzzleNumber })
       .first()
 
     if (!puzzle) {
-      console.log(`  ⚠️  No puzzle found in DB for book=${options.book} puzzle_number=${puzzleNumber}, skipping`)
+      console.log(`  ⚠️  No puzzle found in DB for book=${book} puzzle_number=${puzzleNumber}, skipping`)
       skipped++
       continue
     }
@@ -145,7 +224,7 @@ async function main() {
 
     console.log(`  Got ${transcribed.across?.length ?? 0} across, ${transcribed.down?.length ?? 0} down clues`)
 
-    if (options.dryRun) {
+    if (dryRun) {
       console.log(`  🧪 Would update puzzle id=${puzzle.id}`)
       console.log('  Sample:', JSON.stringify(transcribed.across?.slice(0, 2)))
       saved++
@@ -156,12 +235,12 @@ async function main() {
     const update: Record<string, any> = {
       clues: JSON.stringify(transcribed),
     }
-    if (options.publish) {
+    if (publish) {
       update.is_published = true
     }
 
     await db('puzzles').where({ id: puzzle.id }).update(update)
-    console.log(`  ✅ Saved clues for puzzle ${puzzleNumber} (id=${puzzle.id})${options.publish ? ', published' : ''}`)
+    console.log(`  ✅ Saved clues for puzzle ${puzzleNumber} (id=${puzzle.id})${publish ? ', published' : ''}`)
     saved++
   }
 
