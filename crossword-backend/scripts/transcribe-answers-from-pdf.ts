@@ -225,7 +225,8 @@ async function main() {
     let transcription: AnswerResponse
     try {
       const imageBuffer = await Bun.file(imageFile).arrayBuffer()
-      transcription = (await transcribeAnswers(imageBuffer)) as AnswerResponse
+      const base64 = Buffer.from(imageBuffer).toString('base64')
+      transcription = (await transcribeAnswers({ base64, mimeType: 'image/jpeg' })) as AnswerResponse
     } catch (err: any) {
       console.error(`  ❌ Transcription failed: ${err.message}`)
       failed += 4 // Assume all 4 puzzles on page failed
