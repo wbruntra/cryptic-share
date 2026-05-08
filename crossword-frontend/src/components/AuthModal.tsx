@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { AxiosError } from 'axios'
 
 export const AuthModal: React.FC = () => {
-  const [isLogin, setIsLogin] = useState(false)
+  const [isLogin, setIsLogin] = useState(true)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')

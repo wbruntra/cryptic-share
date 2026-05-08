@@ -9,17 +9,89 @@ const client = new OpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
 })
 
-/**
- * Strip markdown code blocks from JSON response
- * Some models wrap JSON in ```json ... ``` even with responseFormat set
- */
-function stripMarkdownCodeBlocks(content: string): string {
-  // Remove ```json ... ``` or ``` ... ``` blocks
-  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/)
-  if (jsonMatch) {
-    return jsonMatch[1].trim()
-  }
-  return content.trim()
+export const getCrosswordClues = async (base64Image: string, model = models.flash) => {
+  const instructions = `
+You are transcribing crossword clues from an image.
+
+The image contains two sections:
+- "Across"
+- "Down"
+
+Each section contains numbered crossword clues.
+
+Your task:
+1. Read the image carefully.
+2. Extract all crossword clues.
+3. Preserve the original clue numbers.
+4. Do NOT infer answers or modify wording.
+
+Rules:
+- If a section is missing, return an empty array for it.
+- If a clue number is unclear, omit that clue.
+`
+
+  const result = await client.chat.send({
+    chatRequest: {
+      model,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: instructions },
+            {
+              type: 'image_url',
+              imageUrl: { url: `data:image/jpeg;base64,${base64Image}` },
+            },
+          ],
+        },
+      ],
+      responseFormat: {
+        type: 'json_schema',
+        jsonSchema: {
+          name: 'crossword_clues',
+          strict: true,
+          schema: {
+            type: 'object',
+            properties: {
+              across: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    number: { type: 'number' },
+                    clue: { type: 'string' },
+                  },
+                  required: ['number', 'clue'],
+                  additionalProperties: false,
+                },
+              },
+              down: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    number: { type: 'number' },
+                    clue: { type: 'string' },
+                  },
+                  required: ['number', 'clue'],
+                  additionalProperties: false,
+                },
+              },
+            },
+            required: ['across', 'down'],
+            additionalProperties: false,
+          },
+        },
+      },
+      plugins: [{ id: 'response-healing' }],
+      stream: false,
+    },
+  })
+
+  const content = result?.choices[0]?.message.content
+  if (!content) throw new Error('No content received from OpenRouter')
+  if (typeof content !== 'string') throw new Error('Expected string content from OpenRouter')
+  return JSON.parse(content)
 }
 
 export const generateGrid = async (input: any) => {
@@ -55,52 +127,53 @@ export const generateGrid = async (input: any) => {
 `
 
   try {
-    // @ts-ignore - The OpenRouter SDK might have dynamic types or I might be guessing the method if the type defs aren't perfect, but adhering to user example.
     const result = await client.chat.send({
-      model: 'google/gemini-3-flash-preview',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: promptText,
-            },
-            {
-              type: 'image_url',
-              imageUrl: {
-                url: `data:${mimeType};base64,${base64Data}`,
+      chatRequest: {
+        model: 'google/gemini-3-flash-preview',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: promptText,
               },
-            },
-          ],
-        },
-      ],
-      responseFormat: {
-        type: 'json_schema',
-        jsonSchema: {
-          name: 'crossword_grid',
-          strict: true,
-          schema: {
-            type: 'object',
-            properties: {
-              rows: {
-                type: 'array',
-                description: 'Array of strings representing each row of the crossword grid',
-                items: {
-                  type: 'string',
-                  description: 'Row with space-separated characters (W, B, or N)',
+              {
+                type: 'image_url',
+                imageUrl: {
+                  url: `data:${mimeType};base64,${base64Data}`,
                 },
               },
+            ],
+          },
+        ],
+        responseFormat: {
+          type: 'json_schema',
+          jsonSchema: {
+            name: 'crossword_grid',
+            strict: true,
+            schema: {
+              type: 'object',
+              properties: {
+                rows: {
+                  type: 'array',
+                  description: 'Array of strings representing each row of the crossword grid',
+                  items: {
+                    type: 'string',
+                    description: 'Row with space-separated characters (W, B, or N)',
+                  },
+                },
+              },
+              required: ['rows'],
+              additionalProperties: false,
             },
-            required: ['rows'],
-            additionalProperties: false,
           },
         },
+        plugins: [{ id: 'response-healing' }],
+        stream: false,
       },
-      stream: false,
     })
 
-    // Parse the result
     const content = result?.choices[0]?.message.content
 
     if (!content) {
@@ -111,27 +184,14 @@ export const generateGrid = async (input: any) => {
       throw new Error('Expected string content from OpenRouter')
     }
 
-    // Log the raw content for debugging
-    console.log('Raw content from OpenRouter (first 500 chars):', content.slice(0, 500))
-
-    // Strip markdown code blocks if present
-    const cleanedContent = stripMarkdownCodeBlocks(content)
-
-    // With responseFormat, the content should already be valid JSON
-    try {
-      return JSON.parse(cleanedContent)
-    } catch (parseError) {
-      console.error('Failed to parse JSON. Full content:', content)
-      console.error('Cleaned content:', cleanedContent)
-      throw parseError
-    }
+    return JSON.parse(content)
   } catch (error) {
     console.error('Error parsing grid:', error)
     throw error
   }
 }
 
-export const transcribeAnswers = async (input: any) => {
+export const transcribeAnswers = async (input: any, model = models.flash) => {
   // Prepare the image data
   let base64Data: string
   let mimeType: string
@@ -165,91 +225,78 @@ export const transcribeAnswers = async (input: any) => {
 `
 
   try {
-    // @ts-ignore - The OpenRouter SDK might have dynamic types or I might be guessing the method if the type defs aren't perfect, but adhering to user example.
     const result = await client.chat.send({
-      model: 'google/gemini-3-flash-preview',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: promptText,
-            },
-            {
-              type: 'image_url',
-              imageUrl: {
-                url: `data:${mimeType};base64,${base64Data}`,
+      chatRequest: {
+        model,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: promptText },
+              {
+                type: 'image_url',
+                imageUrl: { url: `data:${mimeType};base64,${base64Data}` },
               },
-            },
-          ],
-        },
-      ],
-      responseFormat: {
-        type: 'json_schema',
-        jsonSchema: {
-          name: 'crossword_answers',
-          strict: true,
-          schema: {
-            type: 'object',
-            properties: {
-              puzzles: {
-                type: 'array',
-                description: 'Array of objects representing each puzzle',
-                items: {
-                  type: 'object',
-                  properties: {
-                    puzzle_id: {
-                      type: 'number',
-                      description: 'The ID of the puzzle (numbered)',
-                    },
-                    across: {
-                      type: 'array',
-                      description: 'Array of objects representing each across clue',
-                      items: {
-                        type: 'object',
-                        properties: {
-                          number: {
-                            type: 'number',
-                            description: 'The number of the clue',
+            ],
+          },
+        ],
+        responseFormat: {
+          type: 'json_schema',
+          jsonSchema: {
+            name: 'crossword_answers',
+            strict: true,
+            schema: {
+              type: 'object',
+              properties: {
+                puzzles: {
+                  type: 'array',
+                  description: 'Array of objects representing each puzzle',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      puzzle_id: { type: 'number', description: 'The ID of the puzzle (numbered)' },
+                      across: {
+                        type: 'array',
+                        description: 'Array of objects representing each across clue',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            number: { type: 'number', description: 'The number of the clue' },
+                            answer: { type: 'string', description: 'The answer text' },
                           },
-                          answer: {
-                            type: 'string',
-                            description: 'The answer text',
+                          required: ['number', 'answer'],
+                          additionalProperties: false,
+                        },
+                      },
+                      down: {
+                        type: 'array',
+                        description: 'Array of objects representing each down clue',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            number: { type: 'number', description: 'The number of the clue' },
+                            answer: { type: 'string', description: 'The answer text' },
                           },
+                          required: ['number', 'answer'],
+                          additionalProperties: false,
                         },
                       },
                     },
-                    down: {
-                      type: 'array',
-                      description: 'Array of objects representing each down clue',
-                      items: {
-                        type: 'object',
-                        properties: {
-                          number: {
-                            type: 'number',
-                            description: 'The number of the clue',
-                          },
-                          answer: {
-                            type: 'string',
-                            description: 'The answer text',
-                          },
-                        },
-                      },
-                    },
+                    required: ['puzzle_id', 'across', 'down'],
+                    additionalProperties: false,
                   },
                 },
               },
+              required: ['puzzles'],
+              additionalProperties: false,
             },
-            required: ['puzzles'],
-            additionalProperties: false,
           },
         },
+        plugins: [{ id: 'response-healing' }],
+        stream: false,
       },
-      stream: false,
     })
 
-    // Parse the result
     const content = result?.choices[0]?.message.content
 
     if (!content) {
@@ -260,7 +307,6 @@ export const transcribeAnswers = async (input: any) => {
       throw new Error('Expected string content from OpenRouter')
     }
 
-    // With responseFormat, the content should already be valid JSON
     return JSON.parse(content)
   } catch (error) {
     console.error('Error parsing grid:', error)
@@ -287,33 +333,32 @@ export const explainCrypticClue = async (input: {
   const instructions = crypticInstructions
 
   try {
-    // @ts-ignore
     const result = await client.chat.send({
-      model: model,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: `
-Clue: ${clue}
-Answer: ${answer}
-          `.trim(),
-            },
-            { type: 'text', text: instructions },
-          ],
+      chatRequest: {
+        model: model,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `Clue: ${clue}\nAnswer: ${answer}`,
+              },
+              { type: 'text', text: instructions },
+            ],
+          },
+        ],
+        responseFormat: {
+          type: 'json_schema',
+          jsonSchema: {
+            name: crypticSchema.name,
+            strict: crypticSchema.strict,
+            schema: crypticSchema.schema,
+          },
         },
-      ],
-      responseFormat: {
-        type: 'json_schema',
-        jsonSchema: {
-          name: crypticSchema.name,
-          strict: crypticSchema.strict,
-          schema: crypticSchema.schema,
-        },
+        plugins: [{ id: 'response-healing' }],
+        stream: false,
       },
-      stream: false,
     })
 
     const content = result?.choices[0]?.message.content
@@ -326,20 +371,7 @@ Answer: ${answer}
       throw new Error('Expected string content from OpenRouter')
     }
 
-    // Log the raw content for debugging
-    console.log('Raw content from OpenRouter (first 500 chars):', content.slice(0, 500))
-
-    // Strip markdown code blocks if present
-    const cleanedContent = stripMarkdownCodeBlocks(content)
-
-    // Parse the JSON
-    try {
-      return JSON.parse(cleanedContent)
-    } catch (parseError) {
-      console.error('Failed to parse JSON. Full content:', content)
-      console.error('Cleaned content:', cleanedContent)
-      throw parseError
-    }
+    return JSON.parse(content)
   } catch (error) {
     console.error('Error explaining clue:', error)
     throw error

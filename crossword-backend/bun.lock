@@ -7,7 +7,7 @@
       "dependencies": {
         "@google/genai": "^1.35.0",
         "@inquirer/prompts": "^8.2.0",
-        "@openrouter/sdk": "^0.3.12",
+        "@openrouter/sdk": "^0.12.9",
         "@types/he": "^1.2.3",
         "@types/inquirer": "^9.0.9",
         "ajv": "^8.17.1",
@@ -90,7 +90,7 @@
 
     "@npmcli/move-file": ["@npmcli/move-file@1.1.2", "", { "dependencies": { "mkdirp": "^1.0.4", "rimraf": "^3.0.2" } }, "sha512-1SUf/Cg2GzGDyaf15aR9St9TWlb+XvbZXWpDx8YKs7MLzMH/BCeopv+y9vzrzgkfykCGuWOlSu3mZhj2+FQcrg=="],
 
-    "@openrouter/sdk": ["@openrouter/sdk@0.3.12", "", { "dependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-jwWpNyfeBLzHos2TqLIYp574jEkBSb/M46zY4uIJtlfept/3Rni7l6UQAHRqL8gPVdQCmYBaDL6NXR6uJZ0QiA=="],
+    "@openrouter/sdk": ["@openrouter/sdk@0.12.9", "", { "dependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-3fXgNfenUA0MVAMMfCOD3qw0V0S2Uy5abGa2K0CyqOU7ZDST9sqZaXWZDKG7Cx6zB2LrCjsufB3nWR5qgu+Plw=="],
 
     "@pkgjs/parseargs": ["@pkgjs/parseargs@0.11.0", "", {}, "sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg=="],
 
@@ -599,8 +599,6 @@
     "@isaacs/cliui/string-width": ["string-width@5.1.2", "", { "dependencies": { "eastasianwidth": "^0.2.0", "emoji-regex": "^9.2.2", "strip-ansi": "^7.0.1" } }, "sha512-HnLOCR3vjcY8beoNLtcjZ5/nxn2afmME6lhrDrebokqMap+XbeW8n9TXpPDOqdGK5qcI3oT0GKTW6wC7EMiVqA=="],
 
     "@isaacs/cliui/wrap-ansi": ["wrap-ansi@8.1.0", "", { "dependencies": { "ansi-styles": "^6.1.0", "string-width": "^5.0.1", "strip-ansi": "^7.0.1" } }, "sha512-si7QWI6zUMq56bESFvagtmzMdGOtoxfR+Sez11Mobfc7tm+VkUckk9bW2UeffTGVUbOksxmSw0AA2gs8g71NCQ=="],
-
-    "@openrouter/sdk/zod": ["zod@4.3.5", "", {}, "sha512-k7Nwx6vuWx1IJ9Bjuf4Zt1PEllcwe7cls3VNzm4CQ1/hgtFUK2bRNG3rvnpPUhFjmqJKAKtjV576KnUkHocg/g=="],
 
     "cacache/minipass": ["minipass@3.3.6", "", { "dependencies": { "yallist": "^4.0.0" } }, "sha512-DxiNidxSEK+tHG6zOIklvNOwm3hvCrbUrdtzY74U6HKTJxvIDfOUL5W5P2Ghd3DTkhhKPYGqeNUIh5qcM4YBfw=="],
 

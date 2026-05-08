@@ -72,7 +72,7 @@ Rules:
   return JSON.parse(outputText)
 }
 
-export const transcribeAnswers = async (input: any) => {
+export const transcribeAnswers = async (input: any, model = 'gpt-5-mini') => {
   // Prepare the image data
   let base64Data: string
   let mimeType: string
@@ -97,7 +97,7 @@ Extract all puzzle IDs, across clues with their numbers and answers, and down cl
 
   try {
     const response = await (openai as any).responses.create({
-      model: 'gpt-5-mini',
+      model,
       input: [
         {
           role: 'user',
