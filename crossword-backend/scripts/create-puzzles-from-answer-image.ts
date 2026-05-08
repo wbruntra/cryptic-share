@@ -19,6 +19,15 @@ interface AnswerResponse {
   puzzles: AnswerPuzzle[]
 }
 
+type Direction = 'across' | 'down'
+
+interface LengthMismatch {
+  direction: Direction
+  number: number
+  expectedLength: number | null
+  actualLength: number | null
+}
+
 type GridMapInput =
   | Record<string, string | { rows?: string[]; grid?: string[] }>
   | { puzzles: Array<{ puzzle_id: number; grid?: string; rows?: string[] }> }
@@ -50,6 +59,85 @@ function rot13(str: string): string {
 
 function normalizeAnswer(answer: string): string {
   return removeAccents(answer).toUpperCase().replace(/[^A-Z0-9]/g, '')
+}
+
+function getEntryLengthMap(entries: AnswerEntry[]): Map<number, number> {
+  return new Map(entries.map((entry) => [entry.number, normalizeAnswer(entry.answer).length]))
+}
+
+function getPuzzleLengthSignature(puzzle: AnswerPuzzle): string {
+  const serialize = (entries: AnswerEntry[]) =>
+    entries
+      .map((entry) => `${entry.number}:${normalizeAnswer(entry.answer).length}`)
+      .join(',')
+
+  return `A:${serialize(puzzle.across)}|D:${serialize(puzzle.down)}`
+}
+
+function findLengthMismatches(reference: AnswerPuzzle, candidate: AnswerPuzzle): LengthMismatch[] {
+  const compareDirection = (direction: Direction): LengthMismatch[] => {
+    const expected = getEntryLengthMap(reference[direction])
+    const actual = getEntryLengthMap(candidate[direction])
+    const numbers = [...new Set([...expected.keys(), ...actual.keys()])].sort((a, b) => a - b)
+
+    return numbers
+      .filter((number) => expected.get(number) !== actual.get(number))
+      .map((number) => ({
+        direction,
+        number,
+        expectedLength: expected.get(number) ?? null,
+        actualLength: actual.get(number) ?? null,
+      }))
+  }
+
+  return [...compareDirection('across'), ...compareDirection('down')]
+}
+
+function warnOnLengthSignatureOutliers(puzzles: AnswerPuzzle[]) {
+  if (puzzles.length < 2) return
+
+  const signatureGroups = new Map<string, AnswerPuzzle[]>()
+  for (const puzzle of puzzles) {
+    const signature = getPuzzleLengthSignature(puzzle)
+    const group = signatureGroups.get(signature)
+    if (group) {
+      group.push(puzzle)
+    } else {
+      signatureGroups.set(signature, [puzzle])
+    }
+  }
+
+  if (signatureGroups.size <= 1) return
+
+  const referenceGroup = [...signatureGroups.values()].sort((a, b) => b.length - a.length)[0]
+  const referencePuzzle = referenceGroup?.[0]
+  if (!referencePuzzle) return
+
+  console.warn(
+    `⚠️  Shared-grid integrity check: found ${signatureGroups.size} distinct clue-number/length patterns in this batch; using puzzle ${referencePuzzle.puzzle_id} as the reference signature`,
+  )
+
+  for (const puzzle of puzzles) {
+    if (puzzle.puzzle_id === referencePuzzle.puzzle_id) continue
+
+    const mismatches = findLengthMismatches(referencePuzzle, puzzle)
+    if (mismatches.length === 0) continue
+
+    const mismatchSummary = mismatches
+      .map(
+        (mismatch) =>
+          `${mismatch.direction} ${mismatch.number}: expected ${mismatch.expectedLength ?? '-'}, got ${mismatch.actualLength ?? '-'}`,
+      )
+      .join('; ')
+
+    console.warn(`⚠️  Puzzle ${puzzle.puzzle_id}: signature mismatch vs puzzle ${referencePuzzle.puzzle_id} (${mismatchSummary})`)
+  }
+}
+
+function rememberTemplateGrid(templateGrids: string[], grid: string) {
+  if (!templateGrids.includes(grid)) {
+    templateGrids.push(grid)
+  }
 }
 
 function parseGrid(grid: string): string {
@@ -205,6 +293,7 @@ async function main() {
 
   console.log(`Transcribing answer image: ${imagePath}`)
   const gridsByPuzzle = new Map<number, string>()
+  const discoveredTemplateGrids: string[] = []
   if (options.gridsPath) {
     const gridsPath = resolve(process.cwd(), options.gridsPath)
     console.log(`Using optional grids map: ${gridsPath}`)
@@ -212,7 +301,10 @@ async function main() {
     const gridsRawText = await Bun.file(gridsPath).text()
     const gridsRaw = JSON.parse(gridsRawText) as GridMapInput
     const loaded = loadGridMap(gridsRaw)
-    for (const [k, v] of loaded.entries()) gridsByPuzzle.set(k, v)
+    for (const [k, v] of loaded.entries()) {
+      gridsByPuzzle.set(k, v)
+      rememberTemplateGrid(discoveredTemplateGrids, v)
+    }
     if (gridsByPuzzle.size === 0) {
       throw new Error('No usable grids found in grids JSON file')
     }
@@ -225,6 +317,7 @@ async function main() {
 
   await Bun.write(outputPath, JSON.stringify(transcription, null, 2))
   console.log(`Saved raw transcription to ${outputPath}`)
+  warnOnLengthSignatureOutliers(transcription.puzzles)
 
   let created = 0
   let updated = 0
@@ -252,7 +345,12 @@ async function main() {
           across: normalizedAcross,
           down: normalizedDown,
         },
-        { maxStates: 2_000_000, maxMillis: 12_000 },
+        {
+          maxStates: 2_000_000,
+          maxMillis: 12_000,
+          includeDiagnosticsInMessage: true,
+          templateGrids: discoveredTemplateGrids,
+        },
       )
 
       if (!constructed.success || !constructed.gridString) {
@@ -264,8 +362,14 @@ async function main() {
       }
 
       grid = constructed.gridString
-      console.log(`🧩 Puzzle ${puzzleNumber}: constructed grid from answers`) 
+      console.log(
+        constructed.message === 'Solved via template signature match'
+          ? `🧩 Puzzle ${puzzleNumber}: reused shared grid template`
+          : `🧩 Puzzle ${puzzleNumber}: constructed grid from answers`,
+      )
     }
+
+    rememberTemplateGrid(discoveredTemplateGrids, grid)
 
     const encryptedAnswers = {
       puzzle_id: puzzleNumber,
@@ -296,7 +400,12 @@ async function main() {
           across: normalizedAcross,
           down: normalizedDown,
         },
-        { maxStates: 2_000_000, maxMillis: 12_000 },
+        {
+          maxStates: 2_000_000,
+          maxMillis: 12_000,
+          includeDiagnosticsInMessage: true,
+          templateGrids: [grid, ...discoveredTemplateGrids],
+        },
       )
 
       if (!validation.success) {
