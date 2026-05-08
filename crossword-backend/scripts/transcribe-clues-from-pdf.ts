@@ -21,7 +21,7 @@
  *   --book <n>     Book number (default: 3)
  *   --start <n>    Starting puzzle number (overrides filename)
  *   --dry-run      Preview changes without saving to DB
- *   --publish      Mark puzzles as is_published=true
+ *   --no-publish   Skip marking puzzles as is_published=true (publishing is default)
  *
  * EXAMPLES:
  *   # Process puzzles 97-100 from book 3
@@ -30,8 +30,8 @@
  *   # Dry run to preview
  *   bun scripts/transcribe-clues-from-pdf.ts clues_97_100.pdf --dry-run
  *
- *   # Different book and publish immediately
- *   bun scripts/transcribe-clues-from-pdf.ts clues_5_12.pdf --book 2 --publish
+ *   # Different book without publishing
+ *   bun scripts/transcribe-clues-from-pdf.ts clues_5_12.pdf --book 2 --no-publish
  *
  * REQUIREMENTS:
  *   - pdftoppm (from poppler-utils): sudo apt-get install poppler-utils
@@ -66,17 +66,17 @@ OPTIONS:
   --book <n>         Book number (default: 3)
   --start <n>        Starting puzzle number (overrides filename)
   --dry-run          Preview changes without saving to DB
-  --publish          Mark puzzles as is_published=true
+  --no-publish       Skip marking puzzles as is_published=true (publishing is default)
 
 EXAMPLES:
-  # Process puzzles 97-100 from book 3
+  # Process puzzles 97-100 from book 3 (published by default)
   bun scripts/transcribe-clues-from-pdf.ts clues_97_100.pdf
 
   # Dry run to preview
   bun scripts/transcribe-clues-from-pdf.ts clues_97_100.pdf --dry-run
 
-  # Different book and publish immediately
-  bun scripts/transcribe-clues-from-pdf.ts clues_5_12.pdf --book 2 --publish
+  # Different book without publishing
+  bun scripts/transcribe-clues-from-pdf.ts clues_5_12.pdf --book 2 --no-publish
 
   # Override filename-based puzzle number
   bun scripts/transcribe-clues-from-pdf.ts some_file.pdf --start 50
@@ -122,7 +122,8 @@ async function pdfToImages(pdfPath: string): Promise<string[]> {
 async function main() {
   const argv = minimist(Bun.argv.slice(2), {
     string: ['book', 'start'],
-    boolean: ['dry-run', 'publish', 'help'],
+    boolean: ['dry-run', 'no-publish', 'help'],
+    default: { 'no-publish': false },
     alias: {
       h: 'help',
       b: 'book',
@@ -146,7 +147,7 @@ async function main() {
   const resolvedPath = resolve(process.cwd(), pdfPath)
   const book = argv.book ?? '3'
   const dryRun = argv['dry-run'] ?? false
-  const publish = argv.publish ?? false
+  const publish = !argv['no-publish']
   const explicitStart = argv.start ? Number(argv.start) : null
 
   await checkPdftoppm()
@@ -162,7 +163,8 @@ async function main() {
   console.log(`PDF: ${resolvedPath}`)
   console.log(`Book: ${book}, Starting puzzle: ${startPuzzle}`)
   if (dryRun) console.log('DRY RUN — no database changes will be made')
-  if (publish) console.log('--publish: puzzles will be marked is_published=true')
+  if (!publish) console.log('--no-publish: puzzles will NOT be marked as published')
+  else console.log('Puzzles will be marked is_published=true after clues are saved')
 
   console.log('\nConverting PDF pages to images...')
   const imageFiles = await pdfToImages(pdfPath)

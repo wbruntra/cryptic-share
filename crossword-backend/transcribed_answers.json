@@ -1,558 +1,510 @@
 {
   "puzzles": [
     {
-      "puzzle_id": 69,
+      "puzzle_id": 101,
       "across": [
         {
           "number": 1,
-          "answer": "Primrose"
+          "answer": "Recapitulate"
         },
         {
-          "number": 5,
-          "answer": "Oh dear"
+          "number": 8,
+          "answer": "Insular"
         },
         {
           "number": 9,
-          "answer": "Eyeglass"
+          "answer": "Ordered"
         },
         {
-          "number": 10,
-          "answer": "Aztecs"
+          "number": 11,
+          "answer": "Artificial"
         },
         {
           "number": 12,
-          "answer": "Rota"
+          "answer": "Menu"
         },
         {
-          "number": 13,
-          "answer": "Pilot light"
+          "number": 14,
+          "answer": "Protozoa"
         },
         {
-          "number": 15,
-          "answer": "Inconvenience"
+          "number": 16,
+          "answer": "Instil"
+        },
+        {
+          "number": 17,
+          "answer": "Pit"
         },
         {
           "number": 19,
-          "answer": "Radioactivity"
+          "answer": "In situ"
         },
         {
-          "number": 23,
-          "answer": "Songthrush"
+          "number": 21,
+          "answer": "Machined"
+        },
+        {
+          "number": 24,
+          "answer": "Turk"
         },
         {
           "number": 25,
-          "answer": "Hero"
+          "answer": "White magic"
+        },
+        {
+          "number": 27,
+          "answer": "Denture"
         },
         {
           "number": 28,
-          "answer": "Acumen"
+          "answer": "Fanfare"
         },
         {
           "number": 29,
-          "answer": "Banister"
-        },
-        {
-          "number": 30,
-          "answer": "Exeter"
-        },
-        {
-          "number": 31,
-          "answer": "Plectrum"
+          "answer": "Self-employed"
         }
       ],
       "down": [
         {
           "number": 1,
-          "answer": "Poetry"
+          "answer": "Risotto"
         },
         {
           "number": 2,
-          "answer": "Inert"
+          "answer": "Cold fronts"
         },
         {
           "number": 3,
-          "answer": "Roll"
+          "answer": "Pork chop"
         },
         {
           "number": 4,
-          "answer": "Session"
+          "answer": "Thorax"
+        },
+        {
+          "number": 5,
+          "answer": "Lady"
         },
         {
           "number": 6,
-          "answer": "Hazel"
+          "answer": "Torrent"
         },
         {
           "number": 7,
-          "answer": "Emergency"
+          "answer": "Disappointed"
         },
         {
-          "number": 8,
-          "answer": "Rosettes"
+          "number": 10,
+          "answer": "Double-decker"
         },
         {
-          "number": 11,
-          "answer": "Done"
-        },
-        {
-          "number": 14,
-          "answer": "Echo"
+          "number": 13,
+          "answer": "In the money"
         },
         {
           "number": 15,
-          "answer": "Indenture"
-        },
-        {
-          "number": 16,
-          "answer": "Vat"
-        },
-        {
-          "number": 17,
-          "answer": "Ibis"
+          "answer": "Aim"
         },
         {
           "number": 18,
-          "answer": "Prostate"
+          "answer": "Tasteful"
         },
         {
           "number": 20,
-          "answer": "Cord"
-        },
-        {
-          "number": 21,
-          "answer": "Install"
+          "answer": "Syringe"
         },
         {
           "number": 22,
-          "answer": "Pogrom"
+          "answer": "Niggard"
         },
         {
-          "number": 24,
-          "answer": "There"
+          "number": 23,
+          "answer": "Phlegm"
         },
         {
           "number": 26,
-          "answer": "Ester"
-        },
-        {
-          "number": 27,
-          "answer": "Zinc"
+          "answer": "Buff"
         }
       ]
     },
     {
-      "puzzle_id": 70,
+      "puzzle_id": 102,
       "across": [
         {
           "number": 1,
-          "answer": "Creamery"
-        },
-        {
-          "number": 5,
-          "answer": "Baobab"
-        },
-        {
-          "number": 9,
-          "answer": "Classify"
-        },
-        {
-          "number": 10,
-          "answer": "Bedsit"
-        },
-        {
-          "number": 12,
-          "answer": "Even"
-        },
-        {
-          "number": 13,
-          "answer": "Medium wave"
-        },
-        {
-          "number": 15,
-          "answer": "Ophthalmology"
-        },
-        {
-          "number": 19,
-          "answer": "Encyclopaedia"
-        },
-        {
-          "number": 23,
-          "answer": "Steel bands"
-        },
-        {
-          "number": 25,
-          "answer": "Arts"
-        },
-        {
-          "number": 28,
-          "answer": "Biting"
-        },
-        {
-          "number": 29,
-          "answer": "Columbia"
-        },
-        {
-          "number": 30,
-          "answer": "Elapse"
-        },
-        {
-          "number": 31,
-          "answer": "Advanced"
-        }
-      ],
-      "down": [
-        {
-          "number": 1,
-          "answer": "Cachet"
-        },
-        {
-          "number": 2,
-          "answer": "Erase"
-        },
-        {
-          "number": 3,
-          "answer": "Mist"
-        },
-        {
-          "number": 4,
-          "answer": "Refresh"
-        },
-        {
-          "number": 6,
-          "answer": "Abeam"
-        },
-        {
-          "number": 7,
-          "answer": "Bossa nova"
+          "answer": "Age of consent"
         },
         {
           "number": 8,
-          "answer": "By the bye"
+          "answer": "Open-air"
+        },
+        {
+          "number": 9,
+          "answer": "Aircrew"
         },
         {
           "number": 11,
-          "answer": "Rill"
+          "answer": "Stonehenge"
+        },
+        {
+          "number": 12,
+          "answer": "Tory"
         },
         {
           "number": 14,
-          "answer": "Chic"
-        },
-        {
-          "number": 15,
-          "answer": "Orchestra"
+          "answer": "Highbrow"
         },
         {
           "number": 16,
-          "answer": "Asp"
+          "answer": "Russia"
         },
         {
           "number": 17,
-          "answer": "Odds"
-        },
-        {
-          "number": 18,
-          "answer": "Sensible"
-        },
-        {
-          "number": 20,
-          "answer": "Oman"
-        },
-        {
-          "number": 21,
-          "answer": "Android"
-        },
-        {
-          "number": 22,
-          "answer": "Island"
-        },
-        {
-          "number": 24,
-          "answer": "Links"
-        },
-        {
-          "number": 26,
-          "answer": "Rebec"
-        },
-        {
-          "number": 27,
-          "answer": "Duma"
-        }
-      ]
-    },
-    {
-      "puzzle_id": 71,
-      "across": [
-        {
-          "number": 1,
-          "answer": "Serenity"
-        },
-        {
-          "number": 5,
-          "answer": "Shaped"
-        },
-        {
-          "number": 9,
-          "answer": "Carousel"
-        },
-        {
-          "number": 10,
-          "answer": "Carrot"
-        },
-        {
-          "number": 12,
-          "answer": "Axle"
-        },
-        {
-          "number": 13,
-          "answer": "Now and then"
-        },
-        {
-          "number": 15,
-          "answer": "Shadow cabinet"
-        },
-        {
-          "number": 19,
-          "answer": "Consternation"
-        },
-        {
-          "number": 23,
-          "answer": "Palindrome"
-        },
-        {
-          "number": 25,
-          "answer": "Espy"
-        },
-        {
-          "number": 28,
-          "answer": "Citron"
-        },
-        {
-          "number": 29,
-          "answer": "Endanger"
-        },
-        {
-          "number": 30,
-          "answer": "Sunset"
-        },
-        {
-          "number": 31,
-          "answer": "Talented"
-        }
-      ],
-      "down": [
-        {
-          "number": 1,
-          "answer": "Social"
-        },
-        {
-          "number": 2,
-          "answer": "Rural"
-        },
-        {
-          "number": 3,
-          "answer": "Noun"
-        },
-        {
-          "number": 4,
-          "answer": "Tremolo"
-        },
-        {
-          "number": 6,
-          "answer": "Hoard"
-        },
-        {
-          "number": 7,
-          "answer": "Parthenon"
-        },
-        {
-          "number": 8,
-          "answer": "Detonate"
-        },
-        {
-          "number": 11,
-          "answer": "Talc"
-        },
-        {
-          "number": 14,
-          "answer": "Pact"
-        },
-        {
-          "number": 15,
-          "answer": "Singleton"
-        },
-        {
-          "number": 16,
           "answer": "Won"
         },
         {
-          "number": 17,
-          "answer": "Brim"
-        },
-        {
-          "number": 18,
-          "answer": "Ice packs"
-        },
-        {
-          "number": 20,
-          "answer": "Rare"
+          "number": 19,
+          "answer": "Semite"
         },
         {
           "number": 21,
-          "answer": "Ammonia"
-        },
-        {
-          "number": 22,
-          "answer": "Hybrid"
+          "answer": "Keyboard"
         },
         {
           "number": 24,
-          "answer": "No-one"
-        },
-        {
-          "number": 26,
-          "answer": "Sight"
-        },
-        {
-          "number": 27,
-          "answer": "Mane"
-        }
-      ]
-    },
-    {
-      "puzzle_id": 72,
-      "across": [
-        {
-          "number": 1,
-          "answer": "Innuendo"
-        },
-        {
-          "number": 5,
-          "answer": "Usurer"
-        },
-        {
-          "number": 9,
-          "answer": "Properly"
-        },
-        {
-          "number": 10,
-          "answer": "Madman"
-        },
-        {
-          "number": 12,
-          "answer": "Glee"
-        },
-        {
-          "number": 13,
-          "answer": "Chartreuse"
-        },
-        {
-          "number": 15,
-          "answer": "Inconvenience"
-        },
-        {
-          "number": 19,
-          "answer": "Spiny anteater"
-        },
-        {
-          "number": 23,
-          "answer": "Chew the fat"
+          "answer": "Afro"
         },
         {
           "number": 25,
-          "answer": "Ammo"
+          "answer": "Four-stroke"
+        },
+        {
+          "number": 27,
+          "answer": "Declaim"
         },
         {
           "number": 28,
-          "answer": "Oracle"
+          "answer": "Stun gun"
         },
         {
           "number": 29,
-          "answer": "Stallion"
-        },
-        {
-          "number": 30,
-          "answer": "Totter"
-        },
-        {
-          "number": 31,
-          "answer": "Sympathy"
+          "answer": "Common Market"
         }
       ],
       "down": [
         {
           "number": 1,
-          "answer": "Impugn"
+          "answer": "Age-long"
         },
         {
           "number": 2,
-          "answer": "Niobe"
+          "answer": "Exacerbate"
         },
         {
           "number": 3,
-          "answer": "Ewer"
+          "answer": "Furbelow"
         },
         {
           "number": 4,
-          "answer": "Dolphin"
+          "answer": "Orange"
+        },
+        {
+          "number": 5,
+          "answer": "Sort"
         },
         {
           "number": 6,
-          "answer": "Stair"
+          "answer": "Nervous"
         },
         {
           "number": 7,
-          "answer": "Rum-runner"
+          "answer": "House husband"
         },
         {
-          "number": 8,
-          "answer": "Rendered"
+          "number": 10,
+          "answer": "Ways and means"
         },
         {
-          "number": 11,
-          "answer": "Free"
-        },
-        {
-          "number": 14,
-          "answer": "Icky"
+          "number": 13,
+          "answer": "Dumbstruck"
         },
         {
           "number": 15,
-          "answer": "Itinerant"
-        },
-        {
-          "number": 16,
-          "answer": "Vet"
-        },
-        {
-          "number": 17,
-          "answer": "Into"
+          "answer": "Wok"
         },
         {
           "number": 18,
-          "answer": "Psych out"
+          "answer": "Nebraska"
         },
         {
           "number": 20,
-          "answer": "Noel"
-        },
-        {
-          "number": 21,
-          "answer": "Exactly"
+          "answer": "Morocco"
         },
         {
           "number": 22,
-          "answer": "Bounty"
+          "answer": "Amongst"
         },
         {
-          "number": 24,
-          "answer": "Tulle"
+          "number": 23,
+          "answer": "Norman"
         },
         {
           "number": 26,
-          "answer": "Moist"
+          "answer": "Harm"
+        }
+      ]
+    },
+    {
+      "puzzle_id": 103,
+      "across": [
+        {
+          "number": 1,
+          "answer": "Artificially"
+        },
+        {
+          "number": 8,
+          "answer": "Lucerne"
+        },
+        {
+          "number": 9,
+          "answer": "Uniform"
+        },
+        {
+          "number": 11,
+          "answer": "Intimidate"
+        },
+        {
+          "number": 12,
+          "answer": "Lima"
+        },
+        {
+          "number": 14,
+          "answer": "Succours"
+        },
+        {
+          "number": 16,
+          "answer": "Sleepy"
+        },
+        {
+          "number": 17,
+          "answer": "Sod"
+        },
+        {
+          "number": 19,
+          "answer": "Instil"
+        },
+        {
+          "number": 21,
+          "answer": "Neutrino"
+        },
+        {
+          "number": 24,
+          "answer": "Imam"
+        },
+        {
+          "number": 25,
+          "answer": "George Best"
         },
         {
           "number": 27,
-          "answer": "Slap"
+          "answer": "Goddess"
+        },
+        {
+          "number": 28,
+          "answer": "Trapeze"
+        },
+        {
+          "number": 29,
+          "answer": "Embarrassing"
+        }
+      ],
+      "down": [
+        {
+          "number": 1,
+          "answer": "Ascetic"
+        },
+        {
+          "number": 2,
+          "answer": "Thrombosis"
+        },
+        {
+          "number": 3,
+          "answer": "Fielders"
+        },
+        {
+          "number": 4,
+          "answer": "County"
+        },
+        {
+          "number": 5,
+          "answer": "Arid"
+        },
+        {
+          "number": 6,
+          "answer": "Leonine"
+        },
+        {
+          "number": 7,
+          "answer": "Plain sailing"
+        },
+        {
+          "number": 10,
+          "answer": "Mealy-mouthed"
+        },
+        {
+          "number": 13,
+          "answer": "Glitterati"
+        },
+        {
+          "number": 15,
+          "answer": "Son"
+        },
+        {
+          "number": 18,
+          "answer": "Detritus"
+        },
+        {
+          "number": 20,
+          "answer": "Stardom"
+        },
+        {
+          "number": 22,
+          "answer": "Iceberg"
+        },
+        {
+          "number": 23,
+          "answer": "Geyser"
+        },
+        {
+          "number": 26,
+          "answer": "Beta"
+        }
+      ]
+    },
+    {
+      "puzzle_id": 104,
+      "across": [
+        {
+          "number": 1,
+          "answer": "Child prodigy"
+        },
+        {
+          "number": 8,
+          "answer": "Nuclear"
+        },
+        {
+          "number": 9,
+          "answer": "Almoner"
+        },
+        {
+          "number": 11,
+          "answer": "Electorate"
+        },
+        {
+          "number": 12,
+          "answer": "Loan"
+        },
+        {
+          "number": 14,
+          "answer": "Tree frog"
+        },
+        {
+          "number": 16,
+          "answer": "Salami"
+        },
+        {
+          "number": 17,
+          "answer": "Mam"
+        },
+        {
+          "number": 19,
+          "answer": "Docker"
+        },
+        {
+          "number": 21,
+          "answer": "Superbug"
+        },
+        {
+          "number": 24,
+          "answer": "Nero"
+        },
+        {
+          "number": 25,
+          "answer": "Didgeridoo"
+        },
+        {
+          "number": 27,
+          "answer": "Bambino"
+        },
+        {
+          "number": 28,
+          "answer": "Animist"
+        },
+        {
+          "number": 29,
+          "answer": "Black and blue"
+        }
+      ],
+      "down": [
+        {
+          "number": 1,
+          "answer": "Cockeye"
+        },
+        {
+          "number": 2,
+          "answer": "Identified"
+        },
+        {
+          "number": 3,
+          "answer": "Dark room"
+        },
+        {
+          "number": 4,
+          "answer": "Rialto"
+        },
+        {
+          "number": 5,
+          "answer": "Dump"
+        },
+        {
+          "number": 6,
+          "answer": "Gondola"
+        },
+        {
+          "number": 7,
+          "answer": "Inverted snob"
+        },
+        {
+          "number": 10,
+          "answer": "Running costs"
+        },
+        {
+          "number": 13,
+          "answer": "Career girl"
+        },
+        {
+          "number": 15,
+          "answer": "Gas"
+        },
+        {
+          "number": 18,
+          "answer": "Mudguard"
+        },
+        {
+          "number": 20,
+          "answer": "Caramel"
+        },
+        {
+          "number": 22,
+          "answer": "Bedtime"
+        },
+        {
+          "number": 23,
+          "answer": "Mimosa"
+        },
+        {
+          "number": 26,
+          "answer": "Disc"
         }
       ]
     }
