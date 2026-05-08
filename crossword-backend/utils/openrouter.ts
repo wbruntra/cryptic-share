@@ -254,7 +254,10 @@ export const transcribeAnswers = async (input: any, model = models.flash) => {
                   items: {
                     type: 'object',
                     properties: {
-                      puzzle_id: { type: 'number', description: 'The ID of the puzzle (numbered)' },
+                      puzzle_id: {
+                        type: 'number',
+                        description: 'The ID of the puzzle (numbered)',
+                      },
                       across: {
                         type: 'array',
                         description: 'Array of objects representing each across clue',
@@ -318,8 +321,9 @@ const models = {
   flash: 'google/gemini-3-flash-preview',
   gemini: 'google/gemini-3-pro-preview',
   haiku: 'anthropic/claude-haiku-4.5',
-  sonnet: 'anthropic/claude-sonnet-4.5',
-  deepseek: 'deepseek/deepseek-v3.2',
+  sonnet: 'anthropic/claude-sonnet-4.6',
+  [`deepseek-flash`]: 'deepseek/deepseek-v4-flash',
+  [`deepseek-pro`]: 'deepseek/deepseek-v4-pro',
 }
 
 export const explainCrypticClue = async (input: {
@@ -330,8 +334,6 @@ export const explainCrypticClue = async (input: {
 }) => {
   const { clue, answer, mode = 'full', model = models.flash } = input
 
-  const instructions = crypticInstructions
-
   try {
     const result = await client.chat.send({
       chatRequest: {
@@ -340,11 +342,11 @@ export const explainCrypticClue = async (input: {
           {
             role: 'user',
             content: [
+              { type: 'text', text: crypticInstructions },
               {
                 type: 'text',
                 text: `Clue: ${clue}\nAnswer: ${answer}`,
               },
-              { type: 'text', text: instructions },
             ],
           },
         ],
