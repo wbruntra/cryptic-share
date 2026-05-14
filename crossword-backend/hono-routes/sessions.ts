@@ -191,7 +191,7 @@ sessions.post('/:sessionId/hint', async (c) => {
       throw new HTTPException(404, { message: 'Session not found' })
     }
 
-    const { getCorrectAnswersStructure, rot13, extractClueMetadata } = await import(
+    const { getCorrectAnswersStructure, rot13, getCachedPuzzleData } = await import(
       '../utils/answerChecker'
     )
     const { puzzle, puzzleAnswers } = await getCorrectAnswersStructure(session.id)
@@ -204,8 +204,7 @@ sessions.post('/:sessionId/hint', async (c) => {
 
     if (type === 'letter') {
       const { r, c } = target
-      const grid = puzzle.grid.split('\n').map((row: string) => row.trim().split(' ') as any[])
-      const metadata = extractClueMetadata(grid)
+      const { grid, metadata } = getCachedPuzzleData(puzzle.id, puzzle.grid)
 
       let found = false
       for (const item of metadata) {
@@ -255,8 +254,7 @@ sessions.post('/:sessionId/hint', async (c) => {
         .replace(/[^A-Z]/g, '')
       valueToReveal = decrypted
 
-      const grid = puzzle.grid.split('\n').map((row: string) => row.trim().split(' ') as any[])
-      const metadata = extractClueMetadata(grid)
+      const { metadata } = getCachedPuzzleData(puzzle.id, puzzle.grid)
       const clueInfo = metadata.find((m) => m.number === number && m.direction === direction)
 
       if (!clueInfo) {
