@@ -18,6 +18,9 @@ export function ExplanationReviewPage() {
   const [expandedClue, setExpandedClue] = useState<string | null>(null) // "number-direction"
   const [regenerating, setRegenerating] = useState(false)
   const [newExplanation, setNewExplanation] = useState<NewExplanation | null>(null)
+  const [editedJson, setEditedJson] = useState<Record<string, string>>({}) // key -> edited JSON text
+  const [editJsonError, setEditJsonError] = useState<Record<string, string>>({})
+  const [savingEdit, setSavingEdit] = useState<string | null>(null)
 
   // Report State
   const [showReportModal, setShowReportModal] = useState(false)
@@ -165,6 +168,40 @@ export function ExplanationReviewPage() {
     }
   }
 
+  const handleSaveEdit = async (clue: ClueExplanation) => {
+    const key = `${clue.clue_number}-${clue.direction}`
+    const text = editedJson[key]
+    if (!text) return
+
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      setEditJsonError((prev) => ({ ...prev, [key]: 'Invalid JSON — fix before saving.' }))
+      return
+    }
+
+    setSavingEdit(key)
+    try {
+      await axios.post('/api/admin/explanations/save', {
+        puzzleId: clue.puzzle_id,
+        clueNumber: clue.clue_number,
+        direction: clue.direction,
+        clueText: clue.clue_text,
+        answer: clue.answer,
+        explanation: parsed,
+      })
+      setEditedJson((prev) => { const n = { ...prev }; delete n[key]; return n })
+      setEditJsonError((prev) => { const n = { ...prev }; delete n[key]; return n })
+      if (id) dispatch(fetchClueExplanations(id))
+    } catch (error) {
+      console.error('Failed to save:', error)
+      setEditJsonError((prev) => ({ ...prev, [key]: 'Save failed. Check console.' }))
+    } finally {
+      setSavingEdit(null)
+    }
+  }
+
   const handleReport = async () => {
     if (!reportingClue) return
 
@@ -274,18 +311,39 @@ export function ExplanationReviewPage() {
                                 <h4 className="font-bold text-sm text-text-secondary uppercase tracking-wider mb-2">
                                   Current Explanation
                                 </h4>
-                                <div className="bg-surface p-4 rounded-lg border border-border">
+                                <div className={`bg-surface p-4 rounded-lg border ${editedJson[key] !== undefined ? 'border-primary/60' : 'border-border'}`}>
                                   <textarea
-                                    readOnly
-                                    className="w-full min-h-[400px] text-xs font-mono bg-transparent border-none outline-none resize-y"
-                                    value={JSON.stringify(
-                                      JSON.parse(clue.explanation_json),
-                                      null,
-                                      2,
-                                    )}
+                                    className="w-full min-h-[400px] text-xs font-mono bg-transparent border-none outline-none resize-y focus:outline-none"
+                                    value={editedJson[key] ?? JSON.stringify(JSON.parse(clue.explanation_json), null, 2)}
+                                    onChange={(e) => {
+                                      setEditedJson((prev) => ({ ...prev, [key]: e.target.value }))
+                                      setEditJsonError((prev) => { const n = { ...prev }; delete n[key]; return n })
+                                    }}
+                                    spellCheck={false}
                                   />
                                 </div>
-                                <div className="mt-4 flex gap-2">
+                                {editJsonError[key] && (
+                                  <p className="mt-1 text-xs text-error">{editJsonError[key]}</p>
+                                )}
+                                <div className="mt-4 flex gap-2 flex-wrap">
+                                  <button
+                                    onClick={() => handleSaveEdit(clue)}
+                                    disabled={savingEdit === key || editedJson[key] === undefined}
+                                    className="px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 disabled:opacity-40 text-sm font-bold flex-1"
+                                  >
+                                    {savingEdit === key ? 'Saving...' : 'Save Edits'}
+                                  </button>
+                                  {editedJson[key] !== undefined && (
+                                    <button
+                                      onClick={() => {
+                                        setEditedJson((prev) => { const n = { ...prev }; delete n[key]; return n })
+                                        setEditJsonError((prev) => { const n = { ...prev }; delete n[key]; return n })
+                                      }}
+                                      className="px-3 py-2 text-sm text-text-secondary border border-border rounded-lg hover:text-text transition-colors"
+                                    >
+                                      Discard
+                                    </button>
+                                  )}
                                   <button
                                     onClick={() => handleRegenerate(clue)}
                                     disabled={regenerating}
