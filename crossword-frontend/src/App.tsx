@@ -10,6 +10,7 @@ import { SessionListPage } from './pages/SessionListPage'
 import { MissingCluesPage } from './pages/MissingCluesPage'
 import { EditPuzzleClues } from './pages/EditPuzzleClues'
 import { WordplayDemoPage } from './pages/WordplayDemoPage'
+import { ParsewordsTestPage } from './pages/ParsewordsTestPage'
 import { AuthModal } from './components/AuthModal'
 import { NavBar } from './components/NavBar'
 import { useViewportCssVars } from './utils/useViewportCssVars'
@@ -33,6 +34,7 @@ function App() {
         <Route path="/edit/:puzzleId" element={<EditPuzzle />} />
 
         <Route path="/wordplay-demo" element={<WordplayDemoPage />} />
+        <Route path="/parsewords-test" element={<ParsewordsTestPage />} />
 
         {/* Gameplay Routes - Use GameConnectionProvider (SSE) internally */}
         <Route path="/play/:sessionId" element={<PlaySession />} />

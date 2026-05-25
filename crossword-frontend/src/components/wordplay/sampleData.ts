@@ -115,7 +115,7 @@ export const lullabyExample: WordplayVisualization = {
     { id: 't3', text: 'nearly', role: 'indicator' },
     { id: 't4', text: 'over', role: 'indicator' },
     { id: 't5', text: 'recall', role: 'indicator' },
-    { id: 't6', text: 'dance', role: 'wordplay' },
+    { id: 't6', text: "dance's", role: 'wordplay' },
     { id: 't7', text: 'sleepy tune', role: 'definition' },
   ],
   stages: [
