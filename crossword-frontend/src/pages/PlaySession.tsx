@@ -13,7 +13,8 @@ import { useCursorSelection } from '@/hooks/useCursorSelection'
 import { useAnswerChecker } from '@/hooks/useAnswerChecker'
 import { setNickname } from '@/utils/sessionManager'
 import { GameConnectionProvider, useGameConnection } from '@/context/GameConnectionContext'
-import { setPuzzleComplete } from '@/store/slices/puzzleSlice'
+import { setPuzzleComplete, updateCell } from '@/store/slices/puzzleSlice'
+import { getCellsForClue } from '@/utils/lockCells'
 import type { AppDispatch, RootState } from '@/store/store'
 import type { Direction } from '@/types'
 
@@ -66,6 +67,16 @@ function PlaySessionInner({ sessionId }: { sessionId: string | undefined }) {
   const { sendCellUpdate } = usePuzzleSync(sessionId)
   const { checkCurrentWord, checkAllAnswers, checkIsPuzzleComplete, claimWord } = useAnswerChecker()
   const { selectCell, navigateToClue } = useCursorSelection()
+
+  const handleFillAnswer = (clueNumber: number, direction: Direction, answer: string) => {
+    const cells = getCellsForClue(grid, clueNumber, direction)
+    cells.forEach((cellKey, i) => {
+      const [r, c] = cellKey.split('-').map(Number)
+      const letter = answer[i] ?? ' '
+      dispatch(updateCell({ r, c, value: letter }))
+      sendCellUpdate(r, c, letter)
+    })
+  }
 
   const handleCheckAllAnswers = () => {
     console.log('[PlaySession] handleCheckAllAnswers called')
@@ -157,12 +168,14 @@ function PlaySessionInner({ sessionId }: { sessionId: string | undefined }) {
           onVirtualKeyPress={onVirtualKeyPress}
           onVirtualDelete={onVirtualDelete}
           onCheckAnswers={handleCheckAllAnswers}
+          onFillAnswer={handleFillAnswer}
         />
       ) : (
         <DesktopView
           onClueClick={navigateToClue}
           onCellClick={selectCell}
           onCheckAnswers={handleCheckAllAnswers}
+          onFillAnswer={handleFillAnswer}
         />
       )}
     </>

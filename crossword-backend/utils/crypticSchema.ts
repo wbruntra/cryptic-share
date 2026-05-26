@@ -5,22 +5,21 @@ import { zodTextFormat } from 'openai/helpers/zod'
 // ZOD SCHEMA DEFINITIONS
 // =========================
 
-// Shared schemas for letter breakdown and wordplay steps
-const LetterBreakdownItemSchema = z
-  .object({
-    source: z.string().describe('Clue text or fodder used to produce the letters'),
-    letters: z
-      .string()
-      .regex(/^[A-Z]+$/)
-      .describe('Uppercase letters contributed by this part (no spaces)'),
-  })
-  .strict()
-
 const WordplayStepSchema = z
   .object({
-    indicator: z.string().describe('Exact indicator text from the clue (or "None")'),
-    operation: z.string().describe('The explicit cryptic operation performed'),
-    result: z.string().describe('Resulting letters after the operation'),
+    tokens: z
+      .array(z.string())
+      .min(1)
+      .describe(
+        'The exact clue words consumed in this step (e.g. ["Christmas"] or ["YULE", "nearly"])',
+      ),
+    operation: z.string().describe('The cryptic operation performed (e.g. "anagram", "reverse", "abbreviate", "delete OR from MORE")'),
+    result: z.string().describe('Resulting letter string after the operation'),
+    clue_after: z
+      .string()
+      .describe(
+        'The clue with the consumed tokens replaced by the result, showing the clue state after this step',
+      ),
   })
   .strict()
 
@@ -29,7 +28,6 @@ const WordplayExplanationSchema = z
   .object({
     clue_type: z.literal('wordplay'),
     definition: z.string().describe('The exact definition from the clue'),
-    letter_breakdown: z.array(LetterBreakdownItemSchema).min(1),
     wordplay_steps: z.array(WordplayStepSchema).min(1),
     hint: z
       .object({
@@ -69,7 +67,6 @@ const AndLitExplanationSchema = z
   .object({
     clue_type: z.literal('&lit'),
     definition_scope: z.literal('entire_clue'),
-    letter_breakdown: z.array(LetterBreakdownItemSchema).min(1),
     wordplay_steps: z.array(WordplayStepSchema).min(1),
     hint: z
       .object({
@@ -190,11 +187,15 @@ Your task:
 5. For cryptic_definition clues: Provide a concise paraphrase of the whole-clue definition; do not invent wordplay.
 6. Provide both a hint and a full explanation appropriate to the clue type.
 
+Surface glue words (important):
+- The conjunctions "and", "with", "plus", and the articles "a", "an", "the" are routinely used as surface connectives between fodder or wordplay components and contribute NO letters to the answer. They are consumed silently in the step that combines the surrounding tokens — do NOT treat them as unaccountable letters or use them as a reason to declare no_clean_parse.
+- Example: "OAP and cleric" after an anagram indicator means anagram(OAP + CLERIC); "and" is surface glue and is simply dropped.
+
 Core cryptic rules (strict):
 - For wordplay and &lit clues: Each part of the wordplay MUST correspond to one explicit indicator in the clue.
 - Use the simplest valid parse; do not offer alternatives or supporting interpretations.
 - Do NOT mix mechanisms (e.g. hidden letters, charades, containers) unless the clue explicitly indicates them.
-- For wordplay and &lit clues: Every letter in the answer MUST be explicitly justified.
+- For wordplay and &lit clues: Every letter in the answer MUST be explicitly justified (surface glue words excepted — see above).
 - Compound Anagram Logic (Priority Check):
   If a standard parse fails, before determining that there is no clean parse possible, you must specifically check for "Answer-Participating" anagrams. Test this algebraic relationship: "(Visible Clue Part A + Answer) = Visible Clue Part B".
   1. Identify the Target (Part B) and the Remainder (Part A) in the clue.
@@ -213,13 +214,30 @@ No-clean-parse handling:
 - In issue, state the precise reason you cannot parse cleanly (e.g. missing indicator, letter accounting mismatch).
 - Do NOT fabricate letter breakdowns, indicators, or wordplay steps in this mode.
 
-Letter accounting (mandatory for wordplay and &lit clues):
-- Break the answer into its component letter groups.
-- For each group, state exactly which indicator produced it.
-- The concatenation of all letter groups MUST exactly equal the answer.
+Wordplay steps — token-consumption model (mandatory for wordplay and &lit clues):
+Each step must show exactly how the clue is being reduced, one operation at a time, until only the answer and definition remain. Think of each step as a player action: the player selects one or more adjacent clue words, performs an operation, and those words are replaced by the result.
 
-For compound/composite anagrams (still mandatory):
-- Show the multiset letter arithmetic explicitly (e.g. “anagram(B) minus A = answer”, or “A + answer = anagram(B)”), and ensure the remaining letters anagram precisely to the answer.
+Each step has four fields:
+- tokens: the exact clue words selected and consumed (e.g. [“Christmas”] or [“YULE”, “nearly”])
+- operation: what is done (e.g. “synonym”, “anagram”, “reverse”, “trim last letter”, “abbreviate”, “insert into”, “hidden word”, “translate to French”)
+- result: the letter string produced
+- clue_after: the full clue text after replacing the consumed tokens with the result
+
+Example for “With Christmas nearly over recall dance's sleepy tune (7)” → LULLABY:
+Step 1: tokens=[“Christmas”], operation=”synonym”, result=”YULE”, clue_after=”With YULE nearly over recall dance's sleepy tune”
+Step 2: tokens=[“YULE”,”nearly”], operation=”trim last letter”, result=”YUL”, clue_after=”With YUL over recall dance's sleepy tune”
+Step 3: tokens=[“YUL”,”over”], operation=”reverse”, result=”LUY”, clue_after=”With LUY recall dance's sleepy tune”
+Step 4: tokens=[“dance's”], operation=”synonym”, result=”BALL”, clue_after=”With LUY recall BALL sleepy tune”
+Step 5: tokens=[“BALL”,”recall”], operation=”reverse”, result=”LLAB”, clue_after=”With LUY LLAB sleepy tune”
+Step 6: tokens=[“With”,”LUY”,”LLAB”], operation=”insert LLAB into LUY (container)”, result=”LULLABY”, clue_after=”LULLABY sleepy tune”
+
+Rules:
+- Each step must reference the current clue state (tokens from previous steps may have been replaced).
+- The final step must produce the answer, leaving only the answer string and the definition words.
+- Indicator words are consumed alongside the wordplay words they govern (e.g. “nearly” is consumed with “YULE”, not separately).
+- For abbreviation/synonym steps with no indicator, list only the wordplay word being replaced.
+- Surface glue words ("and", "with", "plus", "a", "an", "the") between fodder components may be included in the tokens list of the step that combines them; they contribute no letters and are dropped from clue_after.
+- clue_after must reflect the actual clue string with substitutions applied; do not paraphrase.
 
 Style constraints:
 - Write like a crossword setter explaining a clue to another setter.
@@ -231,7 +249,7 @@ Output format:
 Return ONLY valid JSON.
 
 Final check (required):
-- For wordplay and &lit clues: Verify that the letter_breakdown concatenates exactly to the answer.
+- For wordplay and &lit clues: Verify that each step's clue_after correctly reflects the substitution.
 - For double_definition clues: Verify that both definitions legitimately match the answer in different senses.
 - For cryptic_definition clues: Verify that there is no separable wordplay and only a single whole-clue definition.
 
@@ -297,47 +315,32 @@ export const crypticSchema = {
                 description: 'The exact definition from the clue',
               },
 
-              letter_breakdown: {
-                type: 'array',
-                minItems: 1,
-                items: {
-                  type: 'object',
-                  properties: {
-                    source: {
-                      type: 'string',
-                      description: 'Clue text or fodder used to produce the letters',
-                    },
-                    letters: {
-                      type: 'string',
-                      description: 'Uppercase letters contributed by this part (no spaces)',
-                      pattern: '^[A-Z]+$',
-                    },
-                  },
-                  required: ['source', 'letters'],
-                  additionalProperties: false,
-                },
-              },
-
               wordplay_steps: {
                 type: 'array',
                 minItems: 1,
                 items: {
                   type: 'object',
                   properties: {
-                    indicator: {
-                      type: 'string',
-                      description: 'Exact indicator text from the clue (or "None")',
+                    tokens: {
+                      type: 'array',
+                      minItems: 1,
+                      items: { type: 'string' },
+                      description: 'Exact clue words consumed in this step',
                     },
                     operation: {
                       type: 'string',
-                      description: 'The explicit cryptic operation performed',
+                      description: 'The cryptic operation performed',
                     },
                     result: {
                       type: 'string',
-                      description: 'Resulting letters after the operation',
+                      description: 'Resulting letter string after the operation',
+                    },
+                    clue_after: {
+                      type: 'string',
+                      description: 'The clue with consumed tokens replaced by the result',
                     },
                   },
-                  required: ['indicator', 'operation', 'result'],
+                  required: ['tokens', 'operation', 'result', 'clue_after'],
                   additionalProperties: false,
                 },
               },
@@ -366,7 +369,6 @@ export const crypticSchema = {
             required: [
               'clue_type',
               'definition',
-              'letter_breakdown',
               'wordplay_steps',
               'hint',
               'full_explanation',
@@ -428,47 +430,32 @@ export const crypticSchema = {
                 const: 'entire_clue',
               },
 
-              letter_breakdown: {
-                type: 'array',
-                minItems: 1,
-                items: {
-                  type: 'object',
-                  properties: {
-                    source: {
-                      type: 'string',
-                      description: 'Clue text or fodder used to produce the letters',
-                    },
-                    letters: {
-                      type: 'string',
-                      description: 'Uppercase letters contributed by this part (no spaces)',
-                      pattern: '^[A-Z]+$',
-                    },
-                  },
-                  required: ['source', 'letters'],
-                  additionalProperties: false,
-                },
-              },
-
               wordplay_steps: {
                 type: 'array',
                 minItems: 1,
                 items: {
                   type: 'object',
                   properties: {
-                    indicator: {
-                      type: 'string',
-                      description: 'Exact indicator text from the clue (or "None")',
+                    tokens: {
+                      type: 'array',
+                      minItems: 1,
+                      items: { type: 'string' },
+                      description: 'Exact clue words consumed in this step',
                     },
                     operation: {
                       type: 'string',
-                      description: 'The explicit cryptic operation performed',
+                      description: 'The cryptic operation performed',
                     },
                     result: {
                       type: 'string',
-                      description: 'Resulting letters after the operation',
+                      description: 'Resulting letter string after the operation',
+                    },
+                    clue_after: {
+                      type: 'string',
+                      description: 'The clue with consumed tokens replaced by the result',
                     },
                   },
-                  required: ['indicator', 'operation', 'result'],
+                  required: ['tokens', 'operation', 'result', 'clue_after'],
                   additionalProperties: false,
                 },
               },
@@ -493,7 +480,6 @@ export const crypticSchema = {
             required: [
               'clue_type',
               'definition_scope',
-              'letter_breakdown',
               'wordplay_steps',
               'hint',
               'full_explanation',

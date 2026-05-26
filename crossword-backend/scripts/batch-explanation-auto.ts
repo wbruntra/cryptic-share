@@ -40,7 +40,8 @@
 import OpenAI from 'openai'
 import minimist from 'minimist'
 import db from '../db-knex'
-import { generateExplanationMessages, crypticSchema, ExplanationSchema } from '../utils/crypticSchema'
+import { ExplanationSchema } from '../utils/crypticSchema'
+import { buildExplanationRequestBody } from '../utils/openai'
 import { ExplanationService } from '../services/explanationService'
 import he from 'he'
 
@@ -161,10 +162,12 @@ interface PuzzleWithBatchInfo {
   error: string | null
 }
 
-async function findPuzzlesNeedingExplanations() {
+async function findPuzzlesNeedingExplanations(puzzleIdFilter: number | null = null) {
   console.log('\n🔍 Finding puzzles that need explanations...\n')
 
-  const puzzles = await db<PuzzleRow>('puzzles').select('id', 'title', 'clues', 'puzzle_number')
+  const puzzles = await db<PuzzleRow>('puzzles')
+    .select('id', 'title', 'clues', 'puzzle_number')
+    .modify((qb) => { if (puzzleIdFilter !== null) qb.where('id', puzzleIdFilter) })
 
   const puzzlesNeedingExplanations = []
 
@@ -179,7 +182,8 @@ async function findPuzzlesNeedingExplanations() {
 
     const explained = (explainedCount as any)?.count || 0
 
-    if (explained < totalClues) {
+    // Always include if filtered by ID; otherwise only include if incomplete
+    if (puzzleIdFilter !== null || explained < totalClues) {
       puzzlesNeedingExplanations.push({
         id: puzzle.id,
         title: puzzle.title,
@@ -207,8 +211,19 @@ async function findPuzzlesNeedingExplanations() {
   return puzzlesNeedingExplanations
 }
 
+function isNewFormat(explanationJson: string): boolean {
+  try {
+    const parsed = JSON.parse(explanationJson)
+    const steps = parsed?.wordplay_steps ?? parsed?.explanation?.wordplay_steps
+    return Array.isArray(steps?.[0]?.tokens)
+  } catch {
+    return false
+  }
+}
+
 async function analyzePuzzlesForDryRun(
   puzzles: Awaited<ReturnType<typeof findPuzzlesNeedingExplanations>>,
+  force: boolean,
 ): Promise<PuzzleWithBatchInfo[]> {
   const analyzed: PuzzleWithBatchInfo[] = []
 
@@ -237,27 +252,20 @@ async function analyzePuzzlesForDryRun(
 
       puzWithInfo.hasAnswers = true
 
-      // Count how many requests would be created
       const clues: PuzzleClues = JSON.parse(puzzleRow.clues)
       let requestCount = 0
 
-      // Count across clues that don't have explanations
-      for (const clue of clues.across || []) {
-        const existing = await db('clue_explanations')
-          .where({ puzzle_id: puzzle.id, clue_number: clue.number, direction: 'across' })
-          .first()
-        if (!existing && (encrypted.across || []).some((a: Answer) => a.number === clue.number)) {
-          requestCount++
-        }
-      }
+      for (const dir of ['across', 'down'] as const) {
+        for (const clue of clues[dir] || []) {
+          const hasAnswer = (encrypted[dir] || []).some((a: Answer) => a.number === clue.number)
+          if (!hasAnswer) continue
 
-      // Count down clues that don't have explanations
-      for (const clue of clues.down || []) {
-        const existing = await db('clue_explanations')
-          .where({ puzzle_id: puzzle.id, clue_number: clue.number, direction: 'down' })
-          .first()
-        if (!existing && (encrypted.down || []).some((a: Answer) => a.number === clue.number)) {
-          requestCount++
+          const existing = await db('clue_explanations')
+            .where({ puzzle_id: puzzle.id, clue_number: clue.number, direction: dir })
+            .first()
+
+          if (!existing) { requestCount++; continue }
+          if (force && !isNewFormat(existing.explanation_json)) requestCount++
         }
       }
 
@@ -272,12 +280,12 @@ async function analyzePuzzlesForDryRun(
   return analyzed
 }
 
-async function dryRun() {
+async function dryRun(puzzleIdFilter: number | null = null, force = false) {
   console.log('\n' + '='.repeat(60))
   console.log('🔬 DRY RUN: PREVIEW BATCH CREATION')
   console.log('='.repeat(60))
 
-  const puzzles = await findPuzzlesNeedingExplanations()
+  const puzzles = await findPuzzlesNeedingExplanations(puzzleIdFilter)
 
   if (puzzles.length === 0) {
     return
@@ -285,7 +293,7 @@ async function dryRun() {
 
   console.log('\n📊 ANALYZING PUZZLES...\n')
 
-  const analyzed = await analyzePuzzlesForDryRun(puzzles)
+  const analyzed = await analyzePuzzlesForDryRun(puzzles, force)
 
   console.log('PUZZLE ANALYSIS')
   console.log('—'.repeat(60))
@@ -376,7 +384,7 @@ async function verifyAnswersExist(puzzleId: number): Promise<boolean> {
   }
 }
 
-async function createBatchForPuzzle(puzzleId: number): Promise<string | null> {
+async function createBatchForPuzzle(puzzleId: number, force = false): Promise<string | null> {
   console.log(`\n📋 Creating batch for puzzle ID: ${puzzleId}`)
 
   const puzzle = await db<PuzzleRow>('puzzles').where('id', puzzleId).first()
@@ -408,69 +416,54 @@ async function createBatchForPuzzle(puzzleId: number): Promise<string | null> {
 
   // Process Across
   for (const clue of clues.across) {
-    // Skip if already explained
     const existing = await db('clue_explanations')
-      .where({
-        puzzle_id: puzzle.id,
-        clue_number: clue.number,
-        direction: 'across',
-      })
+      .where({ puzzle_id: puzzle.id, clue_number: clue.number, direction: 'across' })
       .first()
 
-    if (existing) continue
+    if (existing && !force) continue
+    // With --force, skip clues that already have the new step-by-step format
+    if (existing && force) {
+      try {
+        const parsed = JSON.parse(existing.explanation_json)
+        const steps = parsed?.wordplay_steps ?? parsed?.explanation?.wordplay_steps
+        if (Array.isArray(steps?.[0]?.tokens)) continue
+      } catch { /* unparseable — regenerate */ }
+    }
 
     const answerObj = answersAcross.find((a) => a.number === clue.number)
     if (!answerObj) continue
 
-    const messages = generateExplanationMessages(clue.clue, answerObj.answer, 'full')
-    const customId = `p${puzzle.id}_c${clue.number}_across`
-
     requests.push({
-      custom_id: customId,
+      custom_id: `p${puzzle.id}_c${clue.number}_across`,
       method: 'POST',
       url: '/v1/responses',
-      body: {
-        model: 'gpt-5-mini',
-        reasoning: { effort: 'medium' },
-        input: messages,
-        text: {
-          format: crypticSchema,
-        },
-      },
+      body: buildExplanationRequestBody(clue.clue, answerObj.answer),
     })
   }
 
   // Process Down
   for (const clue of clues.down) {
-    // Skip if already explained
     const existing = await db('clue_explanations')
-      .where({
-        puzzle_id: puzzle.id,
-        clue_number: clue.number,
-        direction: 'down',
-      })
+      .where({ puzzle_id: puzzle.id, clue_number: clue.number, direction: 'down' })
       .first()
 
-    if (existing) continue
+    if (existing && !force) continue
+    if (existing && force) {
+      try {
+        const parsed = JSON.parse(existing.explanation_json)
+        const steps = parsed?.wordplay_steps ?? parsed?.explanation?.wordplay_steps
+        if (Array.isArray(steps?.[0]?.tokens)) continue
+      } catch { /* unparseable — regenerate */ }
+    }
 
     const answerObj = answersDown.find((a) => a.number === clue.number)
     if (!answerObj) continue
 
-    const messages = generateExplanationMessages(clue.clue, answerObj.answer, 'full')
-    const customId = `p${puzzle.id}_c${clue.number}_down`
-
     requests.push({
-      custom_id: customId,
+      custom_id: `p${puzzle.id}_c${clue.number}_down`,
       method: 'POST',
       url: '/v1/responses',
-      body: {
-        model: 'gpt-5-mini',
-        reasoning: { effort: 'medium' },
-        input: messages,
-        text: {
-          format: crypticSchema,
-        },
-      },
+      body: buildExplanationRequestBody(clue.clue, answerObj.answer),
     })
   }
 
@@ -520,7 +513,7 @@ async function createBatchForPuzzle(puzzleId: number): Promise<string | null> {
   return batch.id
 }
 
-async function createBatchesForAllPuzzles() {
+async function createBatchesForAllPuzzles(force = false) {
   const puzzlesNeedingExplanations = await findPuzzlesNeedingExplanations()
 
   if (puzzlesNeedingExplanations.length === 0) {
@@ -542,7 +535,7 @@ async function createBatchesForAllPuzzles() {
         continue
       }
 
-      const batchId = await createBatchForPuzzle(puzzle.id)
+      const batchId = await createBatchForPuzzle(puzzle.id, force)
       if (batchId) {
         createdBatches.push({
           puzzle_id: puzzle.id,
@@ -810,11 +803,15 @@ async function processBatchResults(batchId: string) {
 
 async function main() {
   const argv = minimist(Bun.argv.slice(2), {
-    boolean: ['dry-run', 'help'],
+    boolean: ['dry-run', 'force', 'help'],
+    string: ['puzzle-id'],
     alias: {
       h: 'help',
     },
   })
+
+  const force: boolean = argv['force']
+  const puzzleIdFilter: number | null = argv['puzzle-id'] ? parseInt(argv['puzzle-id'], 10) : null
 
   let exitCode = 0
 
@@ -833,9 +830,11 @@ async function main() {
 
     if (command === 'prepare') {
       if (argv['dry-run']) {
-        await dryRun()
+        await dryRun(puzzleIdFilter, force)
+      } else if (puzzleIdFilter !== null) {
+        await createBatchForPuzzle(puzzleIdFilter, force)
       } else {
-        await createBatchesForAllPuzzles()
+        await createBatchesForAllPuzzles(force)
       }
       return
     }

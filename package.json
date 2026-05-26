@@ -23,5 +23,8 @@
     "dev": "bun run --parallel api frontend",
     "build": "cd crossword-frontend && bun run build"
   },
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "kysely-codegen": "^0.20.0"
+  }
 }

@@ -6,6 +6,7 @@ import { ClueList } from '@/ClueList'
 import { AttributionControls } from '@/components/AttributionControls'
 import { AttributionStats } from '@/components/AttributionStats'
 import { HintModal } from '@/components/HintModal'
+import { ParsewordsModal } from '@/components/ParsewordsModal'
 import { ChangeNotification } from '@/components/ChangeNotification'
 import { CongratulationsModal } from '@/components/CongratulationsModal'
 import { Toast } from '@/components/Toast'
@@ -36,16 +37,19 @@ import {
   selectIsChecking,
   selectIsLockModeEnabled,
   selectIsHintModalOpen,
+  selectPuzzleId,
 } from '@/store/selectors/puzzleSelectors'
 
 export function DesktopView({
   onClueClick,
   onCellClick,
   onCheckAnswers,
+  onFillAnswer,
 }: {
   onClueClick: (num: number, dir: 'across' | 'down') => void
   onCellClick: (r: number, c: number) => void
   onCheckAnswers: () => void
+  onFillAnswer?: (clueNumber: number, direction: 'across' | 'down', answer: string) => void
 }) {
   const dispatch = useDispatch()
   const title = useSelector(selectTitle)
@@ -62,6 +66,8 @@ export function DesktopView({
   const isLockModeEnabled = useSelector(selectIsLockModeEnabled)
   const isHintModalOpen = useSelector(selectIsHintModalOpen)
   const [showAttributions, setShowAttributions] = useState(false)
+  const [showParsewords, setShowParsewords] = useState(false)
+  const puzzleId = useSelector(selectPuzzleId)
 
   const { renderedGrid, currentClueNumber } = useRenderedGrid()
   const { clueMetadata, currentClue, currentWordState, handleFetchHintAnswer } =
@@ -112,6 +118,16 @@ export function DesktopView({
             disabled={!cursor || !currentClue}
             className={`bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 ${!cursor || !currentClue ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-500/20'}`}
           />
+          {puzzleId && (
+            <button
+              onClick={() => setShowParsewords(true)}
+              className="w-10 h-10 flex items-center justify-center rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30 hover:bg-purple-500/20 transition-colors"
+              aria-label="Parsewords puzzles"
+              title="Play Parsewords mini-puzzles to discover clue answers"
+            >
+              🧩
+            </button>
+          )}
           {sessionId && (
             <ToolbarButton
               onClick={() => {
@@ -221,6 +237,15 @@ export function DesktopView({
           currentWordState={currentWordState}
           onFetchAnswer={handleFetchHintAnswer}
           timerDisplay={timerDisplay}
+        />
+      )}
+
+      {puzzleId && (
+        <ParsewordsModal
+          isOpen={showParsewords}
+          onClose={() => setShowParsewords(false)}
+          puzzleId={puzzleId}
+          onFillAnswer={onFillAnswer}
         />
       )}
     </div>

@@ -23,8 +23,7 @@ export interface StoredClueExplanation {
 export interface WordplayExplanation {
   clue_type: 'wordplay'
   definition: string
-  letter_breakdown: Array<{ source: string; letters: string }>
-  wordplay_steps: Array<{ indicator: string; operation: string; result: string }>
+  wordplay_steps: Array<{ tokens: string[]; operation: string; result: string; clue_after: string }>
   hint: {
     definition_location: 'start' | 'end'
     wordplay_types: string[]
@@ -47,8 +46,7 @@ export interface DoubleDefinitionExplanation {
 export interface AndLitExplanation {
   clue_type: '&lit'
   definition_scope: 'entire_clue'
-  letter_breakdown: Array<{ source: string; letters: string }>
-  wordplay_steps: Array<{ indicator: string; operation: string; result: string }>
+  wordplay_steps: Array<{ tokens: string[]; operation: string; result: string; clue_after: string }>
   hint: {
     wordplay_types: string[]
   }
@@ -182,17 +180,7 @@ export class ExplanationService {
     const explanationToStore = extractInnerExplanationForStorage(explanation)
 
     // Validate the explanation before saving
-    try {
-      assertValidExplanation(explanationToStore)
-    } catch (error) {
-      console.error(
-        `❌ Validation failed for puzzle ${puzzleId}, clue ${clueNumber} (${direction}):`,
-      )
-      console.error(`   Clue: "${clueText}"`)  
-      console.error(`   Answer: ${answer}`)
-      console.error(`   ${error}`)
-      throw error // Re-throw to prevent saving invalid data
-    }
+    assertValidExplanation(explanationToStore)
 
     await db('clue_explanations')
       .insert({
