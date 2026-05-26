@@ -13,28 +13,17 @@ const flatExplanationSchema = {
       properties: {
         clue_type: { type: 'string', const: 'wordplay' },
         definition: { type: 'string' },
-        letter_breakdown: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              source: { type: 'string' },
-              letters: { type: 'string', pattern: '^[A-Z]+$' },
-            },
-            required: ['source', 'letters'],
-            additionalProperties: false,
-          },
-        },
         wordplay_steps: {
           type: 'array',
           items: {
             type: 'object',
             properties: {
-              indicator: { type: 'string' },
+              tokens: { type: 'array', items: { type: 'string' }, minItems: 1 },
               operation: { type: 'string' },
               result: { type: 'string' },
+              clue_after: { type: 'string' },
             },
-            required: ['indicator', 'operation', 'result'],
+            required: ['tokens', 'operation', 'result', 'clue_after'],
             additionalProperties: false,
           },
         },
@@ -52,7 +41,6 @@ const flatExplanationSchema = {
       required: [
         'clue_type',
         'definition',
-        'letter_breakdown',
         'wordplay_steps',
         'hint',
         'full_explanation',
@@ -97,28 +85,17 @@ const flatExplanationSchema = {
       properties: {
         clue_type: { type: 'string', const: '&lit' },
         definition_scope: { type: 'string', const: 'entire_clue' },
-        letter_breakdown: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              source: { type: 'string' },
-              letters: { type: 'string', pattern: '^[A-Z]+$' },
-            },
-            required: ['source', 'letters'],
-            additionalProperties: false,
-          },
-        },
         wordplay_steps: {
           type: 'array',
           items: {
             type: 'object',
             properties: {
-              indicator: { type: 'string' },
+              tokens: { type: 'array', items: { type: 'string' }, minItems: 1 },
               operation: { type: 'string' },
               result: { type: 'string' },
+              clue_after: { type: 'string' },
             },
-            required: ['indicator', 'operation', 'result'],
+            required: ['tokens', 'operation', 'result', 'clue_after'],
             additionalProperties: false,
           },
         },
@@ -135,7 +112,6 @@ const flatExplanationSchema = {
       required: [
         'clue_type',
         'definition_scope',
-        'letter_breakdown',
         'wordplay_steps',
         'hint',
         'full_explanation',

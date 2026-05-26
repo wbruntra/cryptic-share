@@ -127,31 +127,28 @@ Extract all puzzle IDs, across clues with their numbers and answers, and down cl
   }
 }
 
+/**
+ * Build the Responses API request body for a clue explanation.
+ * Used both by explainCrypticClue (direct) and batch-explanation-auto (batch JSONL).
+ */
+export function buildExplanationRequestBody(clue: string, answer: string, mode: 'hint' | 'full' = 'full') {
+  return {
+    model: 'gpt-5-mini',
+    reasoning: { effort: 'medium' },
+    input: generateExplanationMessages(clue, answer, mode),
+    text: { format: crypticSchema },
+  }
+}
+
 export const explainCrypticClue = async (input: {
   clue: string
   answer: string
   mode?: 'hint' | 'full'
 }) => {
   const { clue, answer, mode = 'full' } = input
-
-  const messages = generateExplanationMessages(clue, answer, mode)
-
-  const requestBody = {
-    model: 'gpt-5-mini',
-    reasoning: { effort: 'medium' },
-    input: messages,
-    text: {
-      format: crypticSchemaFromZod,
-    },
-  }
-
-  const response = await (openai as any).responses.create(requestBody)
-
+  const response = await (openai as any).responses.create(buildExplanationRequestBody(clue, answer, mode))
   const outputText = response.output_text
-  if (!outputText) {
-    throw new Error('No content received from OpenAI')
-  }
-
+  if (!outputText) throw new Error('No content received from OpenAI')
   return JSON.parse(outputText)
 }
 
@@ -163,56 +160,38 @@ export const regenerateCrypticClueExplanation = async (input: {
 }) => {
   const { clue, answer, feedback } = input
 
-  const newInstructions = `
-Clue: ${clue}
-Answer: ${answer}
-
-User Feedback on previous explanation:
-"${feedback}"
-
-Please provide a CORRECTED explanation that addresses this feedback.
-`.trim()
-
-  const messages = [
+  const body = buildExplanationRequestBody(clue, answer)
+  // Append feedback as an additional user message after the main prompt
+  const inputWithFeedback = [
+    ...body.input,
     {
       role: 'user',
       content: [
-        { type: 'input_text', text: crypticInstructions },
         {
           type: 'input_text',
-          text: newInstructions,
+          text: `The previous explanation had an issue:\n"${feedback}"\n\nPlease provide a corrected explanation that addresses this.`,
         },
       ],
     },
   ]
 
-  const requestBody = {
-    model: 'gpt-5-mini',
-    reasoning: { effort: 'medium' },
-    input: messages,
-    text: {
-      format: crypticSchema,
-    },
-  }
-
   console.log('[regenerateCrypticClueExplanation] Sending request to OpenAI (gpt-5-mini)...')
   const startTime = performance.now()
-  const response = await (openai as any).responses.create(requestBody)
+  const response = await (openai as any).responses.create({ ...body, input: inputWithFeedback })
   const duration = (performance.now() - startTime) / 1000
   console.log(`[regenerateCrypticClueExplanation] Received response in ${duration.toFixed(2)}s`)
 
   const outputText = response.output_text
-  if (!outputText) {
-    throw new Error('No content received from OpenAI')
-  }
+  if (!outputText) throw new Error('No content received from OpenAI')
 
   return JSON.parse(outputText)
 }
 
 const test = async () => {
+  const args = Bun.argv.slice(2)
   const input = {
-    clue: 'I bet this girl dressed up as Elizabeth (5)',
-    answer: 'HAZEL',
+    clue: args[0] ?? 'I bet this girl dressed up as Elizabeth (5)',
+    answer: args[1] ?? 'HAZEL',
     mode: 'full' as const,
   }
 

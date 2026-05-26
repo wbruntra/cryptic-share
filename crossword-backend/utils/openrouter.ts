@@ -1,8 +1,4 @@
 import { OpenRouter } from '@openrouter/sdk'
-import { resolve, join } from 'path'
-import * as path from 'path'
-import * as fs from 'fs'
-import { mkdir, writeFile } from 'fs/promises'
 import { crypticSchema, crypticInstructions } from './crypticSchema'
 
 const client = new OpenRouter({
@@ -319,9 +315,12 @@ export const transcribeAnswers = async (input: any, model = models.flash) => {
 
 const models = {
   flash: 'google/gemini-3-flash-preview',
+  ['flash-3.5']: 'google/gemini-3.5-flash',
   gemini: 'google/gemini-3-pro-preview',
   haiku: 'anthropic/claude-haiku-4.5',
   sonnet: 'anthropic/claude-sonnet-4.6',
+  [`gpt-5-mini`]: 'openai/gpt-5-mini',
+  [`gpt-5.4-mini`]: 'openai/gpt-5.4-mini',
   [`deepseek-flash`]: 'deepseek/deepseek-v4-flash',
   [`deepseek-pro`]: 'deepseek/deepseek-v4-pro',
 }
@@ -331,11 +330,15 @@ export const explainCrypticClue = async (input: {
   answer: string
   mode?: 'hint' | 'full'
   model?: string
+  timeoutMs?: number
 }) => {
-  const { clue, answer, mode = 'full', model = models.flash } = input
+  const { clue, answer, mode = 'full', model = models['deepseek-pro'], timeoutMs = 60_000 } = input
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
-    const result = await client.chat.send({
+    const fetchPromise = client.chat.send({
       chatRequest: {
         model: model,
         messages: [
@@ -359,9 +362,18 @@ export const explainCrypticClue = async (input: {
           },
         },
         plugins: [{ id: 'response-healing' }],
+        maxTokens: 16000,
         stream: false,
       },
     })
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      controller.signal.addEventListener('abort', () =>
+        reject(new Error(`Request timed out after ${timeoutMs / 1000}s (model: ${model})`)),
+      )
+    })
+
+    const result = await Promise.race([fetchPromise, timeoutPromise])
 
     const content = result?.choices[0]?.message.content
 
@@ -375,46 +387,37 @@ export const explainCrypticClue = async (input: {
 
     return JSON.parse(content)
   } catch (error) {
-    console.error('Error explaining clue:', error)
     throw error
+  } finally {
+    clearTimeout(timer)
   }
-}
-
-const test = async () => {
-  const input = {
-    clue: "With Christmas nearly over recall dance's sleepy tune (7)",
-    answer: 'LULLABY',
-    mode: 'full' as const,
-    model: models.haiku,
-  }
-
-  const startTime = performance.now()
-  const explanation = await explainCrypticClue(input)
-  const endTime = performance.now()
-  const durationSeconds = (endTime - startTime) / 1000
-
-  console.log(JSON.stringify(explanation, null, 2))
-  console.log(`\nResponse time: ${durationSeconds.toFixed(2)} seconds`)
-
-  // Save test results to test_data folder
-  const testDataDir = join(__dirname, '../test_data')
-  await mkdir(testDataDir, { recursive: true })
-
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const filename = `test-openrouter-${timestamp}.json`
-  const filepath = join(testDataDir, filename)
-
-  const testResult = {
-    timestamp: new Date().toISOString(),
-    durationSeconds: parseFloat(durationSeconds.toFixed(3)),
-    input,
-    result: explanation,
-  }
-
-  await writeFile(filepath, JSON.stringify(testResult, null, 2))
-  console.log(`Test result saved to: ${filepath}`)
 }
 
 if (import.meta.main) {
-  test().catch(console.error)
+  const args = Bun.argv.slice(2)
+  if (args.length < 2) {
+    console.error('Usage: bun utils/openrouter.ts "<clue>" "<answer>" [model-slug]')
+    console.error('')
+    console.error('Available model slugs:')
+    for (const [key, slug] of Object.entries(models)) {
+      console.error(`  ${key.padEnd(16)} ${slug}`)
+    }
+    process.exit(1)
+  }
+
+  const clue = args[0]!
+  const answer = args[1]!
+  const model = args[2] ?? models['gpt-5.4-mini']
+
+  console.log(`Clue:   ${clue}`)
+  console.log(`Answer: ${answer}`)
+  console.log(`Model:  ${model}`)
+  console.log()
+
+  const start = performance.now()
+  const result = await explainCrypticClue({ clue, answer, model })
+  const elapsed = ((performance.now() - start) / 1000).toFixed(2)
+
+  console.log(JSON.stringify(result, null, 2))
+  console.log(`\nResponse time: ${elapsed}s`)
 }
