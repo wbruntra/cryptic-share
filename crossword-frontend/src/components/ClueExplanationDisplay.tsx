@@ -91,8 +91,8 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
   const [revealedSections, setRevealedSections] = useState<RevealedSections>({
     definition: false,
     wordplayTypes: false,
-    wordplaySteps: false,
-    fullExplanation: false,
+    wordplaySteps: true,
+    fullExplanation: true,
   })
 
   const [showFeedbackPopup, setShowFeedbackPopup] = useState(false)
