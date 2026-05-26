@@ -8,10 +8,9 @@ import { zodTextFormat } from 'openai/helpers/zod'
 const WordplayStepSchema = z
   .object({
     tokens: z
-      .array(z.string())
-      .min(1)
+      .string()
       .describe(
-        'The exact clue words consumed in this step (e.g. ["Christmas"] or ["YULE", "nearly"])',
+        'The exact contiguous span of clue text consumed in this step (e.g. "Christmas" or "YULE nearly"). Must be a verbatim substring of the current clue state — no skipping words.',
       ),
     operation: z.string().describe('The cryptic operation performed (e.g. "anagram", "reverse", "abbreviate", "delete OR from MORE")'),
     result: z.string().describe('Resulting letter string after the operation'),
@@ -218,25 +217,26 @@ Wordplay steps — token-consumption model (mandatory for wordplay and &lit clue
 Each step must show exactly how the clue is being reduced, one operation at a time, until only the answer and definition remain. Think of each step as a player action: the player selects one or more adjacent clue words, performs an operation, and those words are replaced by the result.
 
 Each step has four fields:
-- tokens: the exact clue words selected and consumed (e.g. [“Christmas”] or [“YULE”, “nearly”])
+- tokens: a single string — the exact contiguous span of clue text selected and consumed (e.g. “Christmas” or “YULE nearly”). It must be a verbatim substring of the current clue state; you cannot skip over words.
 - operation: what is done (e.g. “synonym”, “anagram”, “reverse”, “trim last letter”, “abbreviate”, “insert into”, “hidden word”, “translate to French”)
 - result: the letter string produced
 - clue_after: the full clue text after replacing the consumed tokens with the result
 
 Example for “With Christmas nearly over recall dance's sleepy tune (7)” → LULLABY:
-Step 1: tokens=[“Christmas”], operation=”synonym”, result=”YULE”, clue_after=”With YULE nearly over recall dance's sleepy tune”
-Step 2: tokens=[“YULE”,”nearly”], operation=”trim last letter”, result=”YUL”, clue_after=”With YUL over recall dance's sleepy tune”
-Step 3: tokens=[“YUL”,”over”], operation=”reverse”, result=”LUY”, clue_after=”With LUY recall dance's sleepy tune”
-Step 4: tokens=[“dance's”], operation=”synonym”, result=”BALL”, clue_after=”With LUY recall BALL sleepy tune”
-Step 5: tokens=[“BALL”,”recall”], operation=”reverse”, result=”LLAB”, clue_after=”With LUY LLAB sleepy tune”
-Step 6: tokens=[“With”,”LUY”,”LLAB”], operation=”insert LLAB into LUY (container)”, result=”LULLABY”, clue_after=”LULLABY sleepy tune”
+Step 1: tokens=”Christmas”, operation=”synonym”, result=”YULE”, clue_after=”With YULE nearly over recall dance's sleepy tune”
+Step 2: tokens=”YULE nearly”, operation=”trim last letter”, result=”YUL”, clue_after=”With YUL over recall dance's sleepy tune”
+Step 3: tokens=”YUL over”, operation=”reverse”, result=”LUY”, clue_after=”With LUY recall dance's sleepy tune”
+Step 4: tokens=”dance's”, operation=”synonym”, result=”BALL”, clue_after=”With LUY recall BALL sleepy tune”
+Step 5: tokens=”BALL recall”, operation=”reverse”, result=”LLAB”, clue_after=”With LUY LLAB sleepy tune”
+Step 6: tokens=”With LUY LLAB”, operation=”insert LLAB into LUY (container)”, result=”LULLABY”, clue_after=”LULLABY sleepy tune”
 
 Rules:
+- tokens must be a contiguous span — a verbatim substring of the current clue state. Never select words that are not adjacent to each other.
 - Each step must reference the current clue state (tokens from previous steps may have been replaced).
 - The final step must produce the answer, leaving only the answer string and the definition words.
-- Indicator words are consumed alongside the wordplay words they govern (e.g. “nearly” is consumed with “YULE”, not separately).
-- For abbreviation/synonym steps with no indicator, list only the wordplay word being replaced.
-- Surface glue words ("and", "with", "plus", "a", "an", "the") between fodder components may be included in the tokens list of the step that combines them; they contribute no letters and are dropped from clue_after.
+- Indicator words are consumed alongside the wordplay words they govern (e.g. “nearly” is consumed with “YULE” as the span “YULE nearly”, not separately).
+- For abbreviation/synonym steps with no indicator, use only the wordplay word being replaced.
+- Surface glue words (“and”, “with”, “plus”, “a”, “an”, “the”) between fodder components may be included in the tokens span of the step that combines them; they contribute no letters and are dropped from clue_after.
 - clue_after must reflect the actual clue string with substitutions applied; do not paraphrase.
 
 Style constraints:
@@ -322,10 +322,8 @@ export const crypticSchema = {
                   type: 'object',
                   properties: {
                     tokens: {
-                      type: 'array',
-                      minItems: 1,
-                      items: { type: 'string' },
-                      description: 'Exact clue words consumed in this step',
+                      type: 'string',
+                      description: 'Exact contiguous span of clue text consumed in this step — must be a verbatim substring of the current clue state',
                     },
                     operation: {
                       type: 'string',
@@ -437,10 +435,8 @@ export const crypticSchema = {
                   type: 'object',
                   properties: {
                     tokens: {
-                      type: 'array',
-                      minItems: 1,
-                      items: { type: 'string' },
-                      description: 'Exact clue words consumed in this step',
+                      type: 'string',
+                      description: 'Exact contiguous span of clue text consumed in this step — must be a verbatim substring of the current clue state',
                     },
                     operation: {
                       type: 'string',

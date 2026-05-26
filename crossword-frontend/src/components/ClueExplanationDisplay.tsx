@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LuBookOpen, LuPuzzle, LuType, LuWrench, LuLightbulb, LuFileText, LuTriangleAlert, LuCheck } from 'react-icons/lu'
+import { LuBookOpen, LuPuzzle, LuWrench, LuLightbulb, LuFileText, LuTriangleAlert, LuCheck } from 'react-icons/lu'
 
 export type ClueExplanation =
   | WordplayExplanation
@@ -8,11 +8,31 @@ export type ClueExplanation =
   | CrypticDefinitionExplanation
   | NoCleanParseExplanation
 
+interface NewWordplayStep {
+  tokens: string
+  operation: string
+  result: string
+  clue_after: string
+}
+
+// Old format kept for backward compat with unregenerated rows
+interface OldWordplayStep {
+  indicator: string
+  operation: string
+  result: string
+}
+
+type WordplayStep = NewWordplayStep | OldWordplayStep
+
+function isNewStep(step: WordplayStep): step is NewWordplayStep {
+  return 'tokens' in step
+}
+
 export interface WordplayExplanation {
   clue_type: 'wordplay'
   definition: string
-  letter_breakdown: Array<{ source: string; letters: string }>
-  wordplay_steps?: Array<{ indicator: string; operation: string; result: string }>
+  letter_breakdown?: Array<{ source: string; letters: string }>
+  wordplay_steps?: WordplayStep[]
   hint: {
     definition_location: 'start' | 'end'
     wordplay_types: string[]
@@ -30,8 +50,8 @@ export interface DoubleDefinitionExplanation {
 export interface AndLitExplanation {
   clue_type: '&lit'
   definition_scope: 'entire_clue'
-  letter_breakdown: Array<{ source: string; letters: string }>
-  wordplay_steps?: Array<{ indicator: string; operation: string; result: string }>
+  letter_breakdown?: Array<{ source: string; letters: string }>
+  wordplay_steps?: WordplayStep[]
   hint: { wordplay_types: string[] } | string
   full_explanation: string
 }
@@ -115,73 +135,15 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
         </ExplanationSection>
       )}
 
-      {(!exp.wordplay_steps || exp.wordplay_steps.length === 0) && exp.letter_breakdown.length > 0 && (
+      {(exp.wordplay_steps && exp.wordplay_steps.length > 0
+        ? true
+        : exp.letter_breakdown && exp.letter_breakdown.length > 0) && (
         <ExplanationSection
-          title={<span className="flex items-center gap-1"><LuType size={14} /> Letter Breakdown</span>}
+          title={<span className="flex items-center gap-1"><LuWrench size={14} /> Wordplay Steps</span>}
           revealed={revealedSections.wordplaySteps}
           onReveal={() => revealSection('wordplaySteps')}
         >
-          <div className="space-y-3">
-            {exp.letter_breakdown.map((part, i) => (
-              <div key={i} className="bg-surface-highlight border border-border/50 rounded-lg p-3">
-                <div className="flex items-start gap-3">
-                  <span className="flex items-center justify-center min-w-[2rem] h-8 bg-primary/20 text-primary text-sm font-bold rounded px-2 shrink-0">
-                    {part.letters}
-                  </span>
-                  <div className="flex-1">
-                    <p className="text-sm text-text">
-                      <span className="text-text-secondary">from:</span> {part.source}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </ExplanationSection>
-      )}
-
-      {exp.wordplay_steps && exp.wordplay_steps.length > 0 && (
-        <ExplanationSection
-          title={<span className="flex items-center gap-1"><LuWrench size={14} /> Wordplay Breakdown</span>}
-          revealed={revealedSections.wordplaySteps}
-          onReveal={() => revealSection('wordplaySteps')}
-        >
-          <div className="space-y-4">
-            {exp.wordplay_steps.map((step, i) => (
-              <div key={i} className="bg-surface-highlight border border-border/50 rounded-lg p-3">
-                <div className="flex items-start gap-3">
-                  <span className="flex items-center justify-center w-6 h-6 bg-primary/20 text-primary text-xs font-bold rounded-full shrink-0 mt-0.5">
-                    {i + 1}
-                  </span>
-
-                  <div className="flex-1 space-y-2">
-                    {step.indicator !== 'None' && (
-                      <div>
-                        <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                          Clue:
-                        </span>
-                        <p className="text-sm font-medium text-text mt-0.5">"{step.indicator}"</p>
-                      </div>
-                    )}
-
-                    <div>
-                      <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                        Operation:
-                      </span>
-                      <p className="text-sm text-text mt-0.5">{step.operation}</p>
-                    </div>
-
-                    <div>
-                      <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                        Result:
-                      </span>
-                      <p className="text-sm font-bold text-primary mt-0.5">{step.result}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <WordplayStepsList steps={exp.wordplay_steps} letterBreakdown={exp.letter_breakdown} />
         </ExplanationSection>
       )}
     </>
@@ -257,73 +219,15 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
         </ExplanationSection>
       )}
 
-      {(!exp.wordplay_steps || exp.wordplay_steps.length === 0) && exp.letter_breakdown.length > 0 && (
+      {(exp.wordplay_steps && exp.wordplay_steps.length > 0
+        ? true
+        : exp.letter_breakdown && exp.letter_breakdown.length > 0) && (
         <ExplanationSection
-          title={<span className="flex items-center gap-1"><LuType size={14} /> Letter Breakdown</span>}
+          title={<span className="flex items-center gap-1"><LuWrench size={14} /> Wordplay Steps</span>}
           revealed={revealedSections.wordplaySteps}
           onReveal={() => revealSection('wordplaySteps')}
         >
-          <div className="space-y-3">
-            {exp.letter_breakdown.map((part, i) => (
-              <div key={i} className="bg-surface-highlight border border-border/50 rounded-lg p-3">
-                <div className="flex items-start gap-3">
-                  <span className="flex items-center justify-center min-w-[2rem] h-8 bg-primary/20 text-primary text-sm font-bold rounded px-2 shrink-0">
-                    {part.letters}
-                  </span>
-                  <div className="flex-1">
-                    <p className="text-sm text-text">
-                      <span className="text-text-secondary">from:</span> {part.source}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </ExplanationSection>
-      )}
-
-      {exp.wordplay_steps && exp.wordplay_steps.length > 0 && (
-        <ExplanationSection
-          title={<span className="flex items-center gap-1"><LuWrench size={14} /> Wordplay Breakdown</span>}
-          revealed={revealedSections.wordplaySteps}
-          onReveal={() => revealSection('wordplaySteps')}
-        >
-          <div className="space-y-4">
-            {exp.wordplay_steps.map((step, i) => (
-              <div key={i} className="bg-surface-highlight border border-border/50 rounded-lg p-3">
-                <div className="flex items-start gap-3">
-                  <span className="flex items-center justify-center w-6 h-6 bg-primary/20 text-primary text-xs font-bold rounded-full shrink-0 mt-0.5">
-                    {i + 1}
-                  </span>
-
-                  <div className="flex-1 space-y-2">
-                    {step.indicator !== 'None' && (
-                      <div>
-                        <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                          Clue:
-                        </span>
-                        <p className="text-sm font-medium text-text mt-0.5">"{step.indicator}"</p>
-                      </div>
-                    )}
-
-                    <div>
-                      <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                        Operation:
-                      </span>
-                      <p className="text-sm text-text mt-0.5">{step.operation}</p>
-                    </div>
-
-                    <div>
-                      <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                        Result:
-                      </span>
-                      <p className="text-sm font-bold text-primary mt-0.5">{step.result}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <WordplayStepsList steps={exp.wordplay_steps} letterBreakdown={exp.letter_breakdown} />
         </ExplanationSection>
       )}
     </>
@@ -469,6 +373,119 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
       )}
     </div>
   )
+}
+
+// Parsewords-style step display
+function WordplayStepsList({
+  steps,
+  letterBreakdown,
+}: {
+  steps?: WordplayStep[]
+  letterBreakdown?: Array<{ source: string; letters: string }>
+}) {
+  if (steps && steps.length > 0) {
+    return (
+      <div className="space-y-3">
+        {steps.map((step, i) => {
+          if (isNewStep(step)) {
+            return (
+              <div key={i} className="flex flex-col gap-1.5">
+                {/* Token → operation → result row */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Step number */}
+                  <span className="text-xs font-bold text-text-secondary w-4 shrink-0 text-right">
+                    {i + 1}.
+                  </span>
+
+                  {/* Yellow skewed token box (parsewords style) */}
+                  <div
+                    style={{ transform: 'skewX(-8deg)', background: '#facc15' }}
+                    className="rounded px-3 py-1"
+                  >
+                    <span
+                      style={{ display: 'inline-block', transform: 'skewX(8deg)' }}
+                      className="text-sm font-medium text-black font-mono"
+                    >
+                      {step.tokens}
+                    </span>
+                  </div>
+
+                  {/* Arrow + operation */}
+                  <span className="text-text-secondary text-xs">→</span>
+                  <span className="text-xs text-text-secondary italic">{step.operation}</span>
+                  <span className="text-text-secondary text-xs">→</span>
+
+                  {/* Blue result pill */}
+                  <span className="px-3 py-1 rounded-full bg-blue-500 text-white text-sm font-bold tracking-widest font-mono">
+                    {step.result}
+                  </span>
+                </div>
+
+                {/* clue_after in muted mono */}
+                <p className="text-xs text-text-secondary font-mono pl-6 truncate" title={step.clue_after}>
+                  {step.clue_after}
+                </p>
+              </div>
+            )
+          }
+
+          // Old format fallback
+          return (
+            <div key={i} className="flex flex-col gap-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-text-secondary w-4 shrink-0 text-right">
+                  {i + 1}.
+                </span>
+                {step.indicator && step.indicator !== 'None' && (
+                  <>
+                    <div
+                      style={{ transform: 'skewX(-8deg)', background: '#facc15' }}
+                      className="rounded px-3 py-1"
+                    >
+                      <span
+                        style={{ display: 'inline-block', transform: 'skewX(8deg)' }}
+                        className="text-sm font-medium text-black font-mono"
+                      >
+                        {step.indicator}
+                      </span>
+                    </div>
+                    <span className="text-text-secondary text-xs">→</span>
+                  </>
+                )}
+                <span className="text-xs text-text-secondary italic">{step.operation}</span>
+                <span className="text-text-secondary text-xs">→</span>
+                <span className="px-3 py-1 rounded-full bg-blue-500 text-white text-sm font-bold tracking-widest font-mono">
+                  {step.result}
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  // Legacy letter_breakdown fallback
+  if (letterBreakdown && letterBreakdown.length > 0) {
+    return (
+      <div className="space-y-2">
+        {letterBreakdown.map((part, i) => (
+          <div key={i} className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold text-text-secondary w-4 shrink-0 text-right">
+              {i + 1}.
+            </span>
+            <span className="px-3 py-1 rounded-full bg-blue-500 text-white text-sm font-bold tracking-widest font-mono">
+              {part.letters}
+            </span>
+            <span className="text-text-secondary text-xs">from</span>
+            <span className="text-sm text-text">{part.source}</span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  return null
 }
 
 // Helper component for revealable sections

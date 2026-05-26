@@ -19,7 +19,7 @@ const CLUE_TYPE_STYLES: Record<string, { label: string; bg: string; text: string
 }
 
 interface WordplayStep {
-  tokens: string[]
+  tokens: string
   operation: string
   result: string
   clue_after: string
@@ -38,11 +38,9 @@ function WordplaySteps({ steps }: { steps: WordplayStep[] }) {
           <div className="flex-1 min-w-0 space-y-1">
             {/* Tokens + operation + result */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              {step.tokens.map((t, j) => (
-                <span key={j} className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 font-mono font-medium border border-amber-500/25">
-                  {t}
-                </span>
-              ))}
+              <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 font-mono font-medium border border-amber-500/25">
+                {step.tokens}
+              </span>
               <span className="text-text-secondary">→ {step.operation} →</span>
               <span className="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-500 font-mono font-bold border border-blue-500/25">
                 {step.result}

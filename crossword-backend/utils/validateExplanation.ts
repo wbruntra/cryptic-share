@@ -18,7 +18,7 @@ const flatExplanationSchema = {
           items: {
             type: 'object',
             properties: {
-              tokens: { type: 'array', items: { type: 'string' }, minItems: 1 },
+              tokens: { type: 'string' },
               operation: { type: 'string' },
               result: { type: 'string' },
               clue_after: { type: 'string' },
@@ -90,7 +90,7 @@ const flatExplanationSchema = {
           items: {
             type: 'object',
             properties: {
-              tokens: { type: 'array', items: { type: 'string' }, minItems: 1 },
+              tokens: { type: 'string' },
               operation: { type: 'string' },
               result: { type: 'string' },
               clue_after: { type: 'string' },

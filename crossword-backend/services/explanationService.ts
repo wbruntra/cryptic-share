@@ -23,7 +23,7 @@ export interface StoredClueExplanation {
 export interface WordplayExplanation {
   clue_type: 'wordplay'
   definition: string
-  wordplay_steps: Array<{ tokens: string[]; operation: string; result: string; clue_after: string }>
+  wordplay_steps: Array<{ tokens: string; operation: string; result: string; clue_after: string }>
   hint: {
     definition_location: 'start' | 'end'
     wordplay_types: string[]
@@ -46,7 +46,7 @@ export interface DoubleDefinitionExplanation {
 export interface AndLitExplanation {
   clue_type: '&lit'
   definition_scope: 'entire_clue'
-  wordplay_steps: Array<{ tokens: string[]; operation: string; result: string; clue_after: string }>
+  wordplay_steps: Array<{ tokens: string; operation: string; result: string; clue_after: string }>
   hint: {
     wordplay_types: string[]
   }
