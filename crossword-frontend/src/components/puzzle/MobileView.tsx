@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
-import { LuX, LuLightbulb, LuSearch, LuLock, LuLockOpen, LuChartBarBig, LuBell, LuBellOff, LuKeyboard, LuClipboardList } from 'react-icons/lu'
+import { LuX, LuLightbulb, LuSearch, LuLock, LuLockOpen, LuChartBarBig, LuBell, LuBellOff, LuKeyboard, LuClipboardList, LuPuzzle } from 'react-icons/lu'
 import { CrosswordGrid } from '@/CrosswordGrid'
 import { FloatingClueBar, VirtualKeyboard, BottomSheet, MobileClueList } from '@/components/mobile'
 import { AttributionControls } from '@/components/AttributionControls'
@@ -170,8 +170,8 @@ export function MobileView({
                 aria-label="Parsewords puzzles"
                 title="Play Parsewords mini-puzzles to discover clue answers"
               >
-                🧩
-              </button>
+                <LuPuzzle size={18} />
+</button>
             )}
             {sessionId && (
               <ToolbarButton

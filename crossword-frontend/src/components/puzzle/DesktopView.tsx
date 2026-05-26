@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
-import { LuX, LuLightbulb, LuSearch, LuLock, LuLockOpen, LuBell, LuBellOff } from 'react-icons/lu'
+import { LuX, LuLightbulb, LuSearch, LuLock, LuLockOpen, LuBell, LuBellOff, LuPuzzle } from 'react-icons/lu'
 import { CrosswordGrid } from '@/CrosswordGrid'
 import { ClueList } from '@/ClueList'
 import { AttributionControls } from '@/components/AttributionControls'
@@ -125,7 +125,7 @@ export function DesktopView({
               aria-label="Parsewords puzzles"
               title="Play Parsewords mini-puzzles to discover clue answers"
             >
-              🧩
+              <LuPuzzle size={20} />
             </button>
           )}
           {sessionId && (
