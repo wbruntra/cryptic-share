@@ -16,3 +16,4 @@ export const selectIsChecking = (state: RootState) => state.puzzle.isChecking
 export const selectCheckResult = (state: RootState) => state.puzzle.checkResult
 export const selectIsLockModeEnabled = (state: RootState) => state.puzzle.isLockModeEnabled
 export const selectIsHintModalOpen = (state: RootState) => state.puzzle.isHintModalOpen
+export const selectPuzzleId = (state: RootState) => state.puzzle.puzzleId
