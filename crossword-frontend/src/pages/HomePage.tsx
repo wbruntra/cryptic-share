@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { LuCheck, LuLogOut, LuLayoutGrid, LuList } from 'react-icons/lu'
 import axios from 'axios'
 import type { PuzzleSummary, RemoteSession } from '../types'
 import { useAuth } from '../context/AuthContext'
@@ -119,7 +120,7 @@ export function HomePage() {
                 }`}
                 aria-label="Card View"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                <LuLayoutGrid size={18} />
               </button>
               <button
                 onClick={() => setViewMode('table')}
@@ -130,7 +131,7 @@ export function HomePage() {
                 }`}
                 aria-label="Table View"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                <LuList size={18} />
               </button>
             </div>
             <label className="flex items-center gap-2 cursor-pointer select-none text-text-secondary hover:text-text transition-colors">
@@ -179,7 +180,7 @@ export function HomePage() {
                             <td className="px-6 py-4 text-sm whitespace-nowrap">
                               {status === 'complete' && (
                                 <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-600 dark:text-green-400 font-medium border border-green-500/20">
-                                  ✓ Complete
+                                  <LuCheck size={12} className="inline" /> Complete
                                 </span>
                               )}
                               {status === 'in-progress' && (
@@ -319,21 +320,7 @@ export function HomePage() {
           className="fixed bottom-6 right-6 opacity-30 hover:opacity-100 bg-surface border border-border text-text-secondary hover:text-red-500 hover:border-red-500/30 px-4 py-2 rounded-full shadow-lg transition-all duration-300 text-sm font-medium z-50 flex items-center gap-2"
         >
           <span>Logout</span>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-          </svg>
+          <LuLogOut size={16} />
         </button>
       )}
     </div>

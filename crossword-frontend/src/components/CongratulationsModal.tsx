@@ -1,4 +1,5 @@
 import { useSelector, useDispatch } from 'react-redux'
+import { LuPartyPopper, LuTrophy } from 'react-icons/lu'
 import { Modal } from '@/components/Modal'
 import { dismissCheckResult } from '@/store/slices/puzzleSlice'
 import { selectCheckResult } from '@/store/selectors/puzzleSelectors'
@@ -12,10 +13,10 @@ export function CongratulationsModal() {
     <Modal
       isOpen={checkResult.show && checkResult.isComplete}
       onClose={() => dispatch(dismissCheckResult())}
-      title="🎉 Congratulations!"
+      title={<span className="flex items-center gap-2"><LuPartyPopper size={24} /> Congratulations!</span>}
     >
       <div className="text-center">
-        <div className="text-6xl mb-4 animate-bounce">🏆</div>
+        <div className="text-6xl mb-4 animate-bounce text-yellow-500"><LuTrophy size={60} /></div>
         <p className="text-lg text-text mb-6">
           You've solved all the checked answers correctly!
         </p>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
+import { LuPartyPopper } from 'react-icons/lu'
 import confetti from 'canvas-confetti'
 import { DesktopView, MobileView } from '@/components/puzzle'
 import { NicknameModal } from '@/components/NicknameModal'
@@ -134,7 +135,7 @@ function PlaySessionInner({ sessionId }: { sessionId: string | undefined }) {
       {showCongratsModal && (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-[100] p-4">
           <div className="bg-surface rounded-lg shadow-xl max-w-sm w-full p-8 border border-border text-center">
-            <div className="text-5xl mb-4">🎉</div>
+            <div className="text-5xl mb-4 text-yellow-500"><LuPartyPopper size={48} /></div>
             <h2 className="text-2xl font-bold mb-2 text-text">Puzzle Complete!</h2>
             <p className="text-text-secondary mb-6">
               Congratulations — every answer is correct!

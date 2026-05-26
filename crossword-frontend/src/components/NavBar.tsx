@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
+import { LuBell, LuBellOff, LuSun, LuMoon, LuMenu, LuX } from 'react-icons/lu'
 import { useAuth } from '../context/AuthContext'
 import { usePushNotifications } from '../hooks/usePushNotifications'
 
@@ -110,7 +111,7 @@ export function NavBar() {
             className="p-2 rounded-lg bg-input-bg border border-border hover:border-primary flex items-center justify-center transition-all"
             aria-label="Toggle theme"
           >
-            {theme === 'dark' ? '☀️' : '🌙'}
+            {theme === 'dark' ? <LuSun size={18} /> : <LuMoon size={18} />}
           </button>
         </div>
 
@@ -123,30 +124,7 @@ export function NavBar() {
             aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={isMenuOpen}
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              {isMenuOpen ? (
-                <>
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </>
-              ) : (
-                <>
-                  <line x1="4" y1="6" x2="20" y2="6" />
-                  <line x1="4" y1="12" x2="20" y2="12" />
-                  <line x1="4" y1="18" x2="20" y2="18" />
-                </>
-              )}
-            </svg>
+            {isMenuOpen ? <LuX size={22} /> : <LuMenu size={22} />}
           </button>
         </div>
 
@@ -209,7 +187,7 @@ export function NavBar() {
                   disabled={isLoading}
                   className="px-4 py-3 text-left text-text hover:bg-input-bg transition-colors flex items-center gap-2"
                 >
-                  {isSubscribed ? '🔔' : '🔕'}
+                {isSubscribed ? <LuBell size={18} /> : <LuBellOff size={18} />}
                   <span>
                     {isLoading
                       ? 'Loading...'
@@ -227,7 +205,7 @@ export function NavBar() {
                 className="px-4 py-3 text-left text-text hover:bg-input-bg transition-colors"
                 aria-label="Toggle theme"
               >
-                Theme {theme === 'dark' ? '☀️' : '🌙'}
+                Theme {theme === 'dark' ? <LuSun size={16} className="inline" /> : <LuMoon size={16} className="inline" />}
               </button>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
+import { LuX, LuLightbulb, LuSearch, LuLock, LuUnlock, LuBell, LuBellOff } from 'react-icons/lu'
 import { CrosswordGrid } from '@/CrosswordGrid'
 import { ClueList } from '@/ClueList'
 import { AttributionControls } from '@/components/AttributionControls'
@@ -99,14 +100,14 @@ export function DesktopView({
           {errorCells.length > 0 && (
             <ToolbarButton
               onClick={() => dispatch(clearErrorCells())}
-              icon="✕"
+              icon={<LuX size={20} />}
               label="Clear errors"
               className="bg-surface border-border text-text-secondary hover:text-text"
             />
           )}
           <ToolbarButton
             onClick={() => dispatch(setHintModalOpen(true))}
-            icon="💡"
+            icon={<LuLightbulb size={20} />}
             label="Get Hint"
             disabled={!cursor || !currentClue}
             className={`bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 ${!cursor || !currentClue ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-500/20'}`}
@@ -117,7 +118,7 @@ export function DesktopView({
                 console.log('[DesktopView] check answers click')
                 void onCheckAnswers()
               }}
-              icon={isChecking ? <Spinner /> : '🔍'}
+              icon={isChecking ? <Spinner /> : <LuSearch size={20} />}
               label="Check answers"
               disabled={isChecking}
               className={`bg-yellow-500/10 text-yellow-700 border-yellow-500/30 ${isChecking ? 'opacity-60' : 'hover:bg-yellow-500/20'}`}
@@ -125,7 +126,7 @@ export function DesktopView({
           )}
           <ToolbarButton
             onClick={() => dispatch(toggleLockMode())}
-            icon={isLockModeEnabled ? '🔒' : '🔓'}
+            icon={isLockModeEnabled ? <LuLock size={20} /> : <LuUnlock size={20} />}
             label={isLockModeEnabled ? 'Lock mode enabled' : 'Lock mode disabled'}
             title={isLockModeEnabled ? 'Lock mode: Correct words are locked' : 'Lock mode: All cells editable'}
             className={isLockModeEnabled
@@ -135,7 +136,7 @@ export function DesktopView({
           {isSupported && sessionId && (
             <ToolbarButton
               onClick={handleNotificationClick}
-              icon={isSubscribed ? '🔔' : '🔕'}
+              icon={isSubscribed ? <LuBell size={20} /> : <LuBellOff size={20} />}
               label={isSubscribed ? 'Unsubscribe from notifications' : 'Subscribe to notifications'}
               title={isSubscribed ? 'Unsubscribe from puzzle notifications' : 'Get notified when words are claimed'}
               disabled={isLoading}

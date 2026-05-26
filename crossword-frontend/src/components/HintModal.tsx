@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { LuTimer, LuType, LuBookOpen, LuSearch, LuBrain } from 'react-icons/lu'
 import { Modal } from './Modal'
 import { ClueExplanationDisplay, type ClueExplanation } from './ClueExplanationDisplay'
 import { Spinner } from './Spinner'
@@ -229,7 +230,7 @@ function HintModalContent({
             </span>
             {timerDisplay && (
               <span className="text-xs font-mono text-text-secondary bg-surface-highlight px-2 py-0.5 rounded border border-border">
-                ⏱️ {timerDisplay}
+                <LuTimer size={14} className="inline" /> {timerDisplay}
               </span>
             )}
           </div>
@@ -246,7 +247,7 @@ function HintModalContent({
                 : 'text-text-secondary hover:text-text hover:bg-surface'
             }`}
           >
-            🔤 Letters
+            <span className="flex items-center gap-1"><LuType size={16} /> Letters</span>
           </button>
           <button
             onClick={() => setActiveTab('explain')}
@@ -256,7 +257,7 @@ function HintModalContent({
                 : 'text-text-secondary hover:text-text hover:bg-surface'
             }`}
           >
-            📖 Explain
+            <span className="flex items-center gap-1"><LuBookOpen size={16} /> Explain</span>
           </button>
         </div>
 
@@ -297,7 +298,7 @@ function HintModalContent({
                 {loading ? (
                   <Spinner />
                 ) : (
-                  '🔍 Reveal Whole Word'
+                  <span className="flex items-center justify-center gap-2"><LuSearch size={16} /> Reveal Whole Word</span>
                 )}
               </button>
               <p className="text-xs text-center text-text-secondary">
@@ -320,7 +321,7 @@ function HintModalContent({
                     onClick={handleFetchExplanation}
                     className="px-6 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-colors"
                   >
-                    🧠 Get AI Explanation
+                    <span className="flex items-center justify-center gap-2"><LuBrain size={20} /> Get AI Explanation</span>
                   </button>
                   <p className="text-xs text-text-secondary mt-2">
                     Uses AI to explain the wordplay. May take 20-30 seconds.

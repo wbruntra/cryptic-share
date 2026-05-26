@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { LuBookOpen, LuPuzzle, LuType, LuWrench, LuLightbulb, LuFileText, LuAlertTriangle, LuCheck } from 'react-icons/lu'
 
 export type ClueExplanation =
   | WordplayExplanation
@@ -84,7 +85,7 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
   const renderWordplayExplanation = (exp: WordplayExplanation) => (
     <>
       <ExplanationSection
-        title="📖 Definition"
+        title={<span className="flex items-center gap-1"><LuBookOpen size={14} /> Definition</span>}
         revealed={revealedSections.definition}
         onReveal={() => revealSection('definition')}
       >
@@ -100,7 +101,7 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
 
       {typeof exp.hint === 'object' && exp.hint.wordplay_types && exp.hint.wordplay_types.length > 0 && (
         <ExplanationSection
-          title="🧩 Wordplay Types"
+          title={<span className="flex items-center gap-1"><LuPuzzle size={14} /> Wordplay Types</span>}
           revealed={revealedSections.wordplayTypes}
           onReveal={() => revealSection('wordplayTypes')}
         >
@@ -116,7 +117,7 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
 
       {(!exp.wordplay_steps || exp.wordplay_steps.length === 0) && exp.letter_breakdown.length > 0 && (
         <ExplanationSection
-          title="🔤 Letter Breakdown"
+          title={<span className="flex items-center gap-1"><LuType size={14} /> Letter Breakdown</span>}
           revealed={revealedSections.wordplaySteps}
           onReveal={() => revealSection('wordplaySteps')}
         >
@@ -141,7 +142,7 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
 
       {exp.wordplay_steps && exp.wordplay_steps.length > 0 && (
         <ExplanationSection
-          title="🛠️ Wordplay Breakdown"
+          title={<span className="flex items-center gap-1"><LuWrench size={14} /> Wordplay Breakdown</span>}
           revealed={revealedSections.wordplaySteps}
           onReveal={() => revealSection('wordplaySteps')}
         >
@@ -189,7 +190,7 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
   const renderDoubleDefinitionExplanation = (exp: DoubleDefinitionExplanation) => (
     <>
       <ExplanationSection
-        title="📖 Two Definitions"
+        title={<span className="flex items-center gap-1"><LuBookOpen size={14} /> Two Definitions</span>}
         revealed={revealedSections.definition}
         onReveal={() => revealSection('definition')}
       >
@@ -212,7 +213,7 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
       </ExplanationSection>
 
       <ExplanationSection
-        title="💡 Hint"
+        title={<span className="flex items-center gap-1"><LuLightbulb size={14} /> Hint</span>}
         revealed={revealedSections.wordplayTypes}
         onReveal={() => revealSection('wordplayTypes')}
       >
@@ -228,7 +229,7 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
   const renderAndLitExplanation = (exp: AndLitExplanation) => (
     <>
       <ExplanationSection
-        title="📖 Definition"
+        title={<span className="flex items-center gap-1"><LuBookOpen size={14} /> Definition</span>}
         revealed={revealedSections.definition}
         onReveal={() => revealSection('definition')}
       >
@@ -242,7 +243,7 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
 
       {typeof exp.hint === 'object' && exp.hint.wordplay_types && exp.hint.wordplay_types.length > 0 && (
         <ExplanationSection
-          title="🧩 Wordplay Types"
+          title={<span className="flex items-center gap-1"><LuPuzzle size={14} /> Wordplay Types</span>}
           revealed={revealedSections.wordplayTypes}
           onReveal={() => revealSection('wordplayTypes')}
         >
@@ -258,7 +259,7 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
 
       {(!exp.wordplay_steps || exp.wordplay_steps.length === 0) && exp.letter_breakdown.length > 0 && (
         <ExplanationSection
-          title="🔤 Letter Breakdown"
+          title={<span className="flex items-center gap-1"><LuType size={14} /> Letter Breakdown</span>}
           revealed={revealedSections.wordplaySteps}
           onReveal={() => revealSection('wordplaySteps')}
         >
@@ -283,7 +284,7 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
 
       {exp.wordplay_steps && exp.wordplay_steps.length > 0 && (
         <ExplanationSection
-          title="🛠️ Wordplay Breakdown"
+          title={<span className="flex items-center gap-1"><LuWrench size={14} /> Wordplay Breakdown</span>}
           revealed={revealedSections.wordplaySteps}
           onReveal={() => revealSection('wordplaySteps')}
         >
@@ -331,7 +332,7 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
   const renderCrypticDefinitionExplanation = (exp: CrypticDefinitionExplanation) => (
     <>
       <ExplanationSection
-        title="📖 Cryptic Definition"
+        title={<span className="flex items-center gap-1"><LuBookOpen size={14} /> Cryptic Definition</span>}
         revealed={revealedSections.definition}
         onReveal={() => revealSection('definition')}
       >
@@ -356,7 +357,7 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
   const renderNoCleanParseExplanation = (exp: NoCleanParseExplanation) => (
     <>
       <ExplanationSection
-        title="📖 Definition"
+        title={<span className="flex items-center gap-1"><LuBookOpen size={14} /> Definition</span>}
         revealed={revealedSections.definition}
         onReveal={() => revealSection('definition')}
       >
@@ -392,7 +393,7 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
 
       {/* Full Explanation (common to all types) */}
       <ExplanationSection
-        title="📝 Full Explanation"
+        title={<span className="flex items-center gap-1"><LuFileText size={14} /> Full Explanation</span>}
         revealed={revealedSections.fullExplanation}
         onReveal={() => revealSection('fullExplanation')}
       >
@@ -419,9 +420,9 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
                 Reporting...
               </span>
             ) : hasReported ? (
-              '✓ Reported'
+              <span className="flex items-center gap-1"><LuCheck size={14} /> Reported</span>
             ) : (
-              '⚠️ Report Bad Explanation'
+              <span className="flex items-center gap-1"><LuAlertTriangle size={14} /> Report Bad Explanation</span>
             )}
           </button>
         </div>
@@ -477,7 +478,7 @@ function ExplanationSection({
   onReveal,
   children,
 }: {
-  title: string
+  title: React.ReactNode
   revealed: boolean
   onReveal: () => void
   children: React.ReactNode

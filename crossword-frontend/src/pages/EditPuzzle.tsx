@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { LuCheck, LuInfo } from 'react-icons/lu'
 import { useGetPuzzleByIdQuery, useUpdatePuzzleMutation } from '../store/api/adminApi'
 import { useAppSelector, useAppDispatch } from '../store/hooks'
 import { useAuth } from '../context/AuthContext'
@@ -279,7 +280,7 @@ function EditPuzzleForm({ puzzle, puzzleId, updatePuzzle, isSaving }: EditPuzzle
                     : 'bg-error/10 text-error border-error/30'
                 }`}
               >
-                {validationErrors.length === 0 ? '✓ Valid' : `${validationErrors.length} Issues`}
+                {validationErrors.length === 0 ? <span className="flex items-center gap-1"><LuCheck size={14} /> Valid</span> : `${validationErrors.length} Issues`}
               </div>
             </div>
 
@@ -321,7 +322,7 @@ function EditPuzzleForm({ puzzle, puzzleId, updatePuzzle, isSaving }: EditPuzzle
           </div>
           <div className="p-6 bg-surface rounded-2xl border border-border shadow-md">
             <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
-              <span className="text-primary tracking-tighter">ℹ️</span> Editor Info
+              <span className="text-primary tracking-tighter"><LuInfo size={18} /></span> Editor Info
             </h3>
             <p className="text-sm text-text-secondary leading-relaxed">
               Grid structure and clues must match. Numbered cells ('N') in the grid require

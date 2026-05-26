@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { LuSparkles, LuCheckCircle } from 'react-icons/lu'
 
 import { Link } from 'react-router-dom'
 import axios from 'axios'
@@ -279,7 +280,7 @@ export function ReportManagementPage() {
                         {processingMessage || 'Regenerating...'}
                       </span>
                     ) : (
-                      '✨ Regenerate Explanation'
+                      <span className="flex items-center justify-center gap-2"><LuSparkles size={16} /> Regenerate Explanation</span>
                     )}
                   </button>
                 </div>
@@ -305,7 +306,7 @@ export function ReportManagementPage() {
                     disabled={saving}
                     className="w-full py-3 px-6 rounded-xl bg-green-600 text-white font-bold shadow-md hover:bg-green-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed border-none cursor-pointer"
                   >
-                    {saving ? 'Saving...' : '✅ Approve & Save'}
+                    {saving ? 'Saving...' : <span className="flex items-center justify-center gap-2"><LuCheckCircle size={16} /> Approve & Save</span>}
                   </button>
                 </div>
               )}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { LuSparkles } from 'react-icons/lu'
 import axios from 'axios'
 import imageCompression from 'browser-image-compression'
 import { CrosswordGrid } from '../CrosswordGrid'
@@ -195,7 +196,7 @@ export function EditPuzzleClues() {
                 </>
               ) : (
                 <>
-                  <span>✨</span> Auto-fill from Image
+                  <span className="flex items-center gap-1"><LuSparkles size={14} /> Auto-fill from Image</span>
                 </>
               )}
               <input

@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
+import { LuX, LuLightbulb, LuSearch, LuLock, LuUnlock, LuChartBarBig, LuBell, LuBellOff, LuKeyboard, LuClipboardList } from 'react-icons/lu'
 import { CrosswordGrid } from '@/CrosswordGrid'
 import { FloatingClueBar, VirtualKeyboard, BottomSheet, MobileClueList } from '@/components/mobile'
 import { AttributionControls } from '@/components/AttributionControls'
@@ -140,7 +141,7 @@ export function MobileView({
             {errorCells.length > 0 && (
               <ToolbarButton
                 onClick={() => dispatch(clearErrorCells())}
-                icon="✕"
+                icon={<LuX size={18} />}
                 label="Clear errors"
                 compact
                 className="bg-surface border-border text-text-secondary active:bg-input-bg"
@@ -149,7 +150,7 @@ export function MobileView({
             {sessionId && (
               <ToolbarButton
                 onClick={() => dispatch(setHintModalOpen(true))}
-                icon="💡"
+                icon={<LuLightbulb size={18} />}
                 label="Get Hint"
                 disabled={!cursor || !currentClue}
                 compact
@@ -159,7 +160,7 @@ export function MobileView({
             {sessionId && (
               <ToolbarButton
                 onClick={onCheckAnswers}
-                icon={isChecking ? <Spinner /> : '🔍'}
+                icon={isChecking ? <Spinner /> : <LuSearch size={18} />}
                 label="Check answers"
                 disabled={isChecking}
                 compact
@@ -168,7 +169,7 @@ export function MobileView({
             )}
             <ToolbarButton
               onClick={() => dispatch(toggleLockMode())}
-              icon={isLockModeEnabled ? '🔒' : '🔓'}
+              icon={isLockModeEnabled ? <LuLock size={18} /> : <LuUnlock size={18} />}
               label={isLockModeEnabled ? 'Lock mode enabled' : 'Lock mode disabled'}
               title={isLockModeEnabled ? 'Lock mode: Correct words are locked' : 'Lock mode: All cells editable'}
               compact
@@ -179,7 +180,7 @@ export function MobileView({
             {sessionId && (
               <ToolbarButton
                 onClick={() => setShowAttributions(true)}
-                icon="📊"
+                icon={<LuChartBarBig size={18} />}
                 label="Show stats"
                 compact
                 className="bg-surface border-border text-text-secondary active:bg-input-bg"
@@ -188,7 +189,7 @@ export function MobileView({
             {isSupported && sessionId && (
               <ToolbarButton
                 onClick={handleNotificationClick}
-                icon={isSubscribed ? '🔔' : '🔕'}
+                icon={isSubscribed ? <LuBell size={18} /> : <LuBellOff size={18} />}
                 label={isSubscribed ? 'Unsubscribe from notifications' : 'Subscribe to notifications'}
                 title={isSubscribed ? 'Unsubscribe from puzzle notifications' : 'Get notified when words are claimed'}
                 disabled={isLoading}
@@ -225,7 +226,7 @@ export function MobileView({
           style={{ bottom: 'calc(6rem + env(safe-area-inset-bottom))' }}
           aria-label="Open keyboard"
         >
-          ⌨️
+          <LuKeyboard size={24} />
         </button>
       )}
 
@@ -237,7 +238,7 @@ export function MobileView({
           style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
           aria-label="Open clues"
         >
-          📝
+          <LuClipboardList size={24} />
         </button>
       )}
 

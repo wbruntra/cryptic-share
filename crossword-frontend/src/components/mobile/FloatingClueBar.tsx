@@ -1,3 +1,4 @@
+import { LuArrowRight, LuArrowDown, LuChevronUp, LuX } from 'react-icons/lu'
 import type { Clue, Direction } from '../../types'
 
 interface FloatingClueBarProps {
@@ -11,7 +12,7 @@ export function FloatingClueBar({ clue, direction, onTap, onDismiss }: FloatingC
   if (!clue) return null
 
   const directionLabel = direction === 'across' ? 'A' : 'D'
-  const directionIcon = direction === 'across' ? '→' : '↓'
+  const directionIcon = direction === 'across' ? <LuArrowRight size={16} /> : <LuArrowDown size={16} />
 
   return (
     <div
@@ -62,7 +63,7 @@ export function FloatingClueBar({ clue, direction, onTap, onDismiss }: FloatingC
         </span>
 
         {/* Open List Icon */}
-        <span className="text-white/70 text-xs px-1">▲</span>
+        <span className="text-white/70 text-xs px-1"><LuChevronUp size={14} /></span>
       </button>
 
       {/* Separator */}
@@ -83,7 +84,7 @@ export function FloatingClueBar({ clue, direction, onTap, onDismiss }: FloatingC
             "
         aria-label="Dismiss clue bar"
       >
-        <span className="text-xl font-bold">×</span>
+        <span className="text-xl font-bold"><LuX size={18} /></span>
       </button>
     </div>
   )

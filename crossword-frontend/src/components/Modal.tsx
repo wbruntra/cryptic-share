@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { LuX } from 'react-icons/lu'
 
 interface ModalProps {
   isOpen: boolean
@@ -53,7 +54,7 @@ export function Modal({ isOpen, onClose, title, children, showCloseButton = true
               className="text-text-secondary hover:text-text transition-colors p-1"
               aria-label="Close"
             >
-              ✕
+              <LuX size={18} />
             </button>
           )}
         </div>

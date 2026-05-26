@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { LuPartyPopper } from 'react-icons/lu'
 import { useAuth } from '../context/AuthContext'
 import { useGetPuzzlesMissingCluesQuery } from '../store/api/adminApi'
 
@@ -48,7 +49,7 @@ export function MissingCluesPage() {
         <div className="text-text-secondary">Loading queue...</div>
       ) : puzzles.length === 0 ? (
         <div className="py-16 text-center bg-surface rounded-2xl border-2 border-dashed border-border shadow-inner">
-          <p className="text-text-secondary italic">No puzzles currently missing clues 🎉</p>
+          <p className="text-text-secondary italic">No puzzles currently missing clues <LuPartyPopper size={16} className="inline" /></p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
