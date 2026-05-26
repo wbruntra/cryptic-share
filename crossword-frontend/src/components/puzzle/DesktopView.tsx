@@ -5,6 +5,7 @@ import { ClueList } from '@/ClueList'
 import { AttributionControls } from '@/components/AttributionControls'
 import { AttributionStats } from '@/components/AttributionStats'
 import { HintModal } from '@/components/HintModal'
+import { ParsewordsModal } from '@/components/ParsewordsModal'
 import { ChangeNotification } from '@/components/ChangeNotification'
 import { Modal } from '@/components/Modal'
 import { Toast } from '@/components/Toast'
@@ -95,10 +96,12 @@ export function DesktopView({
   onClueClick,
   onCellClick,
   onCheckAnswers,
+  onFillAnswer,
 }: {
   onClueClick: (num: number, dir: 'across' | 'down') => void
   onCellClick: (r: number, c: number) => void
   onCheckAnswers: () => void
+  onFillAnswer?: (clueNumber: number, direction: 'across' | 'down', answer: string) => void
 }) {
   const dispatch = useDispatch()
   const grid = useSelector(selectGrid)
@@ -117,7 +120,9 @@ export function DesktopView({
   const checkResult = useSelector(selectCheckResult)
   const isLockModeEnabled = useSelector(selectIsLockModeEnabled)
   const [showAttributions, setShowAttributions] = useState(false)
+  const [showParsewords, setShowParsewords] = useState(false)
   const isHintModalOpen = useSelector((state: RootState) => state.puzzle.isHintModalOpen)
+  const puzzleId = useSelector((state: RootState) => state.puzzle.puzzleId)
 
   // Toast state for notifications
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -257,6 +262,16 @@ export function DesktopView({
           >
             💡
           </button>
+          {puzzleId && (
+            <button
+              onClick={() => setShowParsewords(true)}
+              className="w-10 h-10 flex items-center justify-center rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30 hover:bg-purple-500/20 transition-colors"
+              aria-label="Parsewords puzzles"
+              title="Play Parsewords mini-puzzles to discover clue answers"
+            >
+              🧩
+            </button>
+          )}
           {sessionId && (
             <button
               onClick={() => {
@@ -379,6 +394,15 @@ export function DesktopView({
           currentWordState={currentWordState}
           onFetchAnswer={handleFetchHintAnswer}
           timerDisplay={timerDisplay}
+        />
+      )}
+
+      {puzzleId && (
+        <ParsewordsModal
+          isOpen={showParsewords}
+          onClose={() => setShowParsewords(false)}
+          puzzleId={puzzleId}
+          onFillAnswer={onFillAnswer}
         />
       )}
     </div>

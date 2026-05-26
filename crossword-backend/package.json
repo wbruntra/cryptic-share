@@ -14,7 +14,8 @@
     "fix-published-puzzles": "bun run scripts/fix-published-state.ts",
     "batch-explanations": "bun run scripts/batch-explanation-interactive.ts",
     "batch-create": "bun run scripts/batch-explanation-auto.ts prepare",
-    "batch-retrieve": "bun run scripts/batch-explanation-auto.ts apply"
+    "batch-retrieve": "bun run scripts/batch-explanation-auto.ts apply",
+    "kysely:types": "DATABASE_URL=./crossword.db kysely-codegen --dialect bun-sqlite --out-file ./kysely/db.d.ts --exclude-pattern \"knex_*\""
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
@@ -24,6 +25,7 @@
     "@types/minimist": "^1.2.5",
     "@types/web-push": "^3.6.4",
     "knex": "^3.1.0",
+    "kysely-codegen": "^0.20.0",
     "ts-node": "^10.9.2"
   },
   "peerDependencies": {
@@ -43,6 +45,7 @@
     "hono": "^4.11.9",
     "inquirer": "^13.2.1",
     "jsonwebtoken": "^9.0.3",
+    "kysely": "^0.29.2",
     "minimist": "^1.2.8",
     "openai": "^6.15.0",
     "sqlite3": "^5.1.7",

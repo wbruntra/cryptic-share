@@ -41,6 +41,40 @@ parsewords.get('/', async (c) => {
   })))
 })
 
+// GET /api/parsewords/puzzle/:puzzleId
+// Returns all saved parsewords puzzles for a specific puzzle (public)
+parsewords.get('/puzzle/:puzzleId', async (c) => {
+  const puzzleId = c.req.param('puzzleId')
+
+  const rows = await db('parsewords_puzzles')
+    .where('parsewords_puzzles.puzzle_id', puzzleId)
+    .select(
+      'parsewords_puzzles.id',
+      'parsewords_puzzles.clue_number',
+      'parsewords_puzzles.direction',
+      'parsewords_puzzles.puzzle_json',
+      'parsewords_puzzles.updated_at',
+      'clue_explanations.clue_text',
+      'clue_explanations.answer',
+    )
+    .leftJoin('clue_explanations', function () {
+      this.on('clue_explanations.puzzle_id', 'parsewords_puzzles.puzzle_id')
+        .andOn('clue_explanations.clue_number', 'parsewords_puzzles.clue_number')
+        .andOn('clue_explanations.direction', 'parsewords_puzzles.direction')
+    })
+    .orderBy(['parsewords_puzzles.clue_number', 'parsewords_puzzles.direction'])
+
+  return c.json(rows.map((row) => ({
+    id: row.id,
+    clueNumber: row.clue_number,
+    direction: row.direction,
+    clueText: row.clue_text,
+    answer: row.answer,
+    updatedAt: row.updated_at,
+    puzzle: JSON.parse(row.puzzle_json),
+  })))
+})
+
 // GET /api/parsewords/admin/clues/:puzzleId
 // Returns all clues that have explanations for a puzzle, with parsewords status
 parsewords.get('/admin/clues/:puzzleId', async (c) => {

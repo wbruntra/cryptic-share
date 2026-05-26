@@ -507,6 +507,7 @@ export class SessionService {
 
     return {
       ...puzzle,
+      puzzleId: puzzle.id,
       sessionState,
       answersEncrypted,
       attributions,

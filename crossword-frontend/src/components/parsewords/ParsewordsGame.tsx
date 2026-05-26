@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import type { DisplayToken, Puzzle } from './types'
 import { normalize, computeFns, allInsertions, findTrigger } from './helpers'
 
@@ -6,9 +6,10 @@ type ResolvedAction = { kind: 'replace' | 'result'; options: string[] }
 
 interface Props {
   puzzle: Puzzle
+  onWin?: () => void
 }
 
-export function ParsewordsGame({ puzzle }: Props) {
+export function ParsewordsGame({ puzzle, onWin }: Props) {
   const [displayTokens, setDisplayTokens] = useState<DisplayToken[]>(
     puzzle.tokens.map((t) => ({ ...t })),
   )
@@ -58,6 +59,12 @@ export function ParsewordsGame({ puzzle }: Props) {
     (t) => t.role !== 'definition' && t.role !== 'link',
   )
   const won = nonDefinitionTokens.length === 1 && nonDefinitionTokens[0].text === puzzle.answer
+
+  const onWinRef = useRef(onWin)
+  onWinRef.current = onWin
+  useEffect(() => {
+    if (won) onWinRef.current?.()
+  }, [won])
 
   function toggleSelect(id: string) {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
