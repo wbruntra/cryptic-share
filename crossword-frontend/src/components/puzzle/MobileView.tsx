@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
-import { LuX, LuLightbulb, LuSearch, LuLock, LuUnlock, LuChartBarBig, LuBell, LuBellOff, LuKeyboard, LuClipboardList } from 'react-icons/lu'
+import { LuX, LuLightbulb, LuSearch, LuLock, LuLockOpen, LuChartBarBig, LuBell, LuBellOff, LuKeyboard, LuClipboardList } from 'react-icons/lu'
 import { CrosswordGrid } from '@/CrosswordGrid'
 import { FloatingClueBar, VirtualKeyboard, BottomSheet, MobileClueList } from '@/components/mobile'
 import { AttributionControls } from '@/components/AttributionControls'
@@ -169,7 +169,7 @@ export function MobileView({
             )}
             <ToolbarButton
               onClick={() => dispatch(toggleLockMode())}
-              icon={isLockModeEnabled ? <LuLock size={18} /> : <LuUnlock size={18} />}
+              icon={isLockModeEnabled ? <LuLock size={18} /> : <LuLockOpen size={18} />}
               label={isLockModeEnabled ? 'Lock mode enabled' : 'Lock mode disabled'}
               title={isLockModeEnabled ? 'Lock mode: Correct words are locked' : 'Lock mode: All cells editable'}
               compact

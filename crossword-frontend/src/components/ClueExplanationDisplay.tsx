@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LuBookOpen, LuPuzzle, LuType, LuWrench, LuLightbulb, LuFileText, LuAlertTriangle, LuCheck } from 'react-icons/lu'
+import { LuBookOpen, LuPuzzle, LuType, LuWrench, LuLightbulb, LuFileText, LuTriangleAlert, LuCheck } from 'react-icons/lu'
 
 export type ClueExplanation =
   | WordplayExplanation
@@ -422,7 +422,7 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
             ) : hasReported ? (
               <span className="flex items-center gap-1"><LuCheck size={14} /> Reported</span>
             ) : (
-              <span className="flex items-center gap-1"><LuAlertTriangle size={14} /> Report Bad Explanation</span>
+              <span className="flex items-center gap-1"><LuTriangleAlert size={14} /> Report Bad Explanation</span>
             )}
           </button>
         </div>
