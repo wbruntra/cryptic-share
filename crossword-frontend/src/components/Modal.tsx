@@ -5,7 +5,7 @@ import { LuX } from 'react-icons/lu'
 interface ModalProps {
   isOpen: boolean
   onClose: () => void
-  title?: string
+  title?: React.ReactNode
   children: React.ReactNode
   showCloseButton?: boolean
 }
