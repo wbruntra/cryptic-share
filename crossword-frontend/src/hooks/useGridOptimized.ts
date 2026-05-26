@@ -103,7 +103,7 @@ export function useGridStructure(): {
  * dependencies change.
  */
 export function useRenderedGrid(): {
-  renderedGrid: RenderedCell[]
+  renderedGrid: RenderedCell[][]
   currentClueNumber: number | null
 } {
   const grid = useSelector(selectGrid)
@@ -131,5 +131,5 @@ export function useRenderedGrid(): {
     )
   }, [gridWithNumbers, answers, cursor, activeWordCells])
 
-  return { renderedGrid: renderedGrid.flat(), currentClueNumber }
+  return { renderedGrid, currentClueNumber }
 }

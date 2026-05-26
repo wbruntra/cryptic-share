@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Modal } from './Modal'
 import { ClueExplanationDisplay, type ClueExplanation } from './ClueExplanationDisplay'
+import { Spinner } from './Spinner'
 import {
   useGetCachedExplanationQuery,
   useRequestExplanationMutation,
@@ -294,7 +295,7 @@ function HintModalContent({
                 className="w-full py-3 bg-secondary/10 text-secondary font-bold rounded-lg hover:bg-secondary/20 transition-colors flex items-center justify-center gap-2"
               >
                 {loading ? (
-                  <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  <Spinner />
                 ) : (
                   '🔍 Reveal Whole Word'
                 )}

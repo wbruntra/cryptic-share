@@ -4,6 +4,7 @@ import { useSelector, useDispatch } from 'react-redux'
 import confetti from 'canvas-confetti'
 import { DesktopView, MobileView } from '@/components/puzzle'
 import { NicknameModal } from '@/components/NicknameModal'
+import { LoadingState } from '@/components/LoadingState'
 import { useIsMobile } from '@/utils/useIsMobile'
 import { usePuzzleSync } from '@/hooks/usePuzzleSync'
 import { usePuzzleInput } from '@/hooks/usePuzzleInput'
@@ -106,10 +107,7 @@ function PlaySessionInner({ sessionId }: { sessionId: string | undefined }) {
 
   if (isLoading && !grid.length) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh] text-text-secondary animate-pulse gap-2">
-        <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-        Loading puzzle...
-      </div>
+      <LoadingState message="Loading puzzle..." />
     )
   }
 

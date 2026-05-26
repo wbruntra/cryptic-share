@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react'
+import React, { useState, useCallback } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { CrosswordGrid } from '@/CrosswordGrid'
 import { FloatingClueBar, VirtualKeyboard, BottomSheet, MobileClueList } from '@/components/mobile'
@@ -6,92 +6,38 @@ import { AttributionControls } from '@/components/AttributionControls'
 import { AttributionStats } from '@/components/AttributionStats'
 import { HintModal } from '@/components/HintModal'
 import { ChangeNotification } from '@/components/ChangeNotification'
-import { Modal } from '@/components/Modal'
+import { CongratulationsModal } from '@/components/CongratulationsModal'
 import { Toast } from '@/components/Toast'
+import { ToolbarButton } from '@/components/ToolbarButton'
+import { Spinner } from '@/components/Spinner'
 import {
   clearErrorCells,
   dismissChangeNotification,
   setHintModalOpen,
-  dismissCheckResult,
   toggleLockMode,
 } from '@/store/slices/puzzleSlice'
-import { extractClueMetadata } from '@/utils/answerChecker'
-import { useAnswerChecker } from '@/hooks/useAnswerChecker'
+import { useRenderedGrid } from '@/hooks/useGridOptimized'
+import { useCurrentClue } from '@/hooks/useCurrentClue'
+import { useCheckResultAlert } from '@/hooks/useCheckResultAlert'
+import { useNotificationToggle } from '@/hooks/useNotificationToggle'
 import { usePuzzleTimer } from '@/hooks/usePuzzleTimer'
-import { useActiveWordCells } from '@/hooks/useGridOptimized'
-import { usePuzzleNotifications } from '@/hooks/usePuzzleNotifications'
-import type { RootState } from '@/store/store'
+import {
+  selectTitle,
+  selectClues,
+  selectCursor,
+  selectChangedCells,
+  selectShowChangeNotification,
+  selectCorrectFlashCells,
+  selectIncorrectFlashCells,
+  selectAttributions,
+  selectSessionId,
+  selectErrorCells,
+  selectIsChecking,
+  selectIsLockModeEnabled,
+  selectIsHintModalOpen,
+} from '@/store/selectors/puzzleSelectors'
 import type { Direction } from '@/types'
 
-// Selectors
-const selectGrid = (state: RootState) => state.puzzle.grid
-const selectAnswers = (state: RootState) => state.puzzle.answers
-const selectCursor = (state: RootState) => state.puzzle.cursor
-const selectTitle = (state: RootState) => state.puzzle.title
-const selectClues = (state: RootState) => state.puzzle.clues
-const selectChangedCells = (state: RootState) => state.puzzle.changedCells
-const selectShowChangeNotification = (state: RootState) => state.puzzle.showChangeNotification
-const selectCorrectFlashCells = (state: RootState) => state.puzzle.correctFlashCells
-const selectIncorrectFlashCells = (state: RootState) => state.puzzle.incorrectFlashCells
-const selectAttributions = (state: RootState) => state.puzzle.attributions
-const selectSessionId = (state: RootState) => state.puzzle.sessionId
-const selectErrorCells = (state: RootState) => state.puzzle.errorCells
-const selectIsChecking = (state: RootState) => state.puzzle.isChecking
-const selectCheckResult = (state: RootState) => state.puzzle.checkResult
-const selectIsLockModeEnabled = (state: RootState) => state.puzzle.isLockModeEnabled
-
-// Optimized hook that computes rendered grid with O(n) active word lookup
-function useRenderedGrid() {
-  const grid = useSelector(selectGrid)
-  const answers = useSelector(selectAnswers)
-  const cursor = useSelector(selectCursor)
-  const activeWordCells = useActiveWordCells()
-
-  return useMemo(() => {
-    if (grid.length === 0) return { renderedGrid: [], currentClueNumber: null }
-
-    let currentNumber = 1
-    const renderedGrid = grid.map((row, r) =>
-      row.map((cell, c) => {
-        let number = null
-        if (cell === 'N') {
-          number = currentNumber
-          currentNumber++
-        }
-
-        const cellKey = `${r}-${c}`
-        const isSelected = cursor?.r === r && cursor?.c === c
-
-        return {
-          type: cell,
-          number,
-          isSelected,
-          isActiveWord: activeWordCells.has(cellKey),
-          answer: answers[r]?.[c] || ' ',
-        }
-      }),
-    )
-
-    // Calculate current clue number
-    let currentClueNumber = null
-    if (cursor) {
-      let r = cursor.r
-      let c = cursor.c
-      if (cursor.direction === 'across') {
-        while (c > 0 && grid[r][c - 1] !== 'B') c--
-      } else {
-        while (r > 0 && grid[r - 1][c] !== 'B') r--
-      }
-      if (renderedGrid[r]?.[c]?.number) {
-        currentClueNumber = renderedGrid[r][c].number
-      }
-    }
-
-    return { renderedGrid, currentClueNumber }
-  }, [grid, answers, cursor, activeWordCells])
-}
-
-// Mobile layout
 export function MobileView({
   onClueClick,
   onCellClick,
@@ -106,8 +52,6 @@ export function MobileView({
   onCheckAnswers: () => void
 }) {
   const dispatch = useDispatch()
-  const grid = useSelector(selectGrid)
-  const answers = useSelector(selectAnswers)
   const title = useSelector(selectTitle)
   const clues = useSelector(selectClues)
   const cursor = useSelector(selectCursor)
@@ -119,83 +63,23 @@ export function MobileView({
   const sessionId = useSelector(selectSessionId)
   const errorCells = useSelector(selectErrorCells)
   const isChecking = useSelector(selectIsChecking)
-  const checkResult = useSelector(selectCheckResult)
   const isLockModeEnabled = useSelector(selectIsLockModeEnabled)
-  const { renderedGrid, currentClueNumber } = useRenderedGrid()
-  const { isSupported, isSubscribed, isLoading, subscribe, unsubscribe } = usePuzzleNotifications(sessionId ?? '')
+  const isHintModalOpen = useSelector(selectIsHintModalOpen)
 
   // Local UI state
   const [isClueSheetOpen, setIsClueSheetOpen] = useState(false)
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const [isClueBarHidden, setIsClueBarHidden] = useState(false)
   const [showAttributions, setShowAttributions] = useState(false)
-  const isHintModalOpen = useSelector((state: RootState) => state.puzzle.isHintModalOpen)
 
-  // Toast state for notifications
-  const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const { renderedGrid, currentClueNumber } = useRenderedGrid()
+  const { clueMetadata, currentClue, currentWordState, handleFetchHintAnswer } =
+    useCurrentClue(currentClueNumber)
+  const { toastMessage, setToastMessage, handleNotificationClick, isSupported, isSubscribed, isLoading } =
+    useNotificationToggle(sessionId)
+  useCheckResultAlert()
 
-  const handleNotificationClick = async () => {
-    if (isSubscribed) {
-      await unsubscribe()
-      setToastMessage('Notifications turned off')
-    } else {
-      await subscribe()
-      setToastMessage('Notifications enabled - you will receive alerts when words are claimed')
-    }
-  }
-
-  const clueMetadata = useMemo(() => extractClueMetadata(grid), [grid])
-
-  // Get current clue
-  const currentClue = useMemo(() => {
-    if (!clues || currentClueNumber === null || !cursor?.direction) return null
-    const clueList = cursor.direction === 'across' ? clues.across : clues.down
-    return clueList.find((c) => c.number === currentClueNumber) || null
-  }, [clues, currentClueNumber, cursor])
-
-  const currentWordState = useMemo(() => {
-    if (!cursor || grid.length === 0) return []
-
-    const cells: string[] = []
-    let r = cursor.r
-    let c = cursor.c
-
-    if (cursor.direction === 'across') {
-      while (c > 0 && grid[r][c - 1] !== 'B') c--
-      while (c < grid[0].length && grid[r][c] !== 'B') {
-        cells.push(answers[r]?.[c] || ' ')
-        c++
-      }
-    } else {
-      while (r > 0 && grid[r - 1][c] !== 'B') r--
-      while (r < grid.length && grid[r][c] !== 'B') {
-        cells.push(answers[r]?.[c] || ' ')
-        r++
-      }
-    }
-
-    return cells
-  }, [cursor, grid, answers])
-
-  // Get timer display
   const { timerDisplay } = usePuzzleTimer(sessionId ?? undefined)
-
-  // Setup answer checking
-  const { getSolution } = useAnswerChecker()
-
-  const handleFetchHintAnswer = useMemo(() => {
-    return async () => {
-      if (!cursor || !currentClueNumber) {
-        throw new Error('No active clue')
-      }
-
-      const solution = getSolution(currentClueNumber, cursor.direction)
-      if (solution) {
-        return solution
-      }
-      throw new Error('Hint not found')
-    }
-  }, [cursor, currentClueNumber, getSolution])
 
   const handleClueSelect = useCallback(
     (num: number, dir: Direction) => {
@@ -214,14 +98,6 @@ export function MobileView({
     [onCellClick],
   )
 
-  // Show alert for check result (when not complete)
-  useEffect(() => {
-    if (checkResult.show && !checkResult.isComplete && checkResult.message) {
-      window.alert(checkResult.message)
-      dispatch(dismissCheckResult())
-    }
-  }, [checkResult.show, checkResult.isComplete, checkResult.message, dispatch])
-
   return (
     <div
       className="play-session-mobile bg-bg -mt-8 overflow-x-hidden"
@@ -239,26 +115,7 @@ export function MobileView({
         onDismiss={() => setToastMessage(null)}
       />
 
-      {/* Check Result Modal - shown when puzzle is complete */}
-      <Modal
-        isOpen={checkResult.show && checkResult.isComplete}
-        onClose={() => dispatch(dismissCheckResult())}
-        title="🎉 Congratulations!"
-      >
-        <div className="text-center">
-          <div className="text-6xl mb-4 animate-bounce">🏆</div>
-          <p className="text-lg text-text mb-6">
-            You've solved all the checked answers correctly!
-          </p>
-          <p className="text-text-secondary mb-8">Great job solving this cryptic crossword.</p>
-          <button
-            onClick={() => dispatch(dismissCheckResult())}
-            className="bg-primary hover:bg-primary-hover text-white px-6 py-3 rounded-lg font-medium transition-colors"
-          >
-            Close
-          </button>
-        </div>
-      </Modal>
+      <CongratulationsModal />
 
       {/* Floating clue bar */}
       <FloatingClueBar
@@ -281,79 +138,65 @@ export function MobileView({
           <h1 className="text-xl font-bold text-text m-0 truncate flex-1">{title}</h1>
           <div className="flex items-center gap-4 shrink-0">
             {errorCells.length > 0 && (
-              <button
+              <ToolbarButton
                 onClick={() => dispatch(clearErrorCells())}
-                className="w-9 h-9 flex items-center justify-center rounded-lg bg-surface border border-border text-text-secondary active:bg-input-bg transition-colors"
-                aria-label="Clear errors"
-              >
-                ✕
-              </button>
+                icon="✕"
+                label="Clear errors"
+                compact
+                className="bg-surface border-border text-text-secondary active:bg-input-bg"
+              />
             )}
             {sessionId && (
-              <button
+              <ToolbarButton
                 onClick={() => dispatch(setHintModalOpen(true))}
+                icon="💡"
+                label="Get Hint"
                 disabled={!cursor || !currentClue}
-                className={`w-9 h-9 flex items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 transition-colors ${
-                  !cursor || !currentClue
-                    ? 'opacity-50 cursor-not-allowed'
-                    : 'active:bg-blue-500/20'
-                }`}
-                aria-label="Get Hint"
-              >
-                💡
-              </button>
+                compact
+                className={`bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 ${!cursor || !currentClue ? 'opacity-50 cursor-not-allowed' : 'active:bg-blue-500/20'}`}
+              />
             )}
             {sessionId && (
-              <button
+              <ToolbarButton
                 onClick={onCheckAnswers}
-                className={`w-9 h-9 flex items-center justify-center rounded-lg bg-yellow-500/10 text-yellow-700 border border-yellow-500/30 transition-colors ${
-                  isChecking ? 'opacity-60' : 'active:bg-yellow-500/20'
-                }`}
-                aria-label="Check answers"
+                icon={isChecking ? <Spinner /> : '🔍'}
+                label="Check answers"
                 disabled={isChecking}
-              >
-                {isChecking ? (
-                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  '🔍'
-                )}
-              </button>
+                compact
+                className={`bg-yellow-500/10 text-yellow-700 border-yellow-500/30 ${isChecking ? 'opacity-60' : 'active:bg-yellow-500/20'}`}
+              />
             )}
-            <button
+            <ToolbarButton
               onClick={() => dispatch(toggleLockMode())}
-              className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-colors ${
-                isLockModeEnabled
-                  ? 'bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400'
-                  : 'bg-surface border-border text-text-secondary active:border-green-500 active:text-green-600'
-              }`}
-              aria-label={isLockModeEnabled ? 'Lock mode enabled' : 'Lock mode disabled'}
+              icon={isLockModeEnabled ? '🔒' : '🔓'}
+              label={isLockModeEnabled ? 'Lock mode enabled' : 'Lock mode disabled'}
               title={isLockModeEnabled ? 'Lock mode: Correct words are locked' : 'Lock mode: All cells editable'}
-            >
-              {isLockModeEnabled ? '🔒' : '🔓'}
-            </button>
+              compact
+              className={isLockModeEnabled
+                ? 'bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400'
+                : 'bg-surface border-border text-text-secondary active:border-green-500 active:text-green-600'}
+            />
             {sessionId && (
-              <button
+              <ToolbarButton
                 onClick={() => setShowAttributions(true)}
-                className="w-9 h-9 flex items-center justify-center rounded-lg bg-surface border border-border text-text-secondary active:bg-input-bg transition-colors"
-                aria-label="Show stats"
-              >
-                📊
-              </button>
+                icon="📊"
+                label="Show stats"
+                compact
+                className="bg-surface border-border text-text-secondary active:bg-input-bg"
+              />
             )}
             {isSupported && sessionId && (
-              <button
+              <ToolbarButton
                 onClick={handleNotificationClick}
-                disabled={isLoading}
-                className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-colors ${
-                  isSubscribed
-                    ? 'bg-primary/10 border-primary text-primary'
-                    : 'bg-surface border-border text-text-secondary'
-                } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                aria-label={isSubscribed ? 'Unsubscribe from notifications' : 'Subscribe to notifications'}
+                icon={isSubscribed ? '🔔' : '🔕'}
+                label={isSubscribed ? 'Unsubscribe from notifications' : 'Subscribe to notifications'}
                 title={isSubscribed ? 'Unsubscribe from puzzle notifications' : 'Get notified when words are claimed'}
-              >
-                {isSubscribed ? '🔔' : '🔕'}
-              </button>
+                disabled={isLoading}
+                compact
+                className={`${isSubscribed
+                  ? 'bg-primary/10 border-primary text-primary'
+                  : 'bg-surface border-border text-text-secondary'} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              />
             )}
           </div>
         </div>
