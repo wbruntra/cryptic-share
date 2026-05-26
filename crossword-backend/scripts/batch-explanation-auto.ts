@@ -215,7 +215,9 @@ function isNewFormat(explanationJson: string): boolean {
   try {
     const parsed = JSON.parse(explanationJson)
     const steps = parsed?.wordplay_steps ?? parsed?.explanation?.wordplay_steps
-    return Array.isArray(steps?.[0]?.tokens)
+    if (!Array.isArray(steps) || steps.length === 0) return false
+    // New format: tokens is a string (contiguous span). Old format: tokens was string[].
+    return typeof steps[0]?.tokens === 'string'
   } catch {
     return false
   }
