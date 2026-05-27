@@ -29,7 +29,7 @@ export function ParsewordsGame({ puzzle, onWin }: Props) {
   }
 
   function reset() {
-    setDisplayTokens(puzzle.tokens.map((t) => ({ ...t })))
+    setDisplayTokens(seedTokens(puzzle.tokens))
     setSelected([])
   }
 
