@@ -1,5 +1,6 @@
 import { OpenRouter } from '@openrouter/sdk'
 import { crypticSchema, crypticInstructions } from './crypticSchema'
+import { OPENROUTER_MODELS } from '../config'
 
 const client = new OpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -313,17 +314,7 @@ export const transcribeAnswers = async (input: any, model = models.flash) => {
   }
 }
 
-const models = {
-  flash: 'google/gemini-3-flash-preview',
-  ['flash-3.5']: 'google/gemini-3.5-flash',
-  gemini: 'google/gemini-3-pro-preview',
-  haiku: 'anthropic/claude-haiku-4.5',
-  sonnet: 'anthropic/claude-sonnet-4.6',
-  [`gpt-5-mini`]: 'openai/gpt-5-mini',
-  [`gpt-5.4-mini`]: 'openai/gpt-5.4-mini',
-  [`deepseek-flash`]: 'deepseek/deepseek-v4-flash',
-  [`deepseek-pro`]: 'deepseek/deepseek-v4-pro',
-}
+const models = OPENROUTER_MODELS
 
 export const explainCrypticClue = async (input: {
   clue: string

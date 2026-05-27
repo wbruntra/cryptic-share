@@ -9,12 +9,12 @@ export type TriggerAction =
   | { kind: 'container' }
 
 export type Trigger = {
-  match: string[]
+  match: string
   action: TriggerAction
 }
 
 export type PuzzleToken = {
-  id: string
+  id?: string
   text: string
   role: TokenRole
 }

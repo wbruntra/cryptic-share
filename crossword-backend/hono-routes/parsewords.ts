@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { requireAdmin, type AuthUser } from '../hono-middleware/auth'
 import db from '../db-knex'
-import { generateParsewordsPuzzle } from '../utils/parsewordsGenerator'
+import { generateParsewordsPuzzle, models as OPENROUTER_MODELS } from '../utils/parsewordsGenerator'
 
 type Variables = { user: AuthUser | null }
 
@@ -84,6 +84,7 @@ parsewords.get('/admin/clues/:puzzleId', async (c) => {
   const rows = await db('clue_explanations')
     .where('clue_explanations.puzzle_id', puzzleId)
     .select(
+      'clue_explanations.id as explanation_id',
       'clue_explanations.clue_number',
       'clue_explanations.direction',
       'clue_explanations.clue_text',
@@ -101,6 +102,7 @@ parsewords.get('/admin/clues/:puzzleId', async (c) => {
     .orderBy(['clue_explanations.clue_number', 'clue_explanations.direction'])
 
   return c.json(rows.map((row) => ({
+    explanationId: row.explanation_id,
     clueNumber: row.clue_number,
     direction: row.direction,
     clueText: row.clue_text,
@@ -112,12 +114,32 @@ parsewords.get('/admin/clues/:puzzleId', async (c) => {
   })))
 })
 
+// GET /api/parsewords/admin/models
+// Returns available model keys for puzzle generation
+parsewords.get('/admin/models', (c) => {
+  requireAdmin(c)
+  return c.json(Object.keys(OPENROUTER_MODELS))
+})
+
+// In-memory job store for async generation (admin-only, no persistence needed)
+type GenerationJob =
+  | { status: 'pending' }
+  | { status: 'success'; puzzle: unknown }
+  | { status: 'error'; message: string }
+
+const generationJobs = new Map<string, GenerationJob>()
+
+// Auto-clean jobs after 10 minutes
+function scheduleJobCleanup(requestId: string) {
+  setTimeout(() => generationJobs.delete(requestId), 10 * 60 * 1000)
+}
+
 // POST /api/parsewords/admin/generate
-// Generate a parsewords puzzle from an existing clue explanation (does NOT save)
+// Starts async generation and returns a requestId immediately (202)
 parsewords.post('/admin/generate', async (c) => {
   requireAdmin(c)
   const body = await c.req.json().catch(() => ({}))
-  const { puzzleId, clueNumber, direction } = body
+  const { puzzleId, clueNumber, direction, modelKey } = body
 
   if (!puzzleId || !clueNumber || !direction) {
     throw new HTTPException(400, { message: 'Missing puzzleId, clueNumber, or direction' })
@@ -131,9 +153,33 @@ parsewords.post('/admin/generate', async (c) => {
     throw new HTTPException(404, { message: 'No explanation found for this clue' })
   }
 
+  const requestId = crypto.randomUUID()
+  generationJobs.set(requestId, { status: 'pending' })
+  scheduleJobCleanup(requestId)
+
+  // Fire-and-forget
+  const modelSlug = modelKey ? (OPENROUTER_MODELS[modelKey as keyof typeof OPENROUTER_MODELS] ?? undefined) : undefined
   const explanation = JSON.parse(row.explanation_json)
-  const puzzle = await generateParsewordsPuzzle(row.clue_text, row.answer, explanation)
-  return c.json(puzzle)
+  ;(async () => {
+    try {
+      const puzzle = await generateParsewordsPuzzle(row.clue_text, row.answer, explanation, modelSlug)
+      generationJobs.set(requestId, { status: 'success', puzzle })
+    } catch (e: any) {
+      generationJobs.set(requestId, { status: 'error', message: e?.message ?? 'Generation failed' })
+    }
+  })()
+
+  return c.json({ requestId }, 202)
+})
+
+// GET /api/parsewords/admin/generate/:requestId
+// Poll for generation status
+parsewords.get('/admin/generate/:requestId', (c) => {
+  requireAdmin(c)
+  const requestId = c.req.param('requestId')
+  const job = generationJobs.get(requestId)
+  if (!job) throw new HTTPException(404, { message: 'Unknown requestId' })
+  return c.json(job)
 })
 
 // POST /api/parsewords/admin/save

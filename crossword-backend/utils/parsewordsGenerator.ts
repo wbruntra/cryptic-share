@@ -5,11 +5,16 @@
  * click tokens to discover operations/substitutions, gradually building the answer.
  */
 
-import OpenAI from 'openai'
+import { OpenRouter } from '@openrouter/sdk'
+import { OPENROUTER_MODELS } from '../config'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+const client = new OpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
 })
+
+export const models = OPENROUTER_MODELS
+
+const DEFAULT_MODEL = models['deepseek-pro']
 
 // ---------------------------------------------------------------------------
 // Schema (mirrors ParsewordsTestPage.tsx types — keep in sync)
@@ -24,12 +29,12 @@ export type TriggerAction =
   | { kind: 'container' }
 
 export type Trigger = {
-  match: string[]
+  match: string
   action: TriggerAction
 }
 
 export type PuzzleToken = {
-  id: string
+  id?: string
   text: string
   role: TokenRole
 }
@@ -71,7 +76,7 @@ Every word in the clue is its own token (never group multi-word phrases into one
 
 ## Triggers
 
-A trigger fires when the player selects an exact set of tokens (by their current text, order-independent). Each trigger has a \`match\` array of token texts and an \`action\`:
+A trigger fires when the player selects a contiguous group of tokens whose texts, joined by spaces in clue order, exactly equal the trigger's \`match\` string. Each trigger has a \`match\` string and an \`action\`:
 
 ### action kinds
 
@@ -98,13 +103,40 @@ A trigger fires when the player selects an exact set of tokens (by their current
 
 ## Rules
 
-- Tokens are listed in clue word order.
-- Token IDs: use "t1", "t2", ... in order.
+- Tokens are listed in clue word order. Do not include an \`id\` field on tokens.
 - After a trigger fires (replace/result/compute/container), the tokens it consumed are replaced by a single new wordplay token. Subsequent triggers must reference the NEW text.
-- The final state must be: one wordplay token whose text equals \`answer\` (normalized, no spaces) + the definition tokens.
+- **The final state must be: one wordplay token whose text equals \`answer\` (normalized, no spaces) + the definition tokens.**
 - For multi-word answers (e.g. "MAIL ORDER"), set \`answer\` to the concatenated form ("MAILORDER") and \`displayAnswer\` to the spaced form ("MAIL ORDER").
 - Triggers should be ordered to guide the player from the raw clue to the answer in logical steps.
 - The \`label\` field is the answer with spaces if multi-word (e.g. "MAIL ORDER"), otherwise just the answer.
+
+### Concatenation rule (critical — do not omit)
+
+When two or more separate wordplay fragments must be joined to form the answer, you **must** add a final \`result\` trigger that matches all remaining wordplay tokens in order and produces the answer. This step explicitly tells the player how the pieces combine.
+
+Example: if after earlier triggers the remaining wordplay tokens are "I" and "MPOUND" (which together spell IMPOUND):
+\`\`\`json
+{ "match": "I MPOUND", "action": { "kind": "result", "options": ["IMPOUND", "MIPOUND", "UNDPOMI"] } }
+\`\`\`
+
+This applies whenever the answer is assembled by concatenating two or more independently derived fragments. Without this final trigger the puzzle is unsolvable — the player has no way to finish.
+
+## Trigger ordering (required)
+
+**Put solution triggers first, red herring triggers last.**
+
+The triggers array must be ordered so that the correct solution path comes first. Red herring triggers (especially the definition red herring below) must be appended at the end of the array, after all solution triggers.
+
+This ordering is used by automated validation to verify the puzzle is solvable.
+
+## Definition red herrings (required)
+
+Always add a **replace** trigger for the definition token(s) **at the end of the triggers array**. The options should be plausible synonyms of the definition — but must NOT include the actual answer. These are intentional dead ends: the player may try clicking the definition, get a synonym, and discover it leads nowhere, which teaches them that the definition is not the wordplay path. This is an important part of the puzzle design.
+
+- If the definition is a single word, add a single-token replace trigger.
+- If the definition spans multiple adjacent tokens, add a multi-token replace trigger for the whole span.
+- Options must be genuine synonyms of the definition sense (not nonsense). **Never include the answer itself** as one of the options — the whole point is that this path leads nowhere.
+- Include exactly 3 options.
 
 ## Output format
 
@@ -116,11 +148,11 @@ Return a single JSON object with this exact shape:
   "answer": "ANSWER",
   "displayAnswer": "ANSWER WITH SPACES (omit if single word)",
   "tokens": [
-    { "id": "t1", "text": "Word", "role": "definition|wordplay|indicator|link" },
+    { "text": "Word", "role": "definition|wordplay|indicator|link" },
     ...
   ],
   "triggers": [
-    { "match": ["text1", "text2"], "action": { "kind": "replace|result|compute|container", ... } },
+    { "match": "text1 text2", "action": { "kind": "replace|result|compute|container", ... } },
     ...
   ]
 }
@@ -137,18 +169,18 @@ Answer: TROUNCE
   "clue": "Beat counter, frustrated (7)",
   "answer": "TROUNCE",
   "tokens": [
-    { "id": "t1", "text": "Beat", "role": "definition" },
-    { "id": "t2", "text": "counter,", "role": "wordplay" },
-    { "id": "t3", "text": "frustrated", "role": "indicator" }
+    { "text": "Beat", "role": "definition" },
+    { "text": "counter,", "role": "wordplay" },
+    { "text": "frustrated", "role": "indicator" }
   ],
   "triggers": [
     {
-      "match": ["Beat"],
-      "action": { "kind": "replace", "options": ["DEFEAT", "THRASH", "PUMMEL"] }
+      "match": "counter, frustrated",
+      "action": { "kind": "result", "options": ["TROUNCE", "RECOUNT", "CORNUTE"] }
     },
     {
-      "match": ["counter,", "frustrated"],
-      "action": { "kind": "result", "options": ["TROUNCE", "RECOUNT", "CORNUTE"] }
+      "match": "Beat",
+      "action": { "kind": "replace", "options": ["DEFEAT", "THRASH", "PUMMEL"] }
     }
   ]
 }
@@ -165,27 +197,58 @@ Answer: LULLABY
   "clue": "With Christmas nearly over recall dance's sleepy tune (7)",
   "answer": "LULLABY",
   "tokens": [
-    { "id": "t1", "text": "With", "role": "indicator" },
-    { "id": "t2", "text": "Christmas", "role": "wordplay" },
-    { "id": "t3", "text": "nearly", "role": "indicator" },
-    { "id": "t4", "text": "over", "role": "indicator" },
-    { "id": "t5", "text": "recall", "role": "indicator" },
-    { "id": "t6", "text": "dance's", "role": "wordplay" },
-    { "id": "t7", "text": "sleepy", "role": "definition" },
-    { "id": "t8", "text": "tune", "role": "definition" }
+    { "text": "With", "role": "indicator" },
+    { "text": "Christmas", "role": "wordplay" },
+    { "text": "nearly", "role": "indicator" },
+    { "text": "over", "role": "indicator" },
+    { "text": "recall", "role": "indicator" },
+    { "text": "dance's", "role": "wordplay" },
+    { "text": "sleepy", "role": "definition" },
+    { "text": "tune", "role": "definition" }
   ],
   "triggers": [
-    { "match": ["Christmas"], "action": { "kind": "replace", "options": ["YULE", "NOEL", "XMAS"] } },
-    { "match": ["dance's"], "action": { "kind": "replace", "options": ["BALL", "WALTZ", "JIVE"] } },
-    { "match": ["YULE", "nearly"], "action": { "kind": "compute", "fn": "trim-last", "source": "YULE" } },
-    { "match": ["YUL", "over"], "action": { "kind": "compute", "fn": "reverse", "source": "YUL" } },
-    { "match": ["BALL", "recall"], "action": { "kind": "compute", "fn": "reverse", "source": "BALL" } },
-    { "match": ["With", "LUY", "LLAB"], "action": { "kind": "container" } }
+    { "match": "Christmas", "action": { "kind": "replace", "options": ["YULE", "NOEL", "XMAS"] } },
+    { "match": "dance's", "action": { "kind": "replace", "options": ["BALL", "WALTZ", "JIVE"] } },
+    { "match": "YULE nearly", "action": { "kind": "compute", "fn": "trim-last", "source": "YULE" } },
+    { "match": "YUL over", "action": { "kind": "compute", "fn": "reverse", "source": "YUL" } },
+    { "match": "BALL recall", "action": { "kind": "compute", "fn": "reverse", "source": "BALL" } },
+    { "match": "With LUY LLAB", "action": { "kind": "container" } },
+    { "match": "sleepy tune", "action": { "kind": "replace", "options": ["CRADLE SONG", "SERENADE", "NOCTURNE"] } }
   ]
 }
 \`\`\`
 
-Note how after "Christmas" is replaced with "YULE", the next trigger references "YULE" (the new text), not "Christmas".
+Note: the first trigger is the definition red herring — "sleepy tune" can be replaced with synonyms like CRADLE SONG, but none lead to LULLABY via wordplay, making it a dead end. The answer LULLABY is intentionally absent from those options.
+Note: after "Christmas" is replaced with "YULE", subsequent triggers reference "YULE" (the new text), not "Christmas".
+
+## Example puzzle (IMPOUND — abbreviation + anagram + concatenation)
+
+Clue: "Seize first person playing on dump (7)"
+Answer: IMPOUND
+
+\`\`\`json
+{
+  "label": "IMPOUND",
+  "clue": "Seize first person playing on dump (7)",
+  "answer": "IMPOUND",
+  "tokens": [
+    { "text": "Seize", "role": "definition" },
+    { "text": "first", "role": "indicator" },
+    { "text": "person", "role": "wordplay" },
+    { "text": "playing", "role": "indicator" },
+    { "text": "on", "role": "wordplay" },
+    { "text": "dump", "role": "wordplay" }
+  ],
+  "triggers": [
+    { "match": "first person", "action": { "kind": "result", "options": ["I", "ME", "HE"] } },
+    { "match": "on dump playing", "action": { "kind": "result", "options": ["MPOUND", "DUNPOM", "PONDMU"] } },
+    { "match": "I MPOUND", "action": { "kind": "result", "options": ["IMPOUND", "IMOPUND", "MIPOUND"] } },
+    { "match": "Seize", "action": { "kind": "replace", "options": ["CONFISCATE", "CAPTURE", "GRAB"] } }
+  ]
+}
+\`\`\`
+
+Note: solution triggers come first (abbreviation → I, anagram → MPOUND, concatenation → IMPOUND), and the definition red herring ("Seize" → CONFISCATE etc.) is last. The final concatenation trigger is mandatory — without it the puzzle is unsolvable.
 `
 
 // ---------------------------------------------------------------------------
@@ -196,6 +259,7 @@ export async function generateParsewordsPuzzle(
   clueText: string,
   answer: string,
   explanationJson: unknown,
+  model = DEFAULT_MODEL,
 ): Promise<ParsewordsPuzzle> {
   const userMessage = `Here is the cryptic crossword clue, its answer, and the expert explanation of how it works. Generate the Parsewords puzzle definition.
 
@@ -207,18 +271,63 @@ ${JSON.stringify(explanationJson, null, 2)}
 
 Return only the JSON puzzle object, no other text.`
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-5-mini',
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: userMessage },
-    ],
-    response_format: { type: 'json_object' },
+  const result = await client.chat.send({
+    chatRequest: {
+      model,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userMessage },
+      ],
+      responseFormat: { type: 'json_object' },
+      stream: false,
+    },
   })
 
-  const content = response.choices[0]?.message.content
+  const content = result?.choices[0]?.message.content
   if (!content) throw new Error('Empty response from model')
+  if (typeof content !== 'string') throw new Error('Expected string content from model')
 
   const parsed = JSON.parse(content) as ParsewordsPuzzle
   return parsed
+}
+
+if (import.meta.main) {
+  const args = Bun.argv.slice(2)
+  if (args.length < 1) {
+    console.error('Usage: bun utils/parsewordsGenerator.ts <clue-explanation-id> [model-slug]')
+    console.error('')
+    console.error('Available model slugs:')
+    for (const [key, slug] of Object.entries(models)) {
+      console.error(`  ${key.padEnd(16)} ${slug}`)
+    }
+    process.exit(1)
+  }
+
+  const { default: db } = await import('../db-knex')
+
+  const id = parseInt(args[0]!, 10)
+  const modelKey = args[1]
+  const modelSlug = modelKey ? (models[modelKey as keyof typeof models] ?? modelKey) : DEFAULT_MODEL
+
+  const row = await db('clue_explanations').where('id', id).first()
+  if (!row) {
+    console.error(`No clue_explanation found with id=${id}`)
+    process.exit(1)
+  }
+
+  const explanation = JSON.parse(row.explanation_json)
+
+  console.log(`Clue:   ${row.clue_text}`)
+  console.log(`Answer: ${row.answer}`)
+  console.log(`Model:  ${modelSlug}`)
+  console.log()
+
+  const start = performance.now()
+  const result = await generateParsewordsPuzzle(row.clue_text, row.answer, explanation, modelSlug)
+  const elapsed = ((performance.now() - start) / 1000).toFixed(2)
+
+  console.log(JSON.stringify(result, null, 2))
+  console.log(`\nResponse time: ${elapsed}s`)
+
+  await db.destroy()
 }

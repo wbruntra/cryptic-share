@@ -15,9 +15,9 @@ export function allInsertions(inner: string, outer: string): string[] {
 }
 
 export function findTrigger(selectedTokens: DisplayToken[], triggers: Trigger[]): Trigger | null {
-  const texts = selectedTokens.map((t) => t.text).sort()
+  const text = selectedTokens.map((t) => t.text).join(' ')
   for (const trigger of triggers) {
-    if ([...trigger.match].sort().join('|') === texts.join('|')) return trigger
+    if (trigger.match === text) return trigger
   }
   return null
 }

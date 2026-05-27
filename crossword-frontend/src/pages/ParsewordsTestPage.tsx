@@ -23,13 +23,13 @@ const hardcodedPuzzles: Puzzle[] = [
       { id: 't8', text: 'tune',      role: 'definition' },
     ],
     triggers: [
-      { match: ['Christmas'], action: { kind: 'replace', options: ['YULE', 'NOEL', 'XMAS'] } },
-      { match: ["dance's"],   action: { kind: 'replace', options: ['BALL', 'WALTZ', 'JIVE'] } },
-      { match: ['sleepy', 'tune'], action: { kind: 'replace', options: ['CRADLE SONG', 'SERENADE', 'NOCTURNE'] } },
-      { match: ['YULE', 'nearly'], action: { kind: 'compute', fn: 'trim-last', source: 'YULE' } },
-      { match: ['YUL', 'over'],    action: { kind: 'compute', fn: 'reverse',   source: 'YUL' } },
-      { match: ['BALL', 'recall'], action: { kind: 'compute', fn: 'reverse',   source: 'BALL' } },
-      { match: ['With', 'LUY', 'LLAB'], action: { kind: 'container' } },
+      { match: 'sleepy tune',     action: { kind: 'replace', options: ['CRADLE SONG', 'SERENADE', 'NOCTURNE'] } },
+      { match: 'Christmas',       action: { kind: 'replace', options: ['YULE', 'NOEL', 'XMAS'] } },
+      { match: "dance's",         action: { kind: 'replace', options: ['BALL', 'WALTZ', 'JIVE'] } },
+      { match: 'YULE nearly',     action: { kind: 'compute', fn: 'trim-last', source: 'YULE' } },
+      { match: 'YUL over',        action: { kind: 'compute', fn: 'reverse',   source: 'YUL' } },
+      { match: 'BALL recall',     action: { kind: 'compute', fn: 'reverse',   source: 'BALL' } },
+      { match: 'With LUY LLAB',   action: { kind: 'container' } },
     ],
   },
   {
@@ -42,8 +42,8 @@ const hardcodedPuzzles: Puzzle[] = [
       { id: 't3', text: 'frustrated', role: 'indicator' },
     ],
     triggers: [
-      { match: ['Beat'],                   action: { kind: 'replace', options: ['DEFEAT', 'THRASH', 'PUMMEL'] } },
-      { match: ['counter,', 'frustrated'], action: { kind: 'result',  options: ['TROUNCE', 'RECOUNT', 'CORNUTE'] } },
+      { match: 'Beat',               action: { kind: 'replace', options: ['DEFEAT', 'THRASH', 'PUMMEL'] } },
+      { match: 'counter, frustrated', action: { kind: 'result',  options: ['TROUNCE', 'RECOUNT', 'CORNUTE'] } },
     ],
   },
   {
@@ -58,10 +58,10 @@ const hardcodedPuzzles: Puzzle[] = [
       { id: 't5', text: 'design',      role: 'definition' },
     ],
     triggers: [
-      { match: ['design'],          action: { kind: 'replace', options: ['FASHION', 'MOTIF', 'PATTERN'] } },
-      { match: ['variable'],        action: { kind: 'replace', options: ['Y', 'X', 'N'] } },
-      { match: ["Let's", 'somehow'], action: { kind: 'result',  options: ['STLE', 'LEST', 'LETS'] } },
-      { match: ['incorporate', 'STLE', 'Y'], action: { kind: 'container' } },
+      { match: 'design',            action: { kind: 'replace', options: ['FASHION', 'MOTIF', 'PATTERN'] } },
+      { match: 'variable',          action: { kind: 'replace', options: ['Y', 'X', 'N'] } },
+      { match: "Let's somehow",     action: { kind: 'result',  options: ['STLE', 'LEST', 'LETS'] } },
+      { match: 'STLE incorporate Y', action: { kind: 'container' } },
     ],
   },
   {
@@ -80,9 +80,9 @@ const hardcodedPuzzles: Puzzle[] = [
       { id: 't9', text: 'well',   role: 'definition' },
     ],
     triggers: [
-      { match: ['do', 'very', 'well'],       action: { kind: 'replace', options: ['THRIVE', 'SUCCEED', 'PROSPER'] } },
-      { match: ['40', 'in', 'Rome'],         action: { kind: 'replace', options: ['XL', 'XC', 'FORTY'] } },
-      { match: ['It', 'sounds', 'like', 'XL'], action: { kind: 'result', options: ['EXCEL', 'EXPEL', 'EXULT'] } },
+      { match: 'do very well',         action: { kind: 'replace', options: ['THRIVE', 'SUCCEED', 'PROSPER'] } },
+      { match: '40 in Rome',           action: { kind: 'replace', options: ['XL', 'XC', 'FORTY'] } },
+      { match: 'It sounds like XL',    action: { kind: 'result',  options: ['EXCEL', 'EXPEL', 'EXULT'] } },
     ],
   },
   {
@@ -101,10 +101,10 @@ const hardcodedPuzzles: Puzzle[] = [
       { id: 't9', text: 'full',       role: 'indicator' },
     ],
     triggers: [
-      { match: ['He', 'introduces'],                action: { kind: 'replace', options: ['COMPERE', 'HOST', 'PRESENTER'] } },
-      { match: ['start'],                           action: { kind: 'replace', options: ['BEGINNING', 'ONSET', 'OPENING'] } },
-      { match: ['many', 'comedians', 'at', 'the', 'start'], action: { kind: 'result', options: ['MC', 'CM', 'MCO'] } },
-      { match: ['MC', 'in', 'full'],                action: { kind: 'result', options: ['EMCEE', 'EMCAY', 'MCEE'] } },
+      { match: 'He introduces',              action: { kind: 'replace', options: ['COMPERE', 'HOST', 'PRESENTER'] } },
+      { match: 'start',                      action: { kind: 'replace', options: ['BEGINNING', 'ONSET', 'OPENING'] } },
+      { match: 'many comedians at the start', action: { kind: 'result',  options: ['MC', 'CM', 'MCO'] } },
+      { match: 'MC in full',                 action: { kind: 'result',  options: ['EMCEE', 'EMCAY', 'MCEE'] } },
     ],
   },
   {
@@ -123,11 +123,11 @@ const hardcodedPuzzles: Puzzle[] = [
       { id: 't8', text: 'post',    role: 'definition' },
     ],
     triggers: [
-      { match: ['peer'],               action: { kind: 'replace', options: ['LORD', 'DUKE', 'EARL'] } },
-      { match: ['post'],               action: { kind: 'replace', options: ['MAIL', 'PILLAR', 'STAMP'] } },
-      { match: ['buying', 'by', 'post'], action: { kind: 'replace', options: ['CATALOGUE', 'DELIVERY', 'SHOPPING'] } },
-      { match: ['Marie', 'cleverly'],  action: { kind: 'result',  options: ['MAIER', 'AIMER', 'RAMIE'] } },
-      { match: ['MAIER', 'engages', 'LORD'], action: { kind: 'container' } },
+      { match: 'peer',              action: { kind: 'replace', options: ['LORD', 'DUKE', 'EARL'] } },
+      { match: 'post',              action: { kind: 'replace', options: ['MAIL', 'PILLAR', 'STAMP'] } },
+      { match: 'buying by post',    action: { kind: 'replace', options: ['CATALOGUE', 'DELIVERY', 'SHOPPING'] } },
+      { match: 'Marie cleverly',    action: { kind: 'result',  options: ['MAIER', 'AIMER', 'RAMIE'] } },
+      { match: 'MAIER engages LORD', action: { kind: 'container' } },
     ],
   },
   {
@@ -146,10 +146,10 @@ const hardcodedPuzzles: Puzzle[] = [
       { id: 't8', text: 'perhaps', role: 'definition' },
     ],
     triggers: [
-      { match: ['wife'],                    action: { kind: 'replace', options: ['W', 'MISSUS', 'SPOUSE'] } },
-      { match: ['on', 'sofa', 'perhaps'],   action: { kind: 'replace', options: ['SEATED', 'RESTING', 'LOUNGING'] } },
-      { match: ['Doing', 'stint', 'working'], action: { kind: 'result', options: ['SITTINGDON', 'STONIGDINT', 'DONITSTING'] } },
-      { match: ['with', 'W', 'SITTINGDON'], action: { kind: 'container' } },
+      { match: 'wife',                action: { kind: 'replace', options: ['W', 'MISSUS', 'SPOUSE'] } },
+      { match: 'on sofa perhaps',     action: { kind: 'replace', options: ['SEATED', 'RESTING', 'LOUNGING'] } },
+      { match: 'Doing stint working', action: { kind: 'result',  options: ['SITTINGDON', 'STONIGDINT', 'DONITSTING'] } },
+      { match: 'SITTINGDON with W',   action: { kind: 'container' } },
     ],
   },
 ]

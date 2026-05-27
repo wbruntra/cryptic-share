@@ -109,9 +109,8 @@ function buildRoleMap(puzzle: Puzzle): Map<string, TokenRole> {
 
 // For a trigger match token, find its PuzzleToken if it's an original token
 // (derived tokens like "YULE" won't be in the original list)
-function resolveMatchTokens(match: string[], roleMap: Map<string, TokenRole>): PuzzleToken[] {
-  return match.map((text) => ({
-    id: text,
+function resolveMatchTokens(match: string, roleMap: Map<string, TokenRole>): PuzzleToken[] {
+  return match.split(' ').map((text) => ({
     text,
     role: roleMap.get(text) ?? 'wordplay',
   }))

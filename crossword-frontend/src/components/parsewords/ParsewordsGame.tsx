@@ -10,8 +10,11 @@ interface Props {
 }
 
 export function ParsewordsGame({ puzzle, onWin }: Props) {
+  const seedTokens = (tokens: typeof puzzle.tokens): DisplayToken[] =>
+    tokens.map((t, i) => ({ ...t, id: t.id ?? `t${i + 1}` }))
+
   const [displayTokens, setDisplayTokens] = useState<DisplayToken[]>(
-    puzzle.tokens.map((t) => ({ ...t })),
+    seedTokens(puzzle.tokens),
   )
   const [selected, setSelected] = useState<string[]>([])
   const opCounter = useRef(0)
@@ -21,8 +24,7 @@ export function ParsewordsGame({ puzzle, onWin }: Props) {
   if (puzzleRef.current !== puzzle) {
     puzzleRef.current = puzzle
     // Synchronously reset (safe in render when referentially different)
-    const fresh = puzzle.tokens.map((t) => ({ ...t }))
-    setDisplayTokens(fresh)
+    setDisplayTokens(seedTokens(puzzle.tokens))
     setSelected([])
   }
 
@@ -42,7 +44,7 @@ export function ParsewordsGame({ puzzle, onWin }: Props) {
     } else if (action.kind === 'result') {
       resolved = { kind: 'result', options: action.options }
     } else if (action.kind === 'compute') {
-      const src = selectedTokens.find((t) => t.text === action.source)!
+      const src = selectedTokens.find((t) => normalize(t.text) === normalize(action.source))!
       resolved = { kind: 'result', options: [computeFns[action.fn](normalize(src.text))] }
     } else if (action.kind === 'container') {
       const wordplays = selectedTokens.filter((t) => t.role !== 'indicator')
@@ -67,7 +69,38 @@ export function ParsewordsGame({ puzzle, onWin }: Props) {
   }, [won])
 
   function toggleSelect(id: string) {
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+    setSelected((prev) => {
+      const idx = displayTokens.findIndex((t) => t.id === id)
+
+      if (prev.includes(id)) {
+        // Deselecting — only allow clean removal from the edges.
+        // If in the middle, clear entirely (can't maintain contiguity).
+        const selIdxs = prev
+          .map((sid) => displayTokens.findIndex((t) => t.id === sid))
+          .sort((a, b) => a - b)
+        const pos = selIdxs.indexOf(idx)
+        if (pos === 0 || pos === selIdxs.length - 1) {
+          return prev.filter((x) => x !== id)
+        }
+        return []
+      }
+
+      // Selecting — only extend if adjacent to the current contiguous span.
+      if (prev.length === 0) return [id]
+
+      const selIdxs = prev
+        .map((sid) => displayTokens.findIndex((t) => t.id === sid))
+        .sort((a, b) => a - b)
+      const min = selIdxs[0]
+      const max = selIdxs[selIdxs.length - 1]
+
+      if (idx === min - 1 || idx === max + 1) {
+        return [...prev, id]
+      }
+
+      // Not adjacent — start a fresh selection with just this token.
+      return [id]
+    })
   }
 
   function consumeAndInsert(consumeIds: string[], text: string) {
