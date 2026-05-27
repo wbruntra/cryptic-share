@@ -305,6 +305,11 @@ Examples:
     return
   }
 
+  // Fetch puzzle title for display
+  const puzzle = await db('puzzles').select('title').where('id', puzzleId).first()
+  const puzzleTitle = puzzle?.title ?? `puzzle ${puzzleId}`
+
+  console.log(`  Puzzle:      ${puzzleTitle}`)
   console.log(`  Found ${rows.length} explanation(s)\n`)
 
   // ------------------------------------------------------------------
@@ -341,7 +346,7 @@ Examples:
     const hasWordplay = clueType === 'wordplay' || clueType === '&lit'
 
     if (!hasWordplay) {
-      console.log(`  ⬜ ${row.clue_number}${row.direction[0]} ${row.answer.padEnd(12)} ${clueType} — no wordplay steps`)
+      console.log(`  ⬜ ${row.clue_number}${row.direction[0]} ${clueType.padEnd(18)} — no wordplay steps`)
       continue
     }
 
@@ -355,7 +360,7 @@ Examples:
         : ' (ans✗)'
     const skipInfo = alreadyHas && !force ? ' [has parsewords]' : ''
     console.log(
-      `  ${status} ${row.clue_number.toString().padEnd(3)}${row.direction[0]} ${row.answer.padEnd(12)} ${clueType.padEnd(10)}${ansInfo}${skipInfo}`,
+      `  ${status} ${row.clue_number.toString().padEnd(3)}${row.direction[0]} ${clueType.padEnd(18)}${ansInfo}${skipInfo}`,
     )
 
     if (verification.verified) {
@@ -396,7 +401,7 @@ Examples:
   for (let i = 0; i < toProcess.length; i++) {
     const candidate = toProcess[i]
     const { row, explanation } = candidate
-    const label = `${row.clue_number}${row.direction[0]} "${row.answer}"`
+    const label = `${row.clue_number}${row.direction[0]}`
 
     console.log(`[${i + 1}/${toProcess.length}] ${label}`)
 
@@ -425,10 +430,7 @@ Examples:
       continue
     }
 
-    console.log(`  ✅ Solvable in ${validation.path.length} step(s):`)
-    for (const step of validation.path) {
-      console.log(`     "${step.match}" → ${step.chosen}`)
-    }
+    console.log(`  ✅ Solvable in ${validation.path.length} step(s)`)
     generated++
 
     // Save
