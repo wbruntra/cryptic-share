@@ -8,6 +8,32 @@ type Variables = { user: AuthUser | null }
 
 const parsewords = new Hono<{ Variables: Variables }>()
 
+function shuffleArray<T>(arr: T[]): T[] {
+  const out = [...arr]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const tmp = out[i]!
+    out[i] = out[j]!
+    out[j] = tmp
+  }
+  return out
+}
+
+function shufflePuzzleTriggers(puzzle: Record<string, unknown>): Record<string, unknown> {
+  const triggers = puzzle.triggers as Array<{ action: Record<string, unknown> }> | undefined
+  if (!triggers) return puzzle
+  return {
+    ...puzzle,
+    triggers: triggers.map((trigger) => {
+      const action = trigger.action
+      if ((action.kind === 'replace' || action.kind === 'result') && Array.isArray(action.options)) {
+        return { ...trigger, action: { ...action, options: shuffleArray(action.options as string[]) } }
+      }
+      return trigger
+    }),
+  }
+}
+
 // GET /api/parsewords
 // Returns all saved parsewords puzzles (public — used by the game)
 parsewords.get('/', async (c) => {
@@ -37,7 +63,7 @@ parsewords.get('/', async (c) => {
     clueText: row.clue_text,
     answer: row.answer,
     updatedAt: row.updated_at,
-    puzzle: JSON.parse(row.puzzle_json),
+    puzzle: shufflePuzzleTriggers(JSON.parse(row.puzzle_json)),
   })))
 })
 
@@ -71,7 +97,7 @@ parsewords.get('/puzzle/:puzzleId', async (c) => {
     clueText: row.clue_text,
     answer: row.answer,
     updatedAt: row.updated_at,
-    puzzle: JSON.parse(row.puzzle_json),
+    puzzle: shufflePuzzleTriggers(JSON.parse(row.puzzle_json)),
   })))
 })
 
