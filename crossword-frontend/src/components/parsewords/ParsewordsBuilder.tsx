@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import type { Puzzle, Trigger, TriggerAction, TokenRole } from './types'
 import { ParsewordsGame } from './ParsewordsGame'
 import { validatePuzzle, type ValidationResult } from './validatePuzzle'
@@ -11,37 +11,26 @@ const ROLE_STYLES: Record<TokenRole, { bg: string; color: string; border: string
 }
 
 interface Props {
-  puzzle: Puzzle | null
-  clue: string
-  answer: string
+  puzzle: Puzzle
   onChange: (puzzle: Puzzle) => void
-}
-
-function tokenTextsFromClue(clue: string): string[] {
-  return clue.split(/\s+/).filter(Boolean)
-}
-
-function defaultPuzzle(clue: string, answer: string): Puzzle {
-  return {
-    label: answer,
-    clue,
-    answer: answer.replace(/\s/g, '').toUpperCase(),
-    displayAnswer: answer.includes(' ') ? answer : undefined,
-    tokens: tokenTextsFromClue(clue).map((text) => ({ text, role: 'wordplay' as TokenRole })),
-    triggers: [],
-  }
 }
 
 function TriggerEditor({
   trigger,
   index,
+  total,
   onChange,
   onDelete,
+  onMoveUp,
+  onMoveDown,
 }: {
   trigger: Trigger
   index: number
+  total: number
   onChange: (t: Trigger) => void
   onDelete: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
 }) {
   const action = trigger.action
 
@@ -62,6 +51,22 @@ function TriggerEditor({
           />
         </div>
         <div className="flex items-center gap-1">
+          <button
+            onClick={onMoveUp}
+            disabled={index === 0}
+            className="w-6 h-6 rounded text-xs flex items-center justify-center border border-border text-text-secondary hover:bg-input-bg transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default"
+            title="Move up"
+          >
+            ↑
+          </button>
+          <button
+            onClick={onMoveDown}
+            disabled={index === total - 1}
+            className="w-6 h-6 rounded text-xs flex items-center justify-center border border-border text-text-secondary hover:bg-input-bg transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default"
+            title="Move down"
+          >
+            ↓
+          </button>
           <button
             onClick={onDelete}
             className="w-6 h-6 rounded text-xs flex items-center justify-center border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
@@ -173,95 +178,65 @@ function TriggerEditor({
   )
 }
 
-export function ParsewordsBuilder({ puzzle, clue, answer, onChange }: Props) {
-  const [state, setState] = useState<Puzzle>(() => {
-    if (puzzle) return puzzle
-    return defaultPuzzle(clue, answer)
-  })
-
-  // Sync from props when they change externally (e.g. after generation)
-  const puzzleRef = useRef(puzzle)
-  useEffect(() => {
-    if (puzzle !== puzzleRef.current) {
-      puzzleRef.current = puzzle
-      if (puzzle) setState(puzzle)
-      else setState(defaultPuzzle(clue, answer))
-    }
-  }, [puzzle, clue, answer])
-
+export function ParsewordsBuilder({ puzzle, onChange }: Props) {
   const [selectedTokenIndices, setSelectedTokenIndices] = useState<number[]>([])
 
-  const update = useCallback(
-    (patch: Partial<Puzzle> | ((prev: Puzzle) => Puzzle)) => {
-      setState((prev) => {
-        const next = typeof patch === 'function' ? patch(prev) : { ...prev, ...patch }
-        onChange(next)
-        return next
-      })
-    },
-    [onChange],
-  )
-
-  const toggleSelect = useCallback(
-    (idx: number) => {
-      setSelectedTokenIndices((prev) => {
-        if (prev.includes(idx)) {
-          const selIdxs = prev.sort((a, b) => a - b)
-          const pos = selIdxs.indexOf(idx)
-          if (pos === 0 || pos === selIdxs.length - 1) return prev.filter((x) => x !== idx)
-          return []
-        }
-        if (prev.length === 0) return [idx]
-        const selIdxs = prev.sort((a, b) => a - b)
-        const min = selIdxs[0]
-        const max = selIdxs[selIdxs.length - 1]
-        if (idx === min - 1 || idx === max + 1) return [...prev, idx]
-        return [idx]
-      })
-    },
-    [],
-  )
-
-  const selectedText = selectedTokenIndices
+  const selectedText = [...selectedTokenIndices]
     .sort((a, b) => a - b)
-    .map((i) => state.tokens[i].text)
+    .map((i) => puzzle.tokens[i].text)
     .join(' ')
 
-  const existingTriggerForSelection = state.triggers.find((t) => t.match === selectedText)
+  const existingTriggerForSelection = puzzle.triggers.find((t) => t.match === selectedText)
 
-  const addTrigger = useCallback(() => {
+  function toggleSelect(idx: number) {
+    setSelectedTokenIndices((prev) => {
+      if (prev.includes(idx)) {
+        const selIdxs = [...prev].sort((a, b) => a - b)
+        const pos = selIdxs.indexOf(idx)
+        if (pos === 0 || pos === selIdxs.length - 1) return prev.filter((x) => x !== idx)
+        return []
+      }
+      if (prev.length === 0) return [idx]
+      const selIdxs = [...prev].sort((a, b) => a - b)
+      const min = selIdxs[0]
+      const max = selIdxs[selIdxs.length - 1]
+      if (idx === min - 1 || idx === max + 1) return [...prev, idx]
+      return [idx]
+    })
+  }
+
+  function addTrigger() {
     if (!selectedText || existingTriggerForSelection) return
     const newTrigger: Trigger = { match: selectedText, action: { kind: 'replace', options: ['', '', ''] } }
-    update({ triggers: [...state.triggers, newTrigger] })
+    onChange({ ...puzzle, triggers: [...puzzle.triggers, newTrigger] })
     setSelectedTokenIndices([])
-  }, [selectedText, existingTriggerForSelection, state.triggers, update])
+  }
 
-  const updateTrigger = useCallback(
-    (index: number, trigger: Trigger) => {
-      const triggers = [...state.triggers]
-      triggers[index] = trigger
-      update({ triggers })
-    },
-    [state.triggers, update],
-  )
+  function updateTrigger(index: number, trigger: Trigger) {
+    const triggers = [...puzzle.triggers]
+    triggers[index] = trigger
+    onChange({ ...puzzle, triggers })
+  }
 
-  const deleteTrigger = useCallback(
-    (index: number) => {
-      update({ triggers: state.triggers.filter((_, i) => i !== index) })
-    },
-    [state.triggers, update],
-  )
+  function deleteTrigger(index: number) {
+    onChange({ ...puzzle, triggers: puzzle.triggers.filter((_, i) => i !== index) })
+  }
 
-  const updateTokenRole = useCallback(
-    (index: number, role: TokenRole) => {
-      const tokens = [...state.tokens]
-      tokens[index] = { ...tokens[index], role }
-      update({ tokens })
-    },
-    [state.tokens, update],
-  )
+  function moveTrigger(index: number, direction: -1 | 1) {
+    const triggers = [...puzzle.triggers]
+    const swapIndex = index + direction
+    if (swapIndex < 0 || swapIndex >= triggers.length) return
+    ;[triggers[index], triggers[swapIndex]] = [triggers[swapIndex], triggers[index]]
+    onChange({ ...puzzle, triggers })
+  }
 
-  const validation: ValidationResult = validatePuzzle(state)
+  function updateTokenRole(index: number, role: TokenRole) {
+    const tokens = [...puzzle.tokens]
+    tokens[index] = { ...tokens[index], role }
+    onChange({ ...puzzle, tokens })
+  }
+
+  const validation: ValidationResult = validatePuzzle(puzzle)
 
   return (
     <div className="space-y-5">
@@ -271,8 +246,8 @@ export function ParsewordsBuilder({ puzzle, clue, answer, onChange }: Props) {
           <label className="block text-[10px] font-bold tracking-widest text-text-secondary uppercase mb-1">Label</label>
           <input
             type="text"
-            value={state.label}
-            onChange={(e) => update({ label: e.target.value })}
+            value={puzzle.label}
+            onChange={(e) => onChange({ ...puzzle, label: e.target.value })}
             className="w-full px-3 py-1.5 rounded-lg border border-border bg-input-bg text-text text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
@@ -280,8 +255,8 @@ export function ParsewordsBuilder({ puzzle, clue, answer, onChange }: Props) {
           <label className="block text-[10px] font-bold tracking-widest text-text-secondary uppercase mb-1">Answer</label>
           <input
             type="text"
-            value={state.answer}
-            onChange={(e) => update({ answer: e.target.value })}
+            value={puzzle.answer}
+            onChange={(e) => onChange({ ...puzzle, answer: e.target.value })}
             className="w-full px-3 py-1.5 rounded-lg border border-border bg-input-bg text-text text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
@@ -289,8 +264,8 @@ export function ParsewordsBuilder({ puzzle, clue, answer, onChange }: Props) {
           <label className="block text-[10px] font-bold tracking-widest text-text-secondary uppercase mb-1">Display Answer</label>
           <input
             type="text"
-            value={state.displayAnswer ?? ''}
-            onChange={(e) => update({ displayAnswer: e.target.value || undefined })}
+            value={puzzle.displayAnswer ?? ''}
+            onChange={(e) => onChange({ ...puzzle, displayAnswer: e.target.value || undefined })}
             placeholder="Same as answer"
             className="w-full px-3 py-1.5 rounded-lg border border-border bg-input-bg text-text text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
           />
@@ -310,7 +285,7 @@ export function ParsewordsBuilder({ puzzle, clue, answer, onChange }: Props) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3 p-4 bg-surface rounded-xl border border-border min-h-[64px]">
-          {state.tokens.map((token, i) => {
+          {puzzle.tokens.map((token, i) => {
             const isSelected = selectedTokenIndices.includes(i)
             return (
               <div key={i} className="flex flex-col items-center gap-1">
@@ -363,12 +338,12 @@ export function ParsewordsBuilder({ puzzle, clue, answer, onChange }: Props) {
       <div>
         <div className="flex items-center justify-between mb-3">
           <div className="text-xs font-bold tracking-widest text-text-secondary uppercase">
-            Triggers ({state.triggers.length})
+            Triggers ({puzzle.triggers.length})
           </div>
           <button
             onClick={() => {
               const newTrigger: Trigger = { match: '', action: { kind: 'replace', options: ['', '', ''] } }
-              update({ triggers: [...state.triggers, newTrigger] })
+              onChange({ ...puzzle, triggers: [...puzzle.triggers, newTrigger] })
             }}
             className="px-3 py-1 text-xs rounded-lg border border-border text-text-secondary hover:text-text hover:border-text-secondary transition-colors cursor-pointer"
           >
@@ -376,13 +351,16 @@ export function ParsewordsBuilder({ puzzle, clue, answer, onChange }: Props) {
           </button>
         </div>
         <div className="space-y-3">
-          {state.triggers.map((trigger, i) => (
+          {puzzle.triggers.map((trigger, i) => (
             <TriggerEditor
               key={i}
               trigger={trigger}
               index={i}
+              total={puzzle.triggers.length}
               onChange={(t) => updateTrigger(i, t)}
               onDelete={() => deleteTrigger(i)}
+              onMoveUp={() => moveTrigger(i, -1)}
+              onMoveDown={() => moveTrigger(i, 1)}
             />
           ))}
         </div>
@@ -424,7 +402,7 @@ export function ParsewordsBuilder({ puzzle, clue, answer, onChange }: Props) {
       <div>
         <div className="text-xs font-bold tracking-widest text-text-secondary uppercase mb-3">Live Preview</div>
         <div className="bg-[var(--color-bg)] rounded-xl border border-border p-4">
-          <ParsewordsGame key={JSON.stringify(state)} puzzle={state} />
+          <ParsewordsGame puzzle={puzzle} />
         </div>
       </div>
     </div>

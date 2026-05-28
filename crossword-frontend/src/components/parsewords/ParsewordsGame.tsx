@@ -20,13 +20,11 @@ export function ParsewordsGame({ puzzle, onWin }: Props) {
   const opCounter = useRef(0)
 
   // Reset when puzzle prop changes
-  const puzzleRef = useRef(puzzle)
-  if (puzzleRef.current !== puzzle) {
-    puzzleRef.current = puzzle
-    // Synchronously reset (safe in render when referentially different)
+  useEffect(() => {
     setDisplayTokens(seedTokens(puzzle.tokens))
     setSelected([])
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [puzzle])
 
   function reset() {
     setDisplayTokens(seedTokens(puzzle.tokens))
@@ -236,8 +234,8 @@ export function ParsewordsGame({ puzzle, onWin }: Props) {
             {resolved.kind === 'replace' ? 'Replacement' : 'Result'}
           </div>
           <div className="flex flex-wrap gap-3">
-            {resolved.options.map((opt) => (
-              <button key={opt} onClick={() => pickOption(opt)}
+            {resolved.options.map((opt, i) => (
+              <button key={i} onClick={() => pickOption(opt)}
                 className={`px-4 py-2 font-bold text-base cursor-pointer select-none transition-colors ${resolved!.kind === 'replace' ? 'rounded-lg bg-[#facc15] text-black' : 'rounded-full bg-blue-500 text-white tracking-widest hover:bg-blue-400'}`}>
                 {opt}
               </button>

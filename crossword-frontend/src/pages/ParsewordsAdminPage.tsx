@@ -353,8 +353,6 @@ export function ParsewordsAdminPage() {
               <ParsewordsBuilder
                 key={`${selectedClue.clueNumber}-${selectedClue.direction}`}
                 puzzle={builderPuzzle}
-                clue={selectedClue.clueText}
-                answer={selectedClue.answer.toUpperCase()}
                 onChange={handleBuilderChange}
               />
             ) : (
