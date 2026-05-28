@@ -12,6 +12,7 @@ import { push } from './hono-routes/push'
 import { adminSessions } from './hono-routes/admin-sessions'
 import { adminExplanations } from './hono-routes/admin-explanations'
 import { parsewords } from './hono-routes/parsewords'
+import { adminChat } from './hono-routes/admin-chat'
 import { createLogger } from './middleware/customLogger'
 
 // Extend Hono context with our user type
@@ -56,6 +57,7 @@ app.route('/api/push', push)
 app.route('/api/admin/sessions', adminSessions)
 app.route('/api/admin/explanations', adminExplanations)
 app.route('/api/parsewords', parsewords)
+app.route('/api/admin/chat', adminChat)
 
 // Also mount reports under admin (proxies to admin-explanations)
 app.get('/api/admin/reports', async (c) => {

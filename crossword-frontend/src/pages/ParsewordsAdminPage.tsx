@@ -4,10 +4,26 @@ import axios from 'axios'
 import { useGetPuzzlesQuery } from '../store/api/adminApi'
 import type { Puzzle } from '../components/parsewords/types'
 import { ParsewordsBuilder } from '../components/parsewords/ParsewordsBuilder'
+import { AdminChatPanel } from '../components/AdminChatPanel'
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+interface WordplayStep {
+  tokens: string
+  operation: string
+  result: string
+  clue_after: string
+}
+
+interface FlatExplanation {
+  clue_type: string
+  full_explanation: string
+  wordplay_steps?: WordplayStep[]
+  definition?: string
+  definitions?: Array<{ definition: string; sense: string }>
+}
 
 interface ClueSummary {
   explanationId: number
@@ -15,10 +31,14 @@ interface ClueSummary {
   direction: string
   clueText: string
   answer: string
-  explanation: unknown
+  explanation: FlatExplanation | { clue_type: string; explanation: FlatExplanation }
   parsewordsId: number | null
   puzzle: unknown | null
   parsewordsUpdatedAt: string | null
+}
+
+function getFlatExplanation(raw: ClueSummary['explanation']): FlatExplanation {
+  return 'explanation' in raw ? raw.explanation : raw
 }
 
 // ---------------------------------------------------------------------------
@@ -41,6 +61,8 @@ export function ParsewordsAdminPage() {
   const [saving, setSaving] = useState(false)
   const [generatingError, setGeneratingError] = useState<string>('')
   const [saveMessage, setSaveMessage] = useState<string>('')
+
+  const [showExplanation, setShowExplanation] = useState(false)
 
   const [modelKeys, setModelKeys] = useState<string[]>([])
   const [selectedModel, setSelectedModel] = useState<string>('deepseek-pro')
@@ -91,6 +113,7 @@ export function ParsewordsAdminPage() {
     setBuilderPuzzle(clue.puzzle as Puzzle | null)
     setGeneratingError('')
     setSaveMessage('')
+    setShowExplanation(false)
   }
 
   function stopPolling() {
@@ -205,7 +228,7 @@ export function ParsewordsAdminPage() {
         </Link>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_320px] gap-6">
         {/* ── Left panel: puzzle + clue selector ── */}
         <div className="space-y-4">
           <div>
@@ -304,7 +327,69 @@ export function ParsewordsAdminPage() {
                 </span>
                 <span className="text-text">{selectedClue.clueText}</span>
                 <span className="font-mono font-bold text-text ml-auto">{selectedClue.answer.toUpperCase()}</span>
+                <button
+                  onClick={() => setShowExplanation((v) => !v)}
+                  className={`shrink-0 px-2.5 py-1 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
+                    showExplanation
+                      ? 'bg-primary text-white border-primary'
+                      : 'border-border text-text-secondary hover:text-text hover:border-text-secondary'
+                  }`}
+                >
+                  Explanation
+                </button>
               </div>
+
+              {showExplanation && (() => {
+                const exp = getFlatExplanation(selectedClue.explanation)
+                return (
+                  <div className="mb-3 p-3 rounded-lg bg-input-bg border border-border space-y-3 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded bg-primary/15 text-primary text-xs font-mono font-bold">
+                        {exp.clue_type}
+                      </span>
+                    </div>
+
+                    {exp.wordplay_steps && exp.wordplay_steps.length > 0 && (
+                      <div className="space-y-1.5">
+                        <div className="text-[10px] font-bold tracking-widest text-text-secondary uppercase">Steps</div>
+                        {exp.wordplay_steps.map((step, i) => (
+                          <div key={i} className="grid grid-cols-[auto_1fr_auto] gap-x-3 gap-y-0.5 items-baseline text-xs font-mono">
+                            <span className="text-text-secondary">{i + 1}.</span>
+                            <span>
+                              <span className="text-amber-500 font-bold">{step.tokens}</span>
+                              {' '}
+                              <span className="text-text-secondary italic">({step.operation})</span>
+                              {' → '}
+                              <span className="text-green-500 font-bold">{step.result}</span>
+                            </span>
+                            {step.clue_after && (
+                              <span className="text-text-secondary text-[10px]">→ "{step.clue_after}"</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {exp.definitions && (
+                      <div className="space-y-1">
+                        <div className="text-[10px] font-bold tracking-widest text-text-secondary uppercase">Definitions</div>
+                        {exp.definitions.map((d, i) => (
+                          <div key={i} className="text-xs">
+                            <span className="font-bold text-amber-500">{d.definition}</span>
+                            {' — '}
+                            <span className="text-text-secondary italic">{d.sense}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <div className="text-[10px] font-bold tracking-widest text-text-secondary uppercase">Explanation</div>
+                      <p className="text-text leading-relaxed">{exp.full_explanation}</p>
+                    </div>
+                  </div>
+                )
+              })()}
 
               <div className="flex items-center gap-3 flex-wrap">
                 <select
@@ -386,6 +471,11 @@ export function ParsewordsAdminPage() {
             {selectedPuzzleId ? 'Select a clue to get started.' : 'Select a puzzle first.'}
           </div>
         )}
+
+        {/* ── Right sidebar: chat helper ── */}
+        <div className="hidden lg:block max-h-[60vh] overflow-hidden">
+          <AdminChatPanel />
+        </div>
       </div>
     </div>
   )
