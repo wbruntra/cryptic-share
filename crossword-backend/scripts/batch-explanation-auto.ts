@@ -15,9 +15,11 @@
  *   help, --help    Show this help message
  *
  * OPTIONS:
- *   --dry-run       (with prepare) Preview batch jobs without creating them
- *   --history       Show batch history
- *   --help, -h      Show this help message
+ *   --dry-run            (with prepare) Preview batch jobs without creating them
+ *   --puzzle-title <t>   Filter to a single puzzle by title (partial match, case-insensitive)
+ *   --book <b>           Book number to search in (default: 3)
+ *   --history            Show batch history
+ *   --help, -h           Show this help message
  *
  * WORKFLOW:
  *   1. Run "prepare" to find puzzles and create OpenAI batch jobs
@@ -29,8 +31,11 @@
  *   # Preview what would be processed
  *   bun scripts/batch-explanation-auto.ts prepare --dry-run
  *
- *   # Create actual batch jobs
- *   bun scripts/batch-explanation-auto.ts prepare
+ *   # Create batch for a specific puzzle (book defaults to 3)
+ *   bun scripts/batch-explanation-auto.ts prepare --puzzle-title "Hamlet"
+ *
+ *   # Create batch for a puzzle in a specific book
+ *   bun scripts/batch-explanation-auto.ts prepare --puzzle-title "Hamlet" --book 2
  *
  *   # Retrieve and apply completed batches
  *   bun scripts/batch-explanation-auto.ts apply
@@ -71,9 +76,11 @@ COMMANDS:
   help, --help    Show this help message
 
 OPTIONS:
-  --dry-run       (with prepare) Preview batch jobs without creating them
-  --history       Show batch history
-  --help, -h      Show this help message
+  --dry-run            (with prepare) Preview batch jobs without creating them
+  --puzzle-title <t>   Filter to a single puzzle by title (partial match, case-insensitive)
+  --book <b>           Book number to search in (default: 3)
+  --history            Show batch history
+  --help, -h           Show this help message
 
 WORKFLOW:
   1. Run "prepare" to find puzzles and create OpenAI batch jobs
@@ -87,6 +94,12 @@ EXAMPLES:
 
   # Create actual batch jobs
   bun scripts/batch-explanation-auto.ts prepare
+
+  # Create batch for a specific puzzle (book defaults to 3)
+  bun scripts/batch-explanation-auto.ts prepare --puzzle-title "Hamlet"
+
+  # Create batch for a puzzle in a specific book
+  bun scripts/batch-explanation-auto.ts prepare --puzzle-title "Hamlet" --book 2
 
   # Retrieve and apply completed batches
   bun scripts/batch-explanation-auto.ts apply
@@ -114,6 +127,7 @@ interface PuzzleRow {
   clues: string // JSON
   answers_encrypted: string // JSON
   puzzle_number: number | null
+  book: string | null
 }
 
 interface Answer {
@@ -172,6 +186,24 @@ interface PuzzleWithBatchInfo {
   hasAnswers: boolean
   requestCount: number | null
   error: string | null
+}
+
+async function resolvePuzzleId(puzzleTitle: string, book: string): Promise<number> {
+  const matches = await db<PuzzleRow>('puzzles')
+    .select('id', 'title', 'book', 'puzzle_number')
+    .where('book', book)
+    .whereILike('title', `%${puzzleTitle}%`)
+
+  if (matches.length === 0) {
+    throw new Error(`No puzzle found matching title "${puzzleTitle}" in book ${book}`)
+  }
+  if (matches.length > 1) {
+    const list = matches.map((p) => `  ID ${p.id}: "${p.title}" (P#${p.puzzle_number ?? '—'})`).join('\n')
+    throw new Error(`Multiple puzzles match title "${puzzleTitle}" in book ${book}:\n${list}\nBe more specific.`)
+  }
+  const match = matches[0]!
+  console.log(`  Resolved puzzle: ID ${match.id} — "${match.title}"`)
+  return match.id
 }
 
 async function findPuzzlesNeedingExplanations(puzzleIdFilter: number | null = null) {
@@ -878,14 +910,15 @@ async function showHistory(limit = 20) {
 async function main() {
   const argv = minimist(Bun.argv.slice(2), {
     boolean: ['dry-run', 'force', 'help', 'history'],
-    string: ['puzzle-id'],
+    string: ['puzzle-title', 'book'],
     alias: {
       h: 'help',
     },
   })
 
   const force: boolean = argv['force']
-  const puzzleIdFilter: number | null = argv['puzzle-id'] ? parseInt(argv['puzzle-id'], 10) : null
+  const puzzleTitleFilter: string | null = argv['puzzle-title'] || null
+  const book: string = argv['book'] || '3'
 
   let exitCode = 0
 
@@ -908,6 +941,10 @@ async function main() {
     }
 
     if (command === 'prepare') {
+      let puzzleIdFilter: number | null = null
+      if (puzzleTitleFilter !== null) {
+        puzzleIdFilter = await resolvePuzzleId(puzzleTitleFilter, book)
+      }
       if (argv['dry-run']) {
         await dryRun(puzzleIdFilter, force)
       } else if (puzzleIdFilter !== null) {

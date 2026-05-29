@@ -10,15 +10,16 @@
  *   6. Save to parsewords_puzzles table (if --save)
  *
  * Usage:
- *   bun scripts/auto-generate-parsewords.ts --puzzle-id <id>
- *   bun scripts/auto-generate-parsewords.ts --puzzle-id <id> --count 4 --save
- *   bun scripts/auto-generate-parsewords.ts --puzzle-id <id> --dry-run
+ *   bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet"
+ *   bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet" --book 3 --count 4 --save
+ *   bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet" --dry-run
  *
  * Options:
- *   --puzzle-id <id>   Puzzle ID to process (required)
- *   --count <n>        Max parsewords puzzles to generate (default: 4)
- *   --save             Save generated puzzles to DB (default: dry-run)
- *   --model <slug>     Model for parsewords generation (default: deepseek-pro)
+ *   --puzzle-title <t>  Puzzle title to process (partial match, case-insensitive; required)
+ *   --book <b>          Book number to search in (default: 3)
+ *   --count <n>         Max parsewords puzzles to generate (default: 4)
+ *   --save              Save generated puzzles to DB (default: dry-run)
+ *   --model <slug>      Model for parsewords generation (default: deepseek-pro)
  */
 
 import minimist from 'minimist'
@@ -30,6 +31,13 @@ import { OPENROUTER_MODELS } from '../config'
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+interface PuzzleRow {
+  id: number
+  title: string
+  puzzle_number: number | null
+  book: string | null
+}
 
 interface ExplanationRow {
   id: number
@@ -97,7 +105,7 @@ function tokenKey(tokens: SimToken[]): string {
 
 function isWin(state: SimToken[], answer: string): boolean {
   const nonDef = state.filter((t) => t.role !== 'definition' && t.role !== 'link')
-  return nonDef.length === 1 && normalize(nonDef[0].text) === normalize(answer)
+  return nonDef.length === 1 && normalize(nonDef[0]!.text) === normalize(answer)
 }
 
 type TriggerMatch = { trigger: Trigger; start: number; end: number }
@@ -155,7 +163,7 @@ function getNextStates(
       .slice(start, end + 1)
       .find((t) => normalize(t.text) === normalize(action.source))
     if (!src) return []
-    const result = computeFns[action.fn](normalize(src.text))
+    const result = computeFns[action.fn]!(normalize(src.text))
     return [{ chosen: result, next: applyConsume(state, start, end, result) }]
   }
 
@@ -234,42 +242,68 @@ function validatePuzzle(puzzle: Puzzle): ValidationResult {
 }
 
 // ---------------------------------------------------------------------------
+// Puzzle lookup
+// ---------------------------------------------------------------------------
+
+async function resolvePuzzleId(puzzleTitle: string, book: string): Promise<number> {
+  const matches = await db<PuzzleRow>('puzzles')
+    .select('id', 'title', 'book', 'puzzle_number')
+    .where('book', book)
+    .whereILike('title', `%${puzzleTitle}%`)
+
+  if (matches.length === 0) {
+    throw new Error(`No puzzle found matching title "${puzzleTitle}" in book ${book}`)
+  }
+  if (matches.length > 1) {
+    const list = matches.map((p) => `  ID ${p.id}: "${p.title}" (P#${p.puzzle_number ?? '—'})`).join('\n')
+    throw new Error(`Multiple puzzles match title "${puzzleTitle}" in book ${book}:\n${list}\nBe more specific.`)
+  }
+  const match = matches[0]!
+  console.log(`  Resolved puzzle: ID ${match.id} — "${match.title}"`)
+  return match.id
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
 async function main() {
   const argv = minimist(Bun.argv.slice(2), {
     boolean: ['save', 'dry-run', 'help', 'force'],
-    string: ['puzzle-id', 'count', 'model'],
+    string: ['puzzle-title', 'book', 'count', 'model'],
     alias: { h: 'help' },
   })
 
   if (argv.help) {
-    console.log(`Usage: bun scripts/auto-generate-parsewords.ts --puzzle-id <id> [options]
+    console.log(`Usage: bun scripts/auto-generate-parsewords.ts --puzzle-title <title> [options]
 
 Pipeline: explanations → verify wordplay steps → generate parsewords → BFS validate → save
 
 Options:
-  --puzzle-id <id>   Puzzle ID to process (required)
-  --count <n>        Max parsewords puzzles to generate (default: 4)
-  --model <slug>     Model for parsewords generation (default: deepseek-pro)
-  --save             Save generated puzzles to DB (default: dry-run preview)
-  --force            Regenerate parsewords even if already saved for a clue
-  --dry-run          Only show what would be processed, without generating
+  --puzzle-title <t>  Puzzle title to process (partial match, case-insensitive; required)
+  --book <b>          Book number to search in (default: 3)
+  --count <n>         Max parsewords puzzles to generate (default: 4)
+  --model <slug>      Model for parsewords generation (default: deepseek-pro)
+  --save              Save generated puzzles to DB (default: dry-run preview)
+  --force             Regenerate parsewords even if already saved for a clue
+  --dry-run           Only show what would be processed, without generating
 
 Examples:
-  bun scripts/auto-generate-parsewords.ts --puzzle-id 3 --dry-run
-  bun scripts/auto-generate-parsewords.ts --puzzle-id 3 --count 4 --save
-  bun scripts/auto-generate-parsewords.ts --puzzle-id 3 --count 2 --model flash
+  bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet" --dry-run
+  bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet" --count 4 --save
+  bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet" --count 2 --model flash
 `)
     process.exit(0)
   }
 
-  const puzzleId = argv['puzzle-id'] ? parseInt(argv['puzzle-id'], 10) : null
-  if (!puzzleId) {
-    console.error('Error: --puzzle-id is required')
+  const puzzleTitleFilter: string | null = argv['puzzle-title'] || null
+  const book: string = argv['book'] || '3'
+  if (!puzzleTitleFilter) {
+    console.error('Error: --puzzle-title is required')
     process.exit(1)
   }
+
+  const puzzleId = await resolvePuzzleId(puzzleTitleFilter, book)
 
   const count = parseInt(argv['count'] ?? '4', 10)
   const save = argv['save'] ?? false
@@ -412,7 +446,7 @@ Examples:
   let saved = 0
 
   for (let i = 0; i < toProcess.length; i++) {
-    const candidate = toProcess[i]
+    const candidate = toProcess[i]!
     const { row, explanation } = candidate
     const label = `${row.clue_number}${row.direction[0]}`
 
