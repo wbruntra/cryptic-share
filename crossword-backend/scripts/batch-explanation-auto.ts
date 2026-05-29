@@ -16,7 +16,7 @@
  *
  * OPTIONS:
  *   --dry-run            (with prepare) Preview batch jobs without creating them
- *   --puzzle-title <t>   Filter to a single puzzle by title (partial match, case-insensitive)
+ *   --puzzle-title <t>   Filter to a single puzzle by exact title
  *   --book <b>           Book number to search in (default: 3)
  *   --history            Show batch history
  *   --help, -h           Show this help message
@@ -77,7 +77,7 @@ COMMANDS:
 
 OPTIONS:
   --dry-run            (with prepare) Preview batch jobs without creating them
-  --puzzle-title <t>   Filter to a single puzzle by title (partial match, case-insensitive)
+  --puzzle-title <t>   Filter to a single puzzle by exact title
   --book <b>           Book number to search in (default: 3)
   --history            Show batch history
   --help, -h           Show this help message
@@ -192,10 +192,10 @@ async function resolvePuzzleId(puzzleTitle: string, book: string): Promise<numbe
   const matches = await db<PuzzleRow>('puzzles')
     .select('id', 'title', 'book', 'puzzle_number')
     .where('book', book)
-    .whereILike('title', `%${puzzleTitle}%`)
+    .where('title', puzzleTitle)
 
   if (matches.length === 0) {
-    throw new Error(`No puzzle found matching title "${puzzleTitle}" in book ${book}`)
+    throw new Error(`No puzzle found with title "${puzzleTitle}" in book ${book}`)
   }
   if (matches.length > 1) {
     const list = matches.map((p) => `  ID ${p.id}: "${p.title}" (P#${p.puzzle_number ?? '—'})`).join('\n')

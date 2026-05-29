@@ -15,7 +15,7 @@
  *   bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet" --dry-run
  *
  * Options:
- *   --puzzle-title <t>  Puzzle title to process (partial match, case-insensitive; required)
+ *   --puzzle-title <t>  Puzzle title to process (exact match; required)
  *   --book <b>          Book number to search in (default: 3)
  *   --count <n>         Max parsewords puzzles to generate (default: 4)
  *   --save              Save generated puzzles to DB (default: dry-run)
@@ -249,10 +249,10 @@ async function resolvePuzzleId(puzzleTitle: string, book: string): Promise<numbe
   const matches = await db<PuzzleRow>('puzzles')
     .select('id', 'title', 'book', 'puzzle_number')
     .where('book', book)
-    .whereILike('title', `%${puzzleTitle}%`)
+    .where('title', puzzleTitle)
 
   if (matches.length === 0) {
-    throw new Error(`No puzzle found matching title "${puzzleTitle}" in book ${book}`)
+    throw new Error(`No puzzle found with title "${puzzleTitle}" in book ${book}`)
   }
   if (matches.length > 1) {
     const list = matches.map((p) => `  ID ${p.id}: "${p.title}" (P#${p.puzzle_number ?? '—'})`).join('\n')
@@ -280,7 +280,7 @@ async function main() {
 Pipeline: explanations → verify wordplay steps → generate parsewords → BFS validate → save
 
 Options:
-  --puzzle-title <t>  Puzzle title to process (partial match, case-insensitive; required)
+  --puzzle-title <t>  Puzzle title to process (exact match; required)
   --book <b>          Book number to search in (default: 3)
   --count <n>         Max parsewords puzzles to generate (default: 4)
   --model <slug>      Model for parsewords generation (default: deepseek-pro)
