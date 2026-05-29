@@ -13,4 +13,5 @@ export const OPENROUTER_MODELS = {
   [`deepseek-pro`]: 'deepseek/deepseek-v4-pro',
   [`mimo-pro`]: 'xiaomi/mimo-v2.5-pro',
   [`qwen-max`]: 'qwen/qwen3.7-max',
+  [`grok-4.3`]: 'x-ai/grok-4.3',
 }

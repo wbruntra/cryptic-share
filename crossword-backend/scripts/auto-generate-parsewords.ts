@@ -389,7 +389,20 @@ Examples:
   // ------------------------------------------------------------------
   // Step 3: Generate and validate parsewords puzzles
   // ------------------------------------------------------------------
-  const toProcess = toGenerate.slice(0, count)
+
+  // Shuffle and pick up to `count` candidates at random
+  function shuffleArray<T>(arr: T[]): T[] {
+    const out = [...arr]
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      const tmp = out[i]!
+      out[i] = out[j]!
+      out[j] = tmp
+    }
+    return out
+  }
+
+  const toProcess = shuffleArray(toGenerate).slice(0, count)
 
   console.log('='.repeat(70))
   console.log(`Step 3: Generating parsewords puzzles for ${toProcess.length} candidate(s)\n`)

@@ -384,6 +384,93 @@ export const explainCrypticClue = async (input: {
   }
 }
 
+export const regenerateCrypticClueExplanation = async (input: {
+  clue: string
+  answer: string
+  feedback: string
+  previousExplanation?: any
+  model?: string
+  timeoutMs?: number
+}) => {
+  const { clue, answer, feedback, previousExplanation, model = models['deepseek-pro'], timeoutMs = 120_000 } = input
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const messages: Array<{ role: 'user'; content: Array<{ type: 'text'; text: string }> }> = [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: crypticInstructions },
+          { type: 'text', text: `Clue: ${clue}\nAnswer: ${answer}` },
+        ],
+      },
+    ]
+
+    if (previousExplanation) {
+      messages.push({
+        role: 'user',
+        content: [
+          { type: 'text', text: `Previous explanation:\n${JSON.stringify(previousExplanation, null, 2)}\n\nThe previous explanation had this issue:\n"${feedback}"\n\nPlease provide a corrected explanation that addresses this.` },
+        ],
+      })
+    } else {
+      messages.push({
+        role: 'user',
+        content: [
+          { type: 'text', text: `Feedback for the explanation: ${feedback}` },
+        ],
+      })
+    }
+
+    console.log(`[regenerateCrypticClueExplanation] Sending request via OpenRouter (${model})...`)
+    const startTime = performance.now()
+
+    const fetchPromise = client.chat.send({
+      chatRequest: {
+        model,
+        messages,
+        responseFormat: {
+          type: 'json_schema',
+          jsonSchema: {
+            name: crypticSchema.name,
+            strict: crypticSchema.strict,
+            schema: crypticSchema.schema,
+          },
+        },
+        plugins: [{ id: 'response-healing' }],
+        maxTokens: 16000,
+        stream: false,
+      },
+    })
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      controller.signal.addEventListener('abort', () =>
+        reject(new Error(`Request timed out after ${timeoutMs / 1000}s (model: ${model})`)),
+      )
+    })
+
+    const result = await Promise.race([fetchPromise, timeoutPromise])
+    const duration = (performance.now() - startTime) / 1000
+    console.log(`[regenerateCrypticClueExplanation] Received response in ${duration.toFixed(2)}s`)
+
+    const content = result?.choices[0]?.message.content
+
+    if (!content) {
+      throw new Error('No content received from OpenRouter')
+    }
+
+    if (typeof content !== 'string') {
+      throw new Error('Expected string content from OpenRouter')
+    }
+
+    return JSON.parse(content)
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 if (import.meta.main) {
   const args = Bun.argv.slice(2)
   if (args.length < 2) {

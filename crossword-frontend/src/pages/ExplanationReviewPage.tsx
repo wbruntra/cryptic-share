@@ -90,6 +90,10 @@ export function ExplanationReviewPage() {
   const [isReporting, setIsReporting] = useState(false)
   const [processingMessage, setProcessingMessage] = useState<string>('')
 
+  // Model selection for regeneration
+  const [modelKeys, setModelKeys] = useState<string[]>([])
+  const [selectedModel, setSelectedModel] = useState<string>('deepseek-pro')
+
   // Request ID for current operation
   const [requestId, setRequestId] = useState<string | null>(null)
   const requestIdRef = useRef<string | null>(null)
@@ -121,6 +125,15 @@ export function ExplanationReviewPage() {
     setRegenerating(true)
     setProcessingMessage('Checking regeneration status...')
   }, [storageKey, requestId])
+
+  useEffect(() => {
+    axios.get('/api/admin/explanations/models')
+      .then((r) => {
+        setModelKeys(r.data)
+        if (!r.data.includes('deepseek-pro')) setSelectedModel(r.data[0] ?? '')
+      })
+      .catch(console.error)
+  }, [])
 
   useEffect(() => {
     if (id) {
@@ -180,6 +193,7 @@ export function ExplanationReviewPage() {
         answer: clue.answer,
         feedback: notes.trim() || 'Admin manual regeneration',
         previousExplanation: currentExp,
+        modelKey: selectedModel,
       })
 
       if (res.data.processing) {
@@ -526,6 +540,18 @@ export function ExplanationReviewPage() {
               className="w-full h-28 px-3 py-2 bg-input-bg border border-border rounded-lg text-text placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-primary resize-none text-sm"
               autoFocus
             />
+            <div className="mt-3">
+              <label className="block text-xs font-bold text-text-secondary mb-1">Model</label>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-input-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                {modelKeys.map((key) => (
+                  <option key={key} value={key}>{key}</option>
+                ))}
+              </select>
+            </div>
             <div className="flex justify-end gap-3 mt-4">
               <button
                 onClick={() => { setShowRegenModal(false); setRegenTargetClue(null) }}

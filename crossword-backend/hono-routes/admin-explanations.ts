@@ -3,11 +3,18 @@ import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { requireAdmin, type AuthUser } from '../hono-middleware/auth'
 import db from '../db-knex'
-import { regenerateCrypticClueExplanation } from '../utils/openai'
+import { regenerateCrypticClueExplanation } from '../utils/openrouter'
+import { OPENROUTER_MODELS } from '../config'
 
 type Variables = { user: AuthUser | null }
 
 const adminExplanations = new Hono<{ Variables: Variables }>()
+
+// GET /api/admin/explanations/models
+adminExplanations.get('/models', (c) => {
+  requireAdmin(c)
+  return c.json(Object.keys(OPENROUTER_MODELS))
+})
 
 // GET /api/admin/explanations/:puzzleId
 adminExplanations.get('/:puzzleId', async (c) => {
@@ -96,14 +103,16 @@ adminExplanations.get('/regenerate/:requestId', async (c) => {
 // POST /api/admin/explanations/regenerate
 adminExplanations.post('/regenerate', async (c) => {
   const body = await c.req.json().catch(() => ({}))
-  const { clue, answer, feedback, previousExplanation } = body
+  const { clue, answer, feedback, previousExplanation, modelKey } = body
 
   if (!clue || !answer) {
     throw new HTTPException(400, { message: 'Missing clue or answer' })
   }
 
+  const modelSlug = modelKey ? (OPENROUTER_MODELS[modelKey as keyof typeof OPENROUTER_MODELS] ?? undefined) : undefined
+
   const requestId = crypto.randomUUID()
-  console.log(`[Regenerate] Request received. RequestID: ${requestId}`)
+  console.log(`[Regenerate] Request received. RequestID: ${requestId}, model: ${modelSlug ?? 'default'}`)
 
   try {
     await db('explanation_regenerations').insert({
@@ -126,6 +135,7 @@ adminExplanations.post('/regenerate', async (c) => {
         answer,
         feedback: feedback || 'Admin requested regeneration',
         previousExplanation,
+        model: modelSlug,
       })
 
       try {
