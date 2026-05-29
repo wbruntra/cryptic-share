@@ -11,16 +11,19 @@
  * COMMANDS:
  *   prepare         Find puzzles needing explanations and create batch jobs
  *   apply           Retrieve completed batches and save explanations to DB
+ *   history         Show recently-completed batches and their status
  *   help, --help    Show this help message
  *
  * OPTIONS:
  *   --dry-run       (with prepare) Preview batch jobs without creating them
+ *   --history       Show batch history
  *   --help, -h      Show this help message
  *
  * WORKFLOW:
  *   1. Run "prepare" to find puzzles and create OpenAI batch jobs
  *   2. Wait for batches to complete (typically 1-24 hours)
  *   3. Run "apply" to retrieve results and save to database
+ *   4. Run "history" to see batch status and results
  *
  * EXAMPLES:
  *   # Preview what would be processed
@@ -31,6 +34,9 @@
  *
  *   # Retrieve and apply completed batches
  *   bun scripts/batch-explanation-auto.ts apply
+ *
+ *   # View recent batch history
+ *   bun scripts/batch-explanation-auto.ts --history
  *
  * REQUIREMENTS:
  *   - OPENAI_API_KEY environment variable set
@@ -61,16 +67,19 @@ USAGE:
 COMMANDS:
   prepare         Find puzzles needing explanations and create batch jobs
   apply           Retrieve completed batches and save explanations to DB
+  history         Show recently-completed batches and their status
   help, --help    Show this help message
 
 OPTIONS:
   --dry-run       (with prepare) Preview batch jobs without creating them
+  --history       Show batch history
   --help, -h      Show this help message
 
 WORKFLOW:
   1. Run "prepare" to find puzzles and create OpenAI batch jobs
   2. Wait for batches to complete (typically 1-24 hours)
   3. Run "apply" to retrieve results and save to database
+  4. Run "history" to see batch status and results
 
 EXAMPLES:
   # Preview what would be processed
@@ -81,6 +90,9 @@ EXAMPLES:
 
   # Retrieve and apply completed batches
   bun scripts/batch-explanation-auto.ts apply
+
+  # View recent batch history
+  bun scripts/batch-explanation-auto.ts --history
 
 REQUIREMENTS:
   - OPENAI_API_KEY environment variable set
@@ -803,9 +815,69 @@ async function processBatchResults(batchId: string) {
   }
 }
 
+async function showHistory(limit = 20) {
+  const batches = await db('explanation_batches')
+    .join('puzzles', 'explanation_batches.puzzle_id', 'puzzles.id')
+    .select(
+      'explanation_batches.id',
+      'explanation_batches.batch_id',
+      'explanation_batches.puzzle_id',
+      'puzzles.title as puzzle_title',
+      'puzzles.puzzle_number',
+      'explanation_batches.status',
+      'explanation_batches.created_at',
+      'explanation_batches.updated_at',
+      'explanation_batches.applied_at',
+    )
+    .orderBy('explanation_batches.created_at', 'desc')
+    .limit(limit)
+
+  if (batches.length === 0) {
+    console.log('\nNo batch history found.')
+    return
+  }
+
+  console.log()
+  console.log('='.repeat(110))
+  console.log(`Batch History (last ${batches.length})`)
+  console.log('='.repeat(110))
+  console.log()
+
+  for (const b of batches) {
+    const pn = String(b.puzzle_number ?? '?').padStart(3)
+    const statusIcon: Record<string, string> = {
+      pending:     '⏳',
+      in_progress: '🔄',
+      validating:  '🔍',
+      finalizing:  '⏱️',
+      completed:   '✅',
+      failed:      '❌',
+      cancelled:   '❌',
+      expired:     '⏰',
+    }
+    const icon = statusIcon[b.status] ?? '❓'
+
+    const status = b.status.padEnd(12)
+    const title = (b.puzzle_title ?? '').substring(0, 30).padEnd(30)
+    const created = new Date(b.created_at + 'Z').toLocaleString()
+    const updated = new Date(b.updated_at + 'Z').toLocaleString()
+    const applied = b.applied_at ? new Date(b.applied_at + 'Z').toLocaleString() : '—'
+
+    console.log(`${icon} ${status} P#${pn} "${title}"`)
+    console.log(`   Batch:    ${b.batch_id}`)
+    console.log(`   Created:  ${created}`)
+    console.log(`   Updated:  ${updated}`)
+    console.log(`   Applied:  ${applied}`)
+    console.log()
+  }
+
+  console.log('='.repeat(110))
+  console.log()
+}
+
 async function main() {
   const argv = minimist(Bun.argv.slice(2), {
-    boolean: ['dry-run', 'force', 'help'],
+    boolean: ['dry-run', 'force', 'help', 'history'],
     string: ['puzzle-id'],
     alias: {
       h: 'help',
@@ -824,6 +896,11 @@ async function main() {
     }
 
     const command = argv._[0] as string | undefined
+
+    if (argv.history || command === 'history') {
+      await showHistory()
+      return
+    }
 
     if (!command || command === 'help') {
       console.log(HELP_TEXT)
