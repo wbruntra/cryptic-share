@@ -2,11 +2,36 @@ import type { TokenRole } from '../wordplay/types'
 
 export type { TokenRole }
 
+export type CrypticType =
+  | 'anagram'
+  | 'synonym'
+  | 'reversal'
+  | 'trim'
+  | 'container'
+  | 'hidden'
+  | 'homophone'
+  | 'initials'
+  | 'charade'
+  | 'definition'
+
+export const CRYPTIC_DISPLAY: Record<CrypticType, string> = {
+  anagram:    'Anagram',
+  synonym:    'Synonym',
+  reversal:   'Reversal',
+  trim:       'Trim',
+  container:  'Container',
+  hidden:     'Hidden word',
+  homophone:  'Homophone',
+  initials:   'Initials',
+  charade:    'Charade',
+  definition: 'Definition',
+}
+
 export type TriggerAction =
-  | { kind: 'replace'; options: string[] }
-  | { kind: 'result'; options: string[] }
-  | { kind: 'compute'; fn: 'trim-last' | 'trim-first' | 'reverse'; source: string }
-  | { kind: 'container' }
+  | { kind: 'replace'; options: string[]; label?: CrypticType }
+  | { kind: 'result'; options: string[]; label?: CrypticType }
+  | { kind: 'compute'; fn: 'trim-last' | 'trim-first' | 'reverse'; source: string; label?: CrypticType }
+  | { kind: 'container'; label?: CrypticType }
 
 export type Trigger = {
   match: string

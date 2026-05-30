@@ -1,0 +1,512 @@
+[
+  {
+    "id": 10,
+    "clueNumber": 4,
+    "direction": "down",
+    "clueText": "Let's somehow incorporate variable design (5)",
+    "answer": "Style",
+    "updatedAt": 1779961889982,
+    "puzzle": {
+      "label": "STYLE",
+      "clue": "Let's somehow incorporate variable design (5)",
+      "answer": "STYLE",
+      "tokens": [
+        {
+          "text": "Let's",
+          "role": "wordplay"
+        },
+        {
+          "text": "somehow",
+          "role": "indicator"
+        },
+        {
+          "text": "incorporate",
+          "role": "indicator"
+        },
+        {
+          "text": "variable",
+          "role": "wordplay"
+        },
+        {
+          "text": "design",
+          "role": "definition"
+        }
+      ],
+      "triggers": [
+        {
+          "match": "Let's somehow",
+          "action": {
+            "kind": "result",
+            "options": ["STLE", "TELS", "LETS"]
+          }
+        },
+        {
+          "match": "variable",
+          "action": {
+            "kind": "replace",
+            "options": ["FICKLE", "Y", "X"]
+          }
+        },
+        {
+          "match": "STLE incorporate Y",
+          "action": {
+            "kind": "container"
+          }
+        },
+        {
+          "match": "design",
+          "action": {
+            "kind": "replace",
+            "options": ["MOTIF", "BLUEPRINT", "PATTERN"]
+          }
+        },
+        {
+          "match": "incorporate",
+          "action": {
+            "kind": "replace",
+            "options": ["COMBINE", "INCLUDE"]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": 14,
+    "clueNumber": 8,
+    "direction": "down",
+    "clueText": "Tie up animals together and go back out (6)",
+    "answer": "Tether",
+    "updatedAt": 1779962150965,
+    "puzzle": {
+      "label": "TETHER",
+      "clue": "Tie up animals together and go back out (6)",
+      "answer": "TETHER",
+      "tokens": [
+        {
+          "text": "Tie",
+          "role": "definition"
+        },
+        {
+          "text": "up",
+          "role": "definition"
+        },
+        {
+          "text": "animals",
+          "role": "definition"
+        },
+        {
+          "text": "together",
+          "role": "wordplay"
+        },
+        {
+          "text": "and",
+          "role": "link"
+        },
+        {
+          "text": "go",
+          "role": "wordplay"
+        },
+        {
+          "text": "back",
+          "role": "indicator"
+        },
+        {
+          "text": "out",
+          "role": "indicator"
+        }
+      ],
+      "triggers": [
+        {
+          "match": "go back",
+          "action": {
+            "kind": "compute",
+            "fn": "reverse",
+            "source": "go"
+          }
+        },
+        {
+          "match": "together and OG out",
+          "action": {
+            "kind": "result",
+            "options": ["TOER", "TETHER", "TETHOG"]
+          }
+        },
+        {
+          "match": "Tie up",
+          "action": {
+            "kind": "replace",
+            "options": ["HITCH", "SECURE", "FASTEN"]
+          }
+        },
+        {
+          "match": "animals",
+          "action": {
+            "kind": "replace",
+            "options": ["fauna", "beasts"]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": 18,
+    "clueNumber": 10,
+    "direction": "across",
+    "clueText": "Beat counter, frustrated (7)",
+    "answer": "Trounce",
+    "updatedAt": 1779962553376,
+    "puzzle": {
+      "label": "TROUNCE",
+      "clue": "Beat counter, frustrated (7)",
+      "answer": "TROUNCE",
+      "tokens": [
+        {
+          "text": "Beat",
+          "role": "definition"
+        },
+        {
+          "text": "counter,",
+          "role": "wordplay"
+        },
+        {
+          "text": "frustrated",
+          "role": "indicator"
+        }
+      ],
+      "triggers": [
+        {
+          "match": "counter, frustrated",
+          "action": {
+            "kind": "result",
+            "options": ["CORNUTE", "TROUNCE", "RECOUNT"]
+          }
+        },
+        {
+          "match": "Beat",
+          "action": {
+            "kind": "replace",
+            "options": ["THRASH", "PUMMEL", "DEFEAT"]
+          }
+        },
+        {
+          "match": "frustrated",
+          "action": {
+            "kind": "replace",
+            "options": ["stymied", "thwarted", "foiled"]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": 20,
+    "clueNumber": 13,
+    "direction": "across",
+    "clueText": "He introduces many comedians at the start in full (5)",
+    "answer": "Emcee",
+    "updatedAt": 1779962767908,
+    "puzzle": {
+      "label": "EMCEE",
+      "clue": "He introduces many comedians at the start in full (5)",
+      "answer": "EMCEE",
+      "tokens": [
+        {
+          "text": "He",
+          "role": "definition"
+        },
+        {
+          "text": "introduces",
+          "role": "definition"
+        },
+        {
+          "text": "many",
+          "role": "wordplay"
+        },
+        {
+          "text": "comedians",
+          "role": "wordplay"
+        },
+        {
+          "text": "at",
+          "role": "indicator"
+        },
+        {
+          "text": "the",
+          "role": "indicator"
+        },
+        {
+          "text": "start",
+          "role": "indicator"
+        },
+        {
+          "text": "in",
+          "role": "indicator"
+        },
+        {
+          "text": "full",
+          "role": "indicator"
+        }
+      ],
+      "triggers": [
+        {
+          "match": "many comedians at the start",
+          "action": {
+            "kind": "result",
+            "options": ["MC"]
+          }
+        },
+        {
+          "match": "MC in full",
+          "action": {
+            "kind": "result",
+            "options": ["EMCEE", "EMSEE"]
+          }
+        },
+        {
+          "match": "He introduces",
+          "action": {
+            "kind": "replace",
+            "options": ["COMPERE", "ANNOUNCER", "HOST"]
+          }
+        },
+        {
+          "match": "in full",
+          "action": {
+            "kind": "replace",
+            "options": ["TOTALLY", "WHOLLY"]
+          }
+        },
+        {
+          "match": "start",
+          "action": {
+            "kind": "replace",
+            "options": ["BEGIN", "INITIATE"]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": 21,
+    "clueNumber": 14,
+    "direction": "across",
+    "clueText": "Marie cleverly engages peer in buying by post (4,5)",
+    "answer": "Mail order",
+    "updatedAt": 1779964392810,
+    "puzzle": {
+      "label": "MAIL ORDER",
+      "clue": "Marie cleverly engages peer in buying by post (4,5)",
+      "answer": "MAILORDER",
+      "displayAnswer": "MAIL ORDER",
+      "tokens": [
+        {
+          "text": "Marie",
+          "role": "wordplay"
+        },
+        {
+          "text": "cleverly",
+          "role": "indicator"
+        },
+        {
+          "text": "engages",
+          "role": "link"
+        },
+        {
+          "text": "peer",
+          "role": "wordplay"
+        },
+        {
+          "text": "in",
+          "role": "link"
+        },
+        {
+          "text": "buying",
+          "role": "definition"
+        },
+        {
+          "text": "by",
+          "role": "definition"
+        },
+        {
+          "text": "post",
+          "role": "definition"
+        }
+      ],
+      "triggers": [
+        {
+          "match": "Marie cleverly",
+          "action": {
+            "kind": "replace",
+            "options": ["MAIER", "REMAI", "ERIMA"]
+          }
+        },
+        {
+          "match": "peer",
+          "action": {
+            "kind": "replace",
+            "options": ["LORD", "LOOK", "FRIEND"]
+          }
+        },
+        {
+          "match": "MAIER engages LORD",
+          "action": {
+            "kind": "result",
+            "options": ["IMPERIALE", "PEERMAIRE", "MAILORDER"]
+          }
+        },
+        {
+          "match": "buying by post",
+          "action": {
+            "kind": "replace",
+            "options": ["REMOTE SHOPPING", "POSTAL PURCHASE", "CORRESPONDENCE SALE"]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": 16,
+    "clueNumber": 24,
+    "direction": "across",
+    "clueText": "Mournful form of Gaelic English brought in (7)",
+    "answer": "Elegiac",
+    "updatedAt": 1779962264250,
+    "puzzle": {
+      "label": "ELEGIAC",
+      "clue": "Mournful form of Gaelic English brought in (7)",
+      "answer": "ELEGIAC",
+      "tokens": [
+        {
+          "text": "Mournful",
+          "role": "definition"
+        },
+        {
+          "text": "form",
+          "role": "indicator"
+        },
+        {
+          "text": "of",
+          "role": "wordplay"
+        },
+        {
+          "text": "Gaelic",
+          "role": "wordplay"
+        },
+        {
+          "text": "English",
+          "role": "wordplay"
+        },
+        {
+          "text": "brought",
+          "role": "indicator"
+        },
+        {
+          "text": "in",
+          "role": "indicator"
+        }
+      ],
+      "triggers": [
+        {
+          "match": "form of Gaelic",
+          "action": {
+            "kind": "result",
+            "options": ["ELGIAC", "LECIGA", "CIGAEL"]
+          }
+        },
+        {
+          "match": "English",
+          "action": {
+            "kind": "replace",
+            "options": ["E"]
+          }
+        },
+        {
+          "match": "ELGIAC E brought in",
+          "action": {
+            "kind": "container"
+          }
+        },
+        {
+          "match": "Mournful",
+          "action": {
+            "kind": "replace",
+            "options": ["SOMBRE", "LUGUBRIOUS", "DREARY"]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": 17,
+    "clueNumber": 26,
+    "direction": "across",
+    "clueText": "Several clubs together inveigle a guest inside (6)",
+    "answer": "League",
+    "updatedAt": 1779962410648,
+    "puzzle": {
+      "label": "LEAGUE",
+      "clue": "Several clubs together inveigle a guest inside (6)",
+      "answer": "LEAGUE",
+      "tokens": [
+        {
+          "text": "Several",
+          "role": "definition"
+        },
+        {
+          "text": "clubs",
+          "role": "definition"
+        },
+        {
+          "text": "together",
+          "role": "definition"
+        },
+        {
+          "text": "inveigle",
+          "role": "wordplay"
+        },
+        {
+          "text": "a",
+          "role": "wordplay"
+        },
+        {
+          "text": "guest",
+          "role": "wordplay"
+        },
+        {
+          "text": "inside",
+          "role": "indicator"
+        }
+      ],
+      "triggers": [
+        {
+          "match": "inveigle a guest inside",
+          "action": {
+            "kind": "result",
+            "options": ["LEGUAE", "LEAGUE", "GEAULE"]
+          }
+        },
+        {
+          "match": "clubs",
+          "action": {
+            "kind": "replace",
+            "options": ["GROUPS", "WEAPONS", "SUIT"]
+          }
+        },
+        {
+          "match": "Several",
+          "action": {
+            "kind": "replace",
+            "options": ["NUMEROUS", "MANY"]
+          }
+        },
+        {
+          "match": "inside",
+          "action": {
+            "kind": "replace",
+            "options": ["indoor", "within"]
+          }
+        }
+      ]
+    }
+  }
+]

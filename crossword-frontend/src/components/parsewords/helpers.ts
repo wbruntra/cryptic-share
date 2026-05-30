@@ -14,10 +14,7 @@ export function allInsertions(inner: string, outer: string): string[] {
   return out
 }
 
-export function findTrigger(selectedTokens: DisplayToken[], triggers: Trigger[]): Trigger | null {
+export function findTriggers(selectedTokens: DisplayToken[], triggers: Trigger[]): Trigger[] {
   const text = selectedTokens.map((t) => t.text).join(' ')
-  for (const trigger of triggers) {
-    if (trigger.match === text) return trigger
-  }
-  return null
+  return triggers.filter((trigger) => trigger.match === text)
 }

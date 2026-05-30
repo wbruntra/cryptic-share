@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { Puzzle, Trigger, TriggerAction, TokenRole } from './types'
+import type { CrypticType, Puzzle, Trigger, TriggerAction, TokenRole } from './types'
+import { CRYPTIC_DISPLAY } from './types'
 import { ParsewordsGame } from './ParsewordsGame'
 import { validatePuzzle, type ValidationResult } from './validatePuzzle'
 
@@ -77,25 +78,40 @@ function TriggerEditor({
         </div>
       </div>
 
-      {/* Action kind selector */}
-      <select
-        value={action.kind}
-        onChange={(e) => {
-          const kind = e.target.value as TriggerAction['kind']
-          let newAction: TriggerAction
-          if (kind === 'replace') newAction = { kind: 'replace', options: ['', '', ''] }
-          else if (kind === 'result') newAction = { kind: 'result', options: ['', '', ''] }
-          else if (kind === 'compute') newAction = { kind: 'compute', fn: 'trim-last', source: '' }
-          else newAction = { kind: 'container' }
-          onChange({ ...trigger, action: newAction })
-        }}
-        className="px-3 py-1.5 rounded-lg border border-border bg-input-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-      >
-        <option value="replace">Replace (synonym)</option>
-        <option value="result">Result (combine / transform)</option>
-        <option value="compute">Compute (trim / reverse)</option>
-        <option value="container">Container (insertion)</option>
-      </select>
+      {/* Action kind + label selectors */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <select
+          value={action.kind}
+          onChange={(e) => {
+            const kind = e.target.value as TriggerAction['kind']
+            let newAction: TriggerAction
+            if (kind === 'replace') newAction = { kind: 'replace', options: ['', '', ''], label: action.label }
+            else if (kind === 'result') newAction = { kind: 'result', options: ['', '', ''], label: action.label }
+            else if (kind === 'compute') newAction = { kind: 'compute', fn: 'trim-last', source: '', label: action.label }
+            else newAction = { kind: 'container', label: action.label }
+            onChange({ ...trigger, action: newAction })
+          }}
+          className="px-3 py-1.5 rounded-lg border border-border bg-input-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          <option value="replace">Replace (synonym)</option>
+          <option value="result">Result (combine / transform)</option>
+          <option value="compute">Compute (trim / reverse)</option>
+          <option value="container">Container (insertion)</option>
+        </select>
+        <select
+          value={action.label ?? ''}
+          onChange={(e) => {
+            const label = e.target.value as CrypticType | ''
+            onChange({ ...trigger, action: { ...action, label: label || undefined } as TriggerAction })
+          }}
+          className="px-3 py-1.5 rounded-lg border border-border bg-input-bg text-text text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          <option value="">— no label —</option>
+          {(Object.entries(CRYPTIC_DISPLAY) as [CrypticType, string][]).map(([val, display]) => (
+            <option key={val} value={val}>{display}</option>
+          ))}
+        </select>
+      </div>
 
       {/* Action-specific fields */}
       {action.kind === 'replace' || action.kind === 'result' ? (
@@ -186,7 +202,7 @@ export function ParsewordsBuilder({ puzzle, onChange }: Props) {
     .map((i) => puzzle.tokens[i].text)
     .join(' ')
 
-  const existingTriggerForSelection = puzzle.triggers.find((t) => t.match === selectedText)
+  const triggersForSelection = puzzle.triggers.filter((t) => t.match === selectedText)
 
   function toggleSelect(idx: number) {
     setSelectedTokenIndices((prev) => {
@@ -206,7 +222,7 @@ export function ParsewordsBuilder({ puzzle, onChange }: Props) {
   }
 
   function addTrigger() {
-    if (!selectedText || existingTriggerForSelection) return
+    if (!selectedText) return
     const newTrigger: Trigger = { match: selectedText, action: { kind: 'replace', options: ['', '', ''] } }
     onChange({ ...puzzle, triggers: [...puzzle.triggers, newTrigger] })
     setSelectedTokenIndices([])
@@ -320,18 +336,15 @@ export function ParsewordsBuilder({ puzzle, onChange }: Props) {
       </div>
 
       {/* ── Add trigger button ── */}
-      {selectedTokenIndices.length > 0 && !existingTriggerForSelection && (
+      {selectedTokenIndices.length > 0 && (
         <button
           onClick={addTrigger}
           className="w-full px-4 py-3 rounded-xl border-2 border-dashed border-amber-500/50 text-amber-400 hover:border-amber-400 hover:text-amber-300 hover:bg-amber-500/5 text-sm font-medium transition-colors cursor-pointer"
         >
-          + Add trigger for "{selectedText}"
+          {triggersForSelection.length > 0
+            ? `+ Add another trigger for "${selectedText}"`
+            : `+ Add trigger for "${selectedText}"`}
         </button>
-      )}
-      {selectedTokenIndices.length > 0 && existingTriggerForSelection && (
-        <p className="text-xs text-amber-400/70 italic text-center">
-          A trigger for "{selectedText}" already exists. Scroll down to edit it.
-        </p>
       )}
 
       {/* ── Trigger list ── */}

@@ -1,4 +1,5 @@
 import type { Puzzle, PuzzleToken, Trigger, TriggerAction, TokenRole } from './types'
+import { CRYPTIC_DISPLAY } from './types'
 import { normalize, computeFns } from './helpers'
 
 // ---------------------------------------------------------------------------
@@ -28,10 +29,23 @@ function TokenChip({ text, role }: { text: string; role: TokenRole }) {
 // Action description
 // ---------------------------------------------------------------------------
 
+function LabelBadge({ action }: { action: TriggerAction }) {
+  if (!action.label) return null
+  return (
+    <span
+      style={{ background: '#1e1b4b', color: '#a5b4fc', border: '1px solid #4338ca55' }}
+      className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide shrink-0"
+    >
+      {CRYPTIC_DISPLAY[action.label]}
+    </span>
+  )
+}
+
 function ActionBadge({ action, matchTokens }: { action: TriggerAction; matchTokens: PuzzleToken[] }) {
   if (action.kind === 'replace') {
     return (
       <div className="flex items-center gap-1.5 flex-wrap">
+        <LabelBadge action={action} />
         <span className="text-xs text-text-secondary">replace with</span>
         {action.options.map((opt, i) => (
           <span key={opt}
@@ -47,6 +61,7 @@ function ActionBadge({ action, matchTokens }: { action: TriggerAction; matchToke
   if (action.kind === 'result') {
     return (
       <div className="flex items-center gap-1.5 flex-wrap">
+        <LabelBadge action={action} />
         <span className="text-xs text-text-secondary">result</span>
         {action.options.map((opt, i) => (
           <span key={opt}
@@ -64,6 +79,7 @@ function ActionBadge({ action, matchTokens }: { action: TriggerAction; matchToke
     const label = action.fn === 'trim-last' ? 'drop last letter' : action.fn === 'trim-first' ? 'drop first letter' : 'reverse'
     return (
       <div className="flex items-center gap-1.5">
+        <LabelBadge action={action} />
         <span className="text-xs text-text-secondary">{label}</span>
         <span className="text-xs font-mono font-bold text-amber-500">{action.source}</span>
         <span className="text-xs text-text-secondary">→</span>
@@ -78,6 +94,7 @@ function ActionBadge({ action, matchTokens }: { action: TriggerAction; matchToke
     if (a && b) {
       return (
         <div className="flex items-center gap-1.5">
+          <LabelBadge action={action} />
           <span className="text-xs text-text-secondary">insert</span>
           <span className="text-xs font-mono font-bold text-amber-500">{a.text}</span>
           <span className="text-xs text-text-secondary">into</span>

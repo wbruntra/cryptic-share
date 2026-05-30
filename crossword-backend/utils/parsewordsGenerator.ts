@@ -22,11 +22,15 @@ const DEFAULT_MODEL = models['deepseek-pro']
 
 export type TokenRole = 'definition' | 'wordplay' | 'indicator' | 'link'
 
+export type CrypticType =
+  | 'anagram' | 'synonym' | 'reversal' | 'trim' | 'container'
+  | 'hidden' | 'homophone' | 'initials' | 'charade' | 'definition'
+
 export type TriggerAction =
-  | { kind: 'replace'; options: string[] }
-  | { kind: 'result'; options: string[] }
-  | { kind: 'compute'; fn: 'trim-last' | 'trim-first' | 'reverse'; source: string }
-  | { kind: 'container' }
+  | { kind: 'replace'; options: string[]; label?: CrypticType }
+  | { kind: 'result'; options: string[]; label?: CrypticType }
+  | { kind: 'compute'; fn: 'trim-last' | 'trim-first' | 'reverse'; source: string; label?: CrypticType }
+  | { kind: 'container'; label?: CrypticType }
 
 export type Trigger = {
   match: string
@@ -101,6 +105,23 @@ A trigger fires when the player selects a contiguous group of tokens whose texts
    \`{ kind: "container" }\`
    - match includes the indicator token text AND the two wordplay tokens
 
+### label (required on all triggers)
+
+Every trigger action **must** include a \`label\` field naming the cryptic device:
+
+- \`"anagram"\` — letters of the fodder are rearranged (typically \`result\` kind)
+- \`"synonym"\` — a word is swapped for a definition synonym (typically \`replace\` kind)
+- \`"reversal"\` — letters are reversed (\`compute\` with \`reverse\`, or \`result\`)
+- \`"trim"\` — a letter is removed from start or end (\`compute\` with \`trim-first\`/\`trim-last\`)
+- \`"container"\` — one string is inserted inside another (\`container\` kind)
+- \`"hidden"\` — the answer is hidden within consecutive letters (\`result\` kind)
+- \`"homophone"\` — the answer sounds like a word (\`result\` kind)
+- \`"initials"\` — first letters are taken (\`result\` kind)
+- \`"charade"\` — two independently derived fragments are concatenated (final \`result\` join trigger)
+- \`"definition"\` — the definition red-herring trigger at the end of the array
+
+A single \`match\` string may appear in **two separate triggers** when the same selection could represent two different cryptic operations (e.g. a word that could be read as either an anagram or a synonym). Give each its own trigger entry with a different \`label\` and \`options\`.
+
 ## Rules
 
 - Tokens are listed in clue word order. Do not include an \`id\` field on tokens.
@@ -152,7 +173,7 @@ Return a single JSON object with this exact shape:
     ...
   ],
   "triggers": [
-    { "match": "text1 text2", "action": { "kind": "replace|result|compute|container", ... } },
+    { "match": "text1 text2", "action": { "kind": "replace|result|compute|container", "label": "anagram|synonym|...", ... } },
     ...
   ]
 }
@@ -176,11 +197,11 @@ Answer: TROUNCE
   "triggers": [
     {
       "match": "counter, frustrated",
-      "action": { "kind": "result", "options": ["TROUNCE", "RECOUNT", "CORNUTE"] }
+      "action": { "kind": "result", "label": "anagram", "options": ["TROUNCE", "RECOUNT", "CORNUTE"] }
     },
     {
       "match": "Beat",
-      "action": { "kind": "replace", "options": ["DEFEAT", "THRASH", "PUMMEL"] }
+      "action": { "kind": "replace", "label": "definition", "options": ["DEFEAT", "THRASH", "PUMMEL"] }
     }
   ]
 }
@@ -207,13 +228,13 @@ Answer: LULLABY
     { "text": "tune", "role": "definition" }
   ],
   "triggers": [
-    { "match": "Christmas", "action": { "kind": "replace", "options": ["YULE", "NOEL", "XMAS"] } },
-    { "match": "dance's", "action": { "kind": "replace", "options": ["BALL", "WALTZ", "JIVE"] } },
-    { "match": "YULE nearly", "action": { "kind": "compute", "fn": "trim-last", "source": "YULE" } },
-    { "match": "YUL over", "action": { "kind": "compute", "fn": "reverse", "source": "YUL" } },
-    { "match": "BALL recall", "action": { "kind": "compute", "fn": "reverse", "source": "BALL" } },
-    { "match": "With LUY LLAB", "action": { "kind": "container" } },
-    { "match": "sleepy tune", "action": { "kind": "replace", "options": ["CRADLE SONG", "SERENADE", "NOCTURNE"] } }
+    { "match": "Christmas", "action": { "kind": "replace", "label": "synonym", "options": ["YULE", "NOEL", "XMAS"] } },
+    { "match": "dance's", "action": { "kind": "replace", "label": "synonym", "options": ["BALL", "WALTZ", "JIVE"] } },
+    { "match": "YULE nearly", "action": { "kind": "compute", "label": "trim", "fn": "trim-last", "source": "YULE" } },
+    { "match": "YUL over", "action": { "kind": "compute", "label": "reversal", "fn": "reverse", "source": "YUL" } },
+    { "match": "BALL recall", "action": { "kind": "compute", "label": "reversal", "fn": "reverse", "source": "BALL" } },
+    { "match": "With LUY LLAB", "action": { "kind": "container", "label": "container" } },
+    { "match": "sleepy tune", "action": { "kind": "replace", "label": "definition", "options": ["CRADLE SONG", "SERENADE", "NOCTURNE"] } }
   ]
 }
 \`\`\`
@@ -240,10 +261,10 @@ Answer: IMPOUND
     { "text": "dump", "role": "wordplay" }
   ],
   "triggers": [
-    { "match": "first person", "action": { "kind": "result", "options": ["I", "ME", "HE"] } },
-    { "match": "on dump playing", "action": { "kind": "result", "options": ["MPOUND", "DUNPOM", "PONDMU"] } },
-    { "match": "I MPOUND", "action": { "kind": "result", "options": ["IMPOUND", "IMOPUND", "MIPOUND"] } },
-    { "match": "Seize", "action": { "kind": "replace", "options": ["CONFISCATE", "CAPTURE", "GRAB"] } }
+    { "match": "first person", "action": { "kind": "result", "label": "initials", "options": ["I", "ME", "HE"] } },
+    { "match": "on dump playing", "action": { "kind": "result", "label": "anagram", "options": ["MPOUND", "DUNPOM", "PONDMU"] } },
+    { "match": "I MPOUND", "action": { "kind": "result", "label": "charade", "options": ["IMPOUND", "IMOPUND", "MIPOUND"] } },
+    { "match": "Seize", "action": { "kind": "replace", "label": "definition", "options": ["CONFISCATE", "CAPTURE", "GRAB"] } }
   ]
 }
 \`\`\`

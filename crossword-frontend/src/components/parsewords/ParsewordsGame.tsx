@@ -1,8 +1,9 @@
 import { useRef, useState, useEffect } from 'react'
-import type { DisplayToken, Puzzle } from './types'
-import { normalize, computeFns, allInsertions, findTrigger } from './helpers'
+import type { CrypticType, DisplayToken, Puzzle } from './types'
+import { CRYPTIC_DISPLAY } from './types'
+import { normalize, computeFns, allInsertions, findTriggers } from './helpers'
 
-type ResolvedAction = { kind: 'replace' | 'result'; options: string[] }
+type ResolvedGroup = { kind: 'replace' | 'result'; options: string[]; label?: CrypticType }
 
 interface Props {
   puzzle: Puzzle
@@ -32,26 +33,28 @@ export function ParsewordsGame({ puzzle, onWin }: Props) {
   }
 
   const selectedTokens = displayTokens.filter((t) => selected.includes(t.id))
-  const activeTrigger = findTrigger(selectedTokens, puzzle.triggers)
+  const activeTriggers = findTriggers(selectedTokens, puzzle.triggers)
 
-  let resolved: ResolvedAction | null = null
-  if (activeTrigger) {
-    const { action } = activeTrigger
+  const resolvedGroups: ResolvedGroup[] = []
+  for (const trigger of activeTriggers) {
+    const { action } = trigger
     if (action.kind === 'replace') {
-      resolved = { kind: 'replace', options: action.options }
+      resolvedGroups.push({ kind: 'replace', options: action.options, label: action.label })
     } else if (action.kind === 'result') {
-      resolved = { kind: 'result', options: action.options }
+      resolvedGroups.push({ kind: 'result', options: action.options, label: action.label })
     } else if (action.kind === 'compute') {
-      const src = selectedTokens.find((t) => normalize(t.text) === normalize(action.source))!
-      resolved = { kind: 'result', options: [computeFns[action.fn](normalize(src.text))] }
+      const src = selectedTokens.find((t) => normalize(t.text) === normalize(action.source))
+      if (src) resolvedGroups.push({ kind: 'result', options: [computeFns[action.fn](normalize(src.text))], label: action.label })
     } else if (action.kind === 'container') {
       const wordplays = selectedTokens.filter((t) => t.role !== 'indicator')
       const [a, b] = wordplays
-      const all = [
-        ...allInsertions(normalize(b.text), normalize(a.text)),
-        ...allInsertions(normalize(a.text), normalize(b.text)),
-      ]
-      resolved = { kind: 'result', options: [...new Set(all)] }
+      if (a && b) {
+        const all = [
+          ...allInsertions(normalize(b.text), normalize(a.text)),
+          ...allInsertions(normalize(a.text), normalize(b.text)),
+        ]
+        resolvedGroups.push({ kind: 'result', options: [...new Set(all)], label: action.label })
+      }
     }
   }
 
@@ -119,9 +122,8 @@ export function ParsewordsGame({ puzzle, onWin }: Props) {
     setSelected([])
   }
 
-  function pickOption(text: string) {
-    if (!resolved) return
-    if (resolved.kind === 'replace' && selectedTokens.length === 1) {
+  function pickOption(text: string, kind: 'replace' | 'result') {
+    if (kind === 'replace' && selectedTokens.length === 1) {
       const id = selectedTokens[0].id
       setDisplayTokens((prev) => prev.map((t) => (t.id === id ? { ...t, text } : t)))
       setSelected([])
@@ -228,19 +230,23 @@ export function ParsewordsGame({ puzzle, onWin }: Props) {
         </div>
       )}
 
-      {!won && resolved && (
-        <div className="space-y-3">
-          <div className="text-xs font-bold tracking-widest text-[var(--color-text-secondary)] uppercase border-b border-dotted border-[var(--color-text-secondary)] pb-1 inline-block">
-            {resolved.kind === 'replace' ? 'Replacement' : 'Result'}
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {resolved.options.map((opt, i) => (
-              <button key={i} onClick={() => pickOption(opt)}
-                className={`px-4 py-2 font-bold text-base cursor-pointer select-none transition-colors ${resolved!.kind === 'replace' ? 'rounded-lg bg-[#facc15] text-black' : 'rounded-full bg-blue-500 text-white tracking-widest hover:bg-blue-400'}`}>
-                {opt}
-              </button>
-            ))}
-          </div>
+      {!won && resolvedGroups.length > 0 && (
+        <div className="space-y-4">
+          {resolvedGroups.map((group, gi) => (
+            <div key={gi} className="space-y-3">
+              <div className="text-xs font-bold tracking-widest text-[var(--color-text-secondary)] uppercase border-b border-dotted border-[var(--color-text-secondary)] pb-1 inline-block">
+                {group.label ? CRYPTIC_DISPLAY[group.label] : group.kind === 'replace' ? 'Replacement' : 'Result'}
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {group.options.map((opt, i) => (
+                  <button key={i} onClick={() => pickOption(opt, group.kind)}
+                    className={`px-4 py-2 font-bold text-base cursor-pointer select-none transition-colors ${group.kind === 'replace' ? 'rounded-lg bg-[#facc15] text-black' : 'rounded-full bg-blue-500 text-white tracking-widest hover:bg-blue-400'}`}>
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
