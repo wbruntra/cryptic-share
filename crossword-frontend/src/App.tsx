@@ -8,6 +8,7 @@ import { ReportManagementPage } from './pages/ReportManagementPage'
 import { ExplanationReviewPage } from './pages/ExplanationReviewPage'
 import { SessionListPage } from './pages/SessionListPage'
 import { MissingCluesPage } from './pages/MissingCluesPage'
+import { BatchExplanationsPage } from './pages/BatchExplanationsPage'
 import { EditPuzzleClues } from './pages/EditPuzzleClues'
 import { WordplayDemoPage } from './pages/WordplayDemoPage'
 import { ParsewordsTestPage } from './pages/ParsewordsTestPage'
@@ -29,6 +30,7 @@ function App() {
         <Route path="/admin/sessions" element={<SessionListPage />} />
         <Route path="/admin/reports" element={<ReportManagementPage />} />
         <Route path="/admin/missing-clues" element={<MissingCluesPage />} />
+        <Route path="/admin/batch-explanations" element={<BatchExplanationsPage />} />
         <Route path="/admin/clues/:puzzleId" element={<EditPuzzleClues />} />
         <Route path="/admin/puzzles/:id/explanations" element={<ExplanationReviewPage />} />
         <Route path="/create" element={<PuzzleCreator />} />
