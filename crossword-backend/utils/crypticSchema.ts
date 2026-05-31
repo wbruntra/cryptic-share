@@ -10,7 +10,7 @@ const ClueTokenSchema = z
     text: z
       .string()
       .describe(
-        'A single word or punctuation token verbatim from the clue.',
+        'A single word token verbatim from the clue (ignore standard punctuation like commas/periods; keep trailing question mark "?").',
       ),
     role: z
       .enum(['definition', 'wordplay', 'indicator', 'link'])
@@ -214,7 +214,9 @@ You will be given:
 
 Your task:
 1. Perform a verbatim, word-by-word token segmentation of the entire clue in the clue_segmentation array.
-   Every single word or punctuation mark in the clue MUST be represented as a token in the exact order they appear, with no words omitted or skipped.
+   Every single word in the clue MUST be represented as a token in the exact order they appear, with no words omitted or skipped.
+   Note on punctuation: Standard punctuation (commas, periods, dashes, exclamation marks) is surface noise and must be ignored during tokenization. Do not create separate tokens for them, and strip them from the word tokens.
+   The only exception is a trailing question mark "?". If the clue ends in a question mark, you must represent it as a separate token with the role "indicator", as it signals that the clue involves a cryptic/loose definition, pun, or non-standard wordplay.
    Assign exactly one role to each token:
    - "definition": words that belong to the definition part of the clue.
    - "wordplay": words that contribute letters or fodder or act as synonym/abbreviation sources.
