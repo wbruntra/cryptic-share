@@ -4,6 +4,8 @@ import axios from 'axios'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { fetchClueExplanations } from '../store/slices/adminSlice'
 import type { ClueExplanation } from '../store/slices/adminSlice'
+import { ClueExplanationDisplay } from '../components/ClueExplanationDisplay'
+import type { ClueExplanation as ParsedClueExplanation } from '../components/ClueExplanationDisplay'
 
 interface NewExplanation {
   clue_type: string
@@ -493,24 +495,35 @@ export function ExplanationReviewPage() {
                                 </div>
                               </div>
 
-                              {newExplanation && (
-                                <div className="animate-fade-in">
-                                  <h4 className="font-bold text-sm text-primary uppercase tracking-wider mb-2">
-                                    New Proposed Explanation
-                                  </h4>
-                                  <div className="bg-surface p-4 rounded-lg border border-primary/50 font-mono text-xs overflow-auto max-h-64 shadow-inner">
-                                    <pre>{JSON.stringify(newExplanation, null, 2)}</pre>
+                              <div className="space-y-4">
+                                {parsedExp && (
+                                  <div>
+                                    <h4 className="font-bold text-sm text-text-secondary uppercase tracking-wider mb-2">Preview</h4>
+                                    <div className="bg-surface rounded-lg border border-border p-4">
+                                      <ClueExplanationDisplay explanation={parsedExp as ParsedClueExplanation} />
+                                    </div>
                                   </div>
-                                  <div className="mt-4">
-                                    <button
-                                      onClick={() => handleSave(clue)}
-                                      className="px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 text-sm font-bold w-full"
-                                    >
-                                      Approve & Save
-                                    </button>
+                                )}
+
+                                {newExplanation && (
+                                  <div className="animate-fade-in">
+                                    <h4 className="font-bold text-sm text-primary uppercase tracking-wider mb-2">
+                                      New Proposed Explanation
+                                    </h4>
+                                    <div className="bg-surface p-4 rounded-lg border border-primary/50 font-mono text-xs overflow-auto max-h-64 shadow-inner">
+                                      <pre>{JSON.stringify(newExplanation, null, 2)}</pre>
+                                    </div>
+                                    <div className="mt-4">
+                                      <button
+                                        onClick={() => handleSave(clue)}
+                                        className="px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 text-sm font-bold w-full"
+                                      >
+                                        Approve & Save
+                                      </button>
+                                    </div>
                                   </div>
-                                </div>
-                              )}
+                                )}
+                              </div>
                             </div>
                           </td>
                         </tr>

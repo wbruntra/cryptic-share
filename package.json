@@ -19,6 +19,8 @@
   "scripts": {
     "postinstall": "bun install --cwd common && bun install --cwd crossword-frontend && bun install --cwd crossword-backend",
     "api": "cd crossword-backend && bun run dev",
+    "api:prod": "cd crossword-backend && NODE_ENV=production bun run dev",
+    "db:sync": "bash scripts/sync-db.sh",
     "frontend": "cd crossword-frontend && bun run dev",
     "dev": "bun run --parallel api frontend",
     "build": "cd crossword-frontend && bun run build"

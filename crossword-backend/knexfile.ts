@@ -11,7 +11,13 @@ const unifiedConfig = {
 }
 
 const config: { [key: string]: Knex.Config } = {
-  development: unifiedConfig,
+  development: {
+    client: 'sqlite3',
+    connection: {
+      filename: './crossword_local.db',
+    },
+    useNullAsDefault: true,
+  },
 
   staging: unifiedConfig,
 
