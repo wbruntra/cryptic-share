@@ -20,8 +20,14 @@ export interface StoredClueExplanation {
   explanation: FlatClueExplanation
 }
 
+export interface ClueToken {
+  text: string
+  role: 'definition' | 'wordplay' | 'indicator' | 'link'
+}
+
 export interface WordplayExplanation {
   clue_type: 'wordplay'
+  clue_segmentation: ClueToken[]
   definition: string
   wordplay_steps: Array<{ tokens: string; operation: string; result: string; clue_after: string }>
   hint: {
@@ -33,6 +39,7 @@ export interface WordplayExplanation {
 
 export interface DoubleDefinitionExplanation {
   clue_type: 'double_definition'
+  clue_segmentation: ClueToken[]
   definitions: Array<{
     definition: string
     sense: string
@@ -46,6 +53,7 @@ export interface DoubleDefinitionExplanation {
 export interface AndLitExplanation {
   clue_type: '&lit'
   definition_scope: 'entire_clue'
+  clue_segmentation: ClueToken[]
   wordplay_steps: Array<{ tokens: string; operation: string; result: string; clue_after: string }>
   hint: {
     wordplay_types: string[]
@@ -56,6 +64,7 @@ export interface AndLitExplanation {
 export interface CrypticDefinitionExplanation {
   clue_type: 'cryptic_definition'
   definition_scope: 'entire_clue'
+  clue_segmentation: ClueToken[]
   definition_paraphrase: string
   hint: {
     definition_scope: 'entire_clue'
@@ -66,6 +75,7 @@ export interface CrypticDefinitionExplanation {
 export interface NoCleanParseExplanation {
   clue_type: 'no_clean_parse'
   intended_clue_type: 'wordplay' | 'double_definition' | '&lit' | 'cryptic_definition'
+  clue_segmentation: ClueToken[]
   definition: string
   issue: string
   hint: {

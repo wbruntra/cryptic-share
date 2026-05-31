@@ -5,6 +5,19 @@
 
 import Ajv, { ValidateFunction } from 'ajv'
 
+const clueSegmentationSchema = {
+  type: 'array',
+  items: {
+    type: 'object',
+    properties: {
+      text: { type: 'string' },
+      role: { type: 'string', enum: ['definition', 'wordplay', 'indicator', 'link'] },
+    },
+    required: ['text', 'role'],
+    additionalProperties: false,
+  },
+}
+
 const flatExplanationSchema = {
   anyOf: [
     // WORDPLAY
@@ -12,6 +25,7 @@ const flatExplanationSchema = {
       type: 'object',
       properties: {
         clue_type: { type: 'string', const: 'wordplay' },
+        clue_segmentation: clueSegmentationSchema,
         definition: { type: 'string' },
         wordplay_steps: {
           type: 'array',
@@ -40,6 +54,7 @@ const flatExplanationSchema = {
       },
       required: [
         'clue_type',
+        'clue_segmentation',
         'definition',
         'wordplay_steps',
         'hint',
@@ -53,6 +68,7 @@ const flatExplanationSchema = {
       type: 'object',
       properties: {
         clue_type: { type: 'string', const: 'double_definition' },
+        clue_segmentation: clueSegmentationSchema,
         definitions: {
           type: 'array',
           items: {
@@ -75,7 +91,7 @@ const flatExplanationSchema = {
         },
         full_explanation: { type: 'string' },
       },
-      required: ['clue_type', 'definitions', 'hint', 'full_explanation'],
+      required: ['clue_type', 'clue_segmentation', 'definitions', 'hint', 'full_explanation'],
       additionalProperties: false,
     },
 
@@ -85,6 +101,7 @@ const flatExplanationSchema = {
       properties: {
         clue_type: { type: 'string', const: '&lit' },
         definition_scope: { type: 'string', const: 'entire_clue' },
+        clue_segmentation: clueSegmentationSchema,
         wordplay_steps: {
           type: 'array',
           items: {
@@ -112,6 +129,7 @@ const flatExplanationSchema = {
       required: [
         'clue_type',
         'definition_scope',
+        'clue_segmentation',
         'wordplay_steps',
         'hint',
         'full_explanation',
@@ -125,6 +143,7 @@ const flatExplanationSchema = {
       properties: {
         clue_type: { type: 'string', const: 'cryptic_definition' },
         definition_scope: { type: 'string', const: 'entire_clue' },
+        clue_segmentation: clueSegmentationSchema,
         definition_paraphrase: { type: 'string' },
         hint: {
           type: 'object',
@@ -139,6 +158,7 @@ const flatExplanationSchema = {
       required: [
         'clue_type',
         'definition_scope',
+        'clue_segmentation',
         'definition_paraphrase',
         'hint',
         'full_explanation',
@@ -155,6 +175,7 @@ const flatExplanationSchema = {
           type: 'string',
           enum: ['wordplay', 'double_definition', '&lit', 'cryptic_definition'],
         },
+        clue_segmentation: clueSegmentationSchema,
         definition: { type: 'string' },
         issue: { type: 'string' },
         hint: {
@@ -170,7 +191,7 @@ const flatExplanationSchema = {
         },
         full_explanation: { type: 'string' },
       },
-      required: ['clue_type', 'intended_clue_type', 'definition', 'issue', 'hint', 'full_explanation'],
+      required: ['clue_type', 'intended_clue_type', 'clue_segmentation', 'definition', 'issue', 'hint', 'full_explanation'],
       additionalProperties: false,
     },
   ],

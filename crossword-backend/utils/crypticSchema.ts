@@ -5,6 +5,21 @@ import { zodTextFormat } from 'openai/helpers/zod'
 // ZOD SCHEMA DEFINITIONS
 // =========================
 
+const ClueTokenSchema = z
+  .object({
+    text: z
+      .string()
+      .describe(
+        'A single word or punctuation token verbatim from the clue.',
+      ),
+    role: z
+      .enum(['definition', 'wordplay', 'indicator', 'link'])
+      .describe(
+        'The role of this token in the clue structure.',
+      ),
+  })
+  .strict()
+
 const WordplayStepSchema = z
   .object({
     tokens: z
@@ -26,6 +41,10 @@ const WordplayStepSchema = z
 const WordplayExplanationSchema = z
   .object({
     clue_type: z.literal('wordplay'),
+    clue_segmentation: z
+      .array(ClueTokenSchema)
+      .min(1)
+      .describe('Verbatim word-by-word token segmentation of the entire clue, assigning EVERY word its exact role.'),
     definition: z.string().describe('The exact definition from the clue'),
     wordplay_steps: z.array(WordplayStepSchema).min(1),
     hint: z
@@ -42,6 +61,10 @@ const WordplayExplanationSchema = z
 const DoubleDefinitionExplanationSchema = z
   .object({
     clue_type: z.literal('double_definition'),
+    clue_segmentation: z
+      .array(ClueTokenSchema)
+      .min(1)
+      .describe('Verbatim word-by-word token segmentation of the entire clue, assigning EVERY word its exact role.'),
     definitions: z
       .array(
         z
@@ -66,6 +89,10 @@ const AndLitExplanationSchema = z
   .object({
     clue_type: z.literal('&lit'),
     definition_scope: z.literal('entire_clue'),
+    clue_segmentation: z
+      .array(ClueTokenSchema)
+      .min(1)
+      .describe('Verbatim word-by-word token segmentation of the entire clue, assigning EVERY word its exact role.'),
     wordplay_steps: z.array(WordplayStepSchema).min(1),
     hint: z
       .object({
@@ -81,6 +108,10 @@ const CrypticDefinitionExplanationSchema = z
   .object({
     clue_type: z.literal('cryptic_definition'),
     definition_scope: z.literal('entire_clue'),
+    clue_segmentation: z
+      .array(ClueTokenSchema)
+      .min(1)
+      .describe('Verbatim word-by-word token segmentation of the entire clue, assigning EVERY word its exact role.'),
     definition_paraphrase: z
       .string()
       .describe(
@@ -102,6 +133,10 @@ const NoCleanParseExplanationSchema = z
     intended_clue_type: z
       .enum(['wordplay', 'double_definition', '&lit', 'cryptic_definition'])
       .describe('Best-guess clue type if the clue were clued cleanly'),
+    clue_segmentation: z
+      .array(ClueTokenSchema)
+      .min(1)
+      .describe('Verbatim word-by-word token segmentation of the entire clue, assigning EVERY word its exact role.'),
     definition: z.string().describe('The exact definition from the clue (best guess)'),
     issue: z
       .string()
@@ -178,23 +213,34 @@ You will be given:
 - The correct answer
 
 Your task:
-1. Identify the clue type: wordplay (standard cryptic with definition + wordplay), double_definition, &lit (entire clue serves as both definition and wordplay), or cryptic_definition (no separable wordplay; the whole clue is a single misleading definition).
-  If (and only if) you cannot produce a clean parse without inventing indicators or forcing letter accounting, set clue_type to no_clean_parse.
-2. For wordplay clues: Identify the exact definition in the clue (quote it verbatim).
-3. For &lit clues: Note that the entire clue is the definition, and provide the wordplay parse.
-4. For double_definition clues: Identify both definitions and their distinct senses.
-5. For cryptic_definition clues: Provide a concise paraphrase of the whole-clue definition; do not invent wordplay.
-6. Provide both a hint and a full explanation appropriate to the clue type.
+1. Perform a verbatim, word-by-word token segmentation of the entire clue in the clue_segmentation array.
+   Every single word or punctuation mark in the clue MUST be represented as a token in the exact order they appear, with no words omitted or skipped.
+   Assign exactly one role to each token:
+   - "definition": words that belong to the definition part of the clue.
+   - "wordplay": words that contribute letters or fodder or act as synonym/abbreviation sources.
+   - "indicator": words that signal a cryptic operation (anagram, reversal, insertion, deletion, hidden-word, etc.).
+   - "link": connecting words or filler phrases that link the definition and the wordplay, or join wordplay parts, but perform no cryptic operations and contribute no letters to the answer (e.g. "and", "for", "gives", "can be", "is", "from", "to", "with", "a", "an", "the"). Use this role for any word that serves as surface glue and does not directly participate in a cryptic operation or definition.
+2. Identify the clue type: wordplay (standard cryptic with definition + wordplay), double_definition, &lit (entire clue serves as both definition and wordplay), or cryptic_definition (no separable wordplay; the whole clue is a single misleading definition).
+   If (and only if) you cannot produce a clean parse without inventing indicators or forcing letter accounting, set clue_type to no_clean_parse.
+3. For wordplay clues: Identify the exact definition in the clue (quote it verbatim).
+4. For &lit clues: Note that the entire clue is the definition, and provide the wordplay parse.
+5. For double_definition clues: Identify both definitions and their distinct senses.
+6. For cryptic_definition clues: Provide a concise paraphrase of the whole-clue definition; do not invent wordplay.
+7. Provide both a hint and a full explanation appropriate to the clue type.
 
-Surface glue words (important):
-- The conjunctions "and", "with", "plus", and the articles "a", "an", "the" are routinely used as surface connectives between fodder or wordplay components and contribute NO letters to the answer. They are consumed silently in the step that combines the surrounding tokens — do NOT treat them as unaccountable letters or use them as a reason to declare no_clean_parse.
-- Example: "OAP and cleric" after an anagram indicator means anagram(OAP + CLERIC); "and" is surface glue and is simply dropped.
+Role-guided wordplay steps (CRITICAL):
+- Wordplay steps must strictly respect the token roles assigned in clue_segmentation.
+- You must NOT select/consume a "definition" or a "link" word as part of a wordplay operation (e.g. attempting to find synonyms for them or drop them in a synonym/reversal step).
+- "link" words are completely ignored by wordplay steps and must remain completely untouched in the clue_after text.
+- If two resolved wordplay fragments need to be joined, use a simple "concatenate" operation on ONLY those adjacent wordplay fragments (e.g. tokens="LONG BOW" -> result="LONGBOW"), leaving the untouched "link" and "definition" words unchanged in clue_after (e.g. clue_after="LONGBOW for medieval weapon").
+- Indicator words are consumed alongside the wordplay words they govern (e.g. "YULE nearly" as "YULE" + trim indicator "nearly"), NOT as a separate step.
+- For abbreviation/synonym steps with no indicator, use only the wordplay word being replaced.
 
 Core cryptic rules (strict):
 - For wordplay and &lit clues: Each part of the wordplay MUST correspond to one explicit indicator in the clue.
 - Use the simplest valid parse; do not offer alternatives or supporting interpretations.
 - Do NOT mix mechanisms (e.g. hidden letters, charades, containers) unless the clue explicitly indicates them.
-- For wordplay and &lit clues: Every letter in the answer MUST be explicitly justified (surface glue words excepted — see above).
+- For wordplay and &lit clues: Every letter in the answer MUST be explicitly justified.
 - Compound Anagram Logic (Priority Check):
   If a standard parse fails, before determining that there is no clean parse possible, you must specifically check for "Answer-Participating" anagrams. Test this algebraic relationship: "(Visible Clue Part A + Answer) = Visible Clue Part B".
   1. Identify the Target (Part B) and the Remainder (Part A) in the clue.
@@ -233,10 +279,9 @@ Step 6: tokens=”With LUY LLAB”, operation=”insert LLAB into LUY (container
 Rules:
 - tokens must be a contiguous span — a verbatim substring of the current clue state. Never select words that are not adjacent to each other.
 - Each step must reference the current clue state (tokens from previous steps may have been replaced).
-- The final step must produce the answer, leaving only the answer string and the definition words.
+- The final step must produce the answer, leaving the answer string alongside any untouched link and definition words.
 - Indicator words are consumed alongside the wordplay words they govern (e.g. “nearly” is consumed with “YULE” as the span “YULE nearly”, not separately).
 - For abbreviation/synonym steps with no indicator, use only the wordplay word being replaced.
-- Surface glue words (“and”, “with”, “plus”, “a”, “an”, “the”) between fodder components may be included in the tokens span of the step that combines them; they contribute no letters and are dropped from clue_after.
 - clue_after must reflect the actual clue string with substitutions applied; do not paraphrase.
 
 Style constraints:
@@ -255,7 +300,6 @@ Final check (required):
 
 Constraints:
 - full_explanation must be at most 4 sentences.
-- Do not restate the clue.
 `
 
 export const generateExplanationMessages = (
@@ -309,6 +353,28 @@ export const crypticSchema = {
             description: 'A standard cryptic clue with definition and wordplay',
             properties: {
               clue_type: { type: 'string', const: 'wordplay' },
+
+              clue_segmentation: {
+                type: 'array',
+                description: 'Verbatim word-by-word token segmentation of the entire clue, where EVERY single word or punctuation mark in the clue is assigned its exact role.',
+                minItems: 1,
+                items: {
+                  type: 'object',
+                  properties: {
+                    text: {
+                      type: 'string',
+                      description: 'A single word or punctuation token verbatim from the clue.'
+                    },
+                    role: {
+                      type: 'string',
+                      enum: ['definition', 'wordplay', 'indicator', 'link'],
+                      description: 'The role of this token in the clue structure.'
+                    }
+                  },
+                  required: ['text', 'role'],
+                  additionalProperties: false
+                }
+              },
 
               definition: {
                 type: 'string',
@@ -366,6 +432,7 @@ export const crypticSchema = {
             },
             required: [
               'clue_type',
+              'clue_segmentation',
               'definition',
               'wordplay_steps',
               'hint',
@@ -382,6 +449,28 @@ export const crypticSchema = {
             description: 'A double definition clue',
             properties: {
               clue_type: { type: 'string', const: 'double_definition' },
+
+              clue_segmentation: {
+                type: 'array',
+                description: 'Verbatim word-by-word token segmentation of the entire clue, where EVERY single word or punctuation mark in the clue is assigned its exact role.',
+                minItems: 1,
+                items: {
+                  type: 'object',
+                  properties: {
+                    text: {
+                      type: 'string',
+                      description: 'A single word or punctuation token verbatim from the clue.'
+                    },
+                    role: {
+                      type: 'string',
+                      enum: ['definition', 'wordplay', 'indicator', 'link'],
+                      description: 'The role of this token in the clue structure.'
+                    }
+                  },
+                  required: ['text', 'role'],
+                  additionalProperties: false
+                }
+              },
 
               definitions: {
                 type: 'array',
@@ -410,7 +499,7 @@ export const crypticSchema = {
                 type: 'string',
               },
             },
-            required: ['clue_type', 'definitions', 'hint', 'full_explanation'],
+            required: ['clue_type', 'clue_segmentation', 'definitions', 'hint', 'full_explanation'],
             additionalProperties: false,
           },
 
@@ -426,6 +515,28 @@ export const crypticSchema = {
               definition_scope: {
                 type: 'string',
                 const: 'entire_clue',
+              },
+
+              clue_segmentation: {
+                type: 'array',
+                description: 'Verbatim word-by-word token segmentation of the entire clue, where EVERY single word or punctuation mark in the clue is assigned its exact role.',
+                minItems: 1,
+                items: {
+                  type: 'object',
+                  properties: {
+                    text: {
+                      type: 'string',
+                      description: 'A single word or punctuation token verbatim from the clue.'
+                    },
+                    role: {
+                      type: 'string',
+                      enum: ['definition', 'wordplay', 'indicator', 'link'],
+                      description: 'The role of this token in the clue structure.'
+                    }
+                  },
+                  required: ['text', 'role'],
+                  additionalProperties: false
+                }
               },
 
               wordplay_steps: {
@@ -476,6 +587,7 @@ export const crypticSchema = {
             required: [
               'clue_type',
               'definition_scope',
+              'clue_segmentation',
               'wordplay_steps',
               'hint',
               'full_explanation',
@@ -496,6 +608,28 @@ export const crypticSchema = {
               definition_scope: {
                 type: 'string',
                 const: 'entire_clue',
+              },
+
+              clue_segmentation: {
+                type: 'array',
+                description: 'Verbatim word-by-word token segmentation of the entire clue, where EVERY single word or punctuation mark in the clue is assigned its exact role.',
+                minItems: 1,
+                items: {
+                  type: 'object',
+                  properties: {
+                    text: {
+                      type: 'string',
+                      description: 'A single word or punctuation token verbatim from the clue.'
+                    },
+                    role: {
+                      type: 'string',
+                      enum: ['definition', 'wordplay', 'indicator', 'link'],
+                      description: 'The role of this token in the clue structure.'
+                    }
+                  },
+                  required: ['text', 'role'],
+                  additionalProperties: false
+                }
               },
 
               definition_paraphrase: {
@@ -520,6 +654,7 @@ export const crypticSchema = {
             required: [
               'clue_type',
               'definition_scope',
+              'clue_segmentation',
               'definition_paraphrase',
               'hint',
               'full_explanation',
@@ -541,6 +676,28 @@ export const crypticSchema = {
                 type: 'string',
                 enum: ['wordplay', 'double_definition', '&lit', 'cryptic_definition'],
                 description: 'Best-guess clue type if the clue were clued cleanly',
+              },
+
+              clue_segmentation: {
+                type: 'array',
+                description: 'Verbatim word-by-word token segmentation of the entire clue, where EVERY single word or punctuation mark in the clue is assigned its exact role.',
+                minItems: 1,
+                items: {
+                  type: 'object',
+                  properties: {
+                    text: {
+                      type: 'string',
+                      description: 'A single word or punctuation token verbatim from the clue.'
+                    },
+                    role: {
+                      type: 'string',
+                      enum: ['definition', 'wordplay', 'indicator', 'link'],
+                      description: 'The role of this token in the clue structure.'
+                    }
+                  },
+                  required: ['text', 'role'],
+                  additionalProperties: false
+                }
               },
 
               definition: {
@@ -570,7 +727,7 @@ export const crypticSchema = {
                 type: 'string',
               },
             },
-            required: ['clue_type', 'intended_clue_type', 'definition', 'issue', 'hint', 'full_explanation'],
+            required: ['clue_type', 'intended_clue_type', 'clue_segmentation', 'definition', 'issue', 'hint', 'full_explanation'],
             additionalProperties: false,
           },
         ],

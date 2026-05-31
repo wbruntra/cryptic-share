@@ -28,8 +28,14 @@ function isNewStep(step: WordplayStep): step is NewWordplayStep {
   return 'tokens' in step
 }
 
+export interface ClueToken {
+  text: string
+  role: 'definition' | 'wordplay' | 'indicator' | 'link'
+}
+
 export interface WordplayExplanation {
   clue_type: 'wordplay'
+  clue_segmentation?: ClueToken[]
   definition: string
   letter_breakdown?: Array<{ source: string; letters: string }>
   wordplay_steps?: WordplayStep[]
@@ -42,6 +48,7 @@ export interface WordplayExplanation {
 
 export interface DoubleDefinitionExplanation {
   clue_type: 'double_definition'
+  clue_segmentation?: ClueToken[]
   definitions: Array<{ definition: string; sense?: string }> | string[]
   hint: { definition_count: 2 } | string
   full_explanation: string
@@ -50,6 +57,7 @@ export interface DoubleDefinitionExplanation {
 export interface AndLitExplanation {
   clue_type: '&lit'
   definition_scope: 'entire_clue'
+  clue_segmentation?: ClueToken[]
   letter_breakdown?: Array<{ source: string; letters: string }>
   wordplay_steps?: WordplayStep[]
   hint: { wordplay_types: string[] } | string
@@ -59,6 +67,7 @@ export interface AndLitExplanation {
 export interface CrypticDefinitionExplanation {
   clue_type: 'cryptic_definition'
   definition_scope: 'entire_clue'
+  clue_segmentation?: ClueToken[]
   definition_paraphrase: string
   hint: { definition_scope: 'entire_clue' }
   full_explanation: string
@@ -67,6 +76,7 @@ export interface CrypticDefinitionExplanation {
 export interface NoCleanParseExplanation {
   clue_type: 'no_clean_parse'
   intended_clue_type: 'wordplay' | 'double_definition' | '&lit' | 'cryptic_definition'
+  clue_segmentation?: ClueToken[]
   definition: string
   issue: string
   hint: { intended_clue_type: 'wordplay' | 'double_definition' | '&lit' | 'cryptic_definition' }
@@ -279,6 +289,69 @@ export function ClueExplanationDisplay({ explanation, onReport, reportLoading, h
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Clue Segmentation Visualization */}
+      {explanation.clue_segmentation && explanation.clue_segmentation.length > 0 && (
+        <div className="p-4 bg-surface border border-border rounded-lg mb-2">
+          <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
+            Clue Analysis & Word Roles
+          </p>
+          <div className="flex flex-wrap gap-x-1.5 gap-y-2 items-center leading-relaxed">
+            {explanation.clue_segmentation.map((token, i) => {
+              let roleClass = ''
+              let roleName = ''
+              
+              switch (token.role) {
+                case 'definition':
+                  roleClass = 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30'
+                  roleName = 'Definition'
+                  break
+                case 'wordplay':
+                  roleClass = 'bg-blue-500/10 text-blue-500 border border-blue-500/30 font-semibold'
+                  roleName = 'Wordplay/Fodder'
+                  break
+                case 'indicator':
+                  roleClass = 'bg-amber-500/10 text-amber-500 border border-amber-500/30 italic'
+                  roleName = 'Indicator'
+                  break
+                case 'link':
+                  roleClass = 'text-text-secondary opacity-60'
+                  roleName = 'Link/Filler'
+                  break
+              }
+
+              return (
+                <span
+                  key={i}
+                  title={roleName}
+                  className={`px-2 py-0.5 rounded text-sm transition-all hover:scale-105 select-none ${roleClass}`}
+                >
+                  {token.text}
+                </span>
+              )
+            })}
+          </div>
+          
+          {/* Legend/Key */}
+          <div className="flex flex-wrap gap-4 mt-3 pt-3 border-t border-border/50 text-xs">
+            <span className="flex items-center gap-1.5 text-emerald-500">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 inline-block"></span>
+              Definition
+            </span>
+            <span className="flex items-center gap-1.5 text-blue-500">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500/20 border border-blue-500/40 inline-block"></span>
+              Wordplay/Fodder
+            </span>
+            <span className="flex items-center gap-1.5 text-amber-500">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500/20 border border-amber-500/40 inline-block"></span>
+              Indicator
+            </span>
+            <span className="flex items-center gap-1.5 text-text-secondary opacity-60">
+              Link/Filler
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Render sections based on clue type */}
       {explanation.clue_type === 'wordplay' &&
         renderWordplayExplanation(explanation as WordplayExplanation)}

@@ -53,3 +53,16 @@
 **Goal**: Fix notification bell toast never disappearing.
 **What Went Wrong**: The `Toast` component included `onDismiss` in its `setTimeout` `useEffect` dependency array. The parent components (`DesktopView` and `MobileView`) trigger a state update every second because of `usePuzzleTimer`, passing down a newly-created inline `onDismiss` function. This caused the 2000ms dismiss timeout to clear and reset every 1000ms, effectively making the toast last forever.
 **What To Do Instead**: When a component receives a callback prop and uses it inside a timeout or interval, either the parent must memoize the callback with `useCallback`, or the child component must use a `useRef` to store the latest callback without triggering the effect to re-run. In this codebase, the latter is safer to implement for isolated components like `Toast`.
+
+### 2026-05-31 - Improved Clue Explanation Quality with Token Role Segmentation
+
+**Goal**: Improve cryptic clue explanation quality by systematically segmenting clue words and identifying their structural roles early.
+
+**Completed**:
+1. Added `clue_segmentation` field to Zod and AJV schemas for all explanation types.
+2. Updated prompt instructions (`crypticInstructions` in `crypticSchema.ts`) to:
+   - Perform word-by-word token segmentation of the entire clue verbatim first.
+   - Assign exact roles to all tokens: `definition`, `wordplay`, `indicator`, or `link` (filler words like "for", "and", "can be").
+   - Strictly prevent consuming `definition` or `link` words in wordplay steps. They must remain completely untouched in the `clue_after` state.
+3. Updated backend TS types and schema tests to ensure backwards compatibility and validation conformance.
+4. Added visual "Clue Analysis & Word Roles" token breakdown in `ClueExplanationDisplay` to display word roles in color-coded pills.

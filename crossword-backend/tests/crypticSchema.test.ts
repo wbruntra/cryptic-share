@@ -29,21 +29,28 @@ describe('crypticSchema (Zod)', () => {
       clue_type: 'wordplay',
       explanation: {
         clue_type: 'wordplay',
-        definition: 'took over',
-        letter_breakdown: [
-          { source: 'US (America)', letters: 'US' },
-          { source: 'anagram of URPED', letters: 'URPED' },
+        clue_segmentation: [
+          { text: 'Germany', role: 'wordplay' },
+          { text: 'seized', role: 'indicator' },
+          { text: 'Peru', role: 'wordplay' },
+          { text: 'illegally', role: 'indicator' },
+          { text: 'gives', role: 'link' },
+          { text: 'took', role: 'definition' },
+          { text: 'over', role: 'definition' },
         ],
+        definition: 'took over',
         wordplay_steps: [
           {
-            indicator: 'illegally',
+            tokens: 'Germany Peru illegally',
             operation: 'Anagram of URPED',
             result: 'URPED',
+            clue_after: 'US URPED gives took over',
           },
           {
-            indicator: 'None',
+            tokens: 'US URPED',
             operation: 'Concatenate US + URPED',
             result: 'USURPED',
+            clue_after: 'USURPED gives took over',
           },
         ],
         hint: {
@@ -64,6 +71,10 @@ describe('crypticSchema (Zod)', () => {
       clue_type: 'double_definition',
       explanation: {
         clue_type: 'double_definition',
+        clue_segmentation: [
+          { text: 'current', role: 'definition' },
+          { text: 'berry', role: 'definition' },
+        ],
         definitions: [
           {
             definition: 'current',
@@ -91,12 +102,16 @@ describe('crypticSchema (Zod)', () => {
       explanation: {
         clue_type: '&lit',
         definition_scope: 'entire_clue',
-        letter_breakdown: [{ source: 'anagram of CUSTOMERS', letters: 'CUSTOMERS' }],
+        clue_segmentation: [
+          { text: 'confused', role: 'indicator' },
+          { text: 'customers', role: 'wordplay' },
+        ],
         wordplay_steps: [
           {
-            indicator: 'confused',
+            tokens: 'confused customers',
             operation: 'Anagram of CUSTOMERS',
             result: 'CUSTOMERS',
+            clue_after: 'CUSTOMERS',
           },
         ],
         hint: {
@@ -116,6 +131,10 @@ describe('crypticSchema (Zod)', () => {
       explanation: {
         clue_type: 'cryptic_definition',
         definition_scope: 'entire_clue',
+        clue_segmentation: [
+          { text: 'A', role: 'definition' },
+          { text: 'puzzle', role: 'definition' },
+        ],
         definition_paraphrase: 'Something that can be used to describe a puzzle or mystery',
         hint: {
           definition_scope: 'entire_clue',
@@ -134,6 +153,10 @@ describe('crypticSchema (Zod)', () => {
       explanation: {
         clue_type: 'no_clean_parse',
         intended_clue_type: 'wordplay',
+        clue_segmentation: [
+          { text: 'missing', role: 'link' },
+          { text: 'indicator', role: 'definition' },
+        ],
         definition: 'the answer',
         issue: 'Missing indicator for reversal operation',
         hint: {
@@ -152,6 +175,9 @@ describe('crypticSchema (Zod)', () => {
       clue_type: 'wordplay',
       explanation: {
         clue_type: 'double_definition', // Mismatch!
+        clue_segmentation: [
+          { text: 'test', role: 'definition' },
+        ],
         definitions: [
           { definition: 'test', sense: 'test' },
           { definition: 'test2', sense: 'test2' },
@@ -161,7 +187,7 @@ describe('crypticSchema (Zod)', () => {
       },
     }
 
-    const result = CrypticExplanationZodSchema.safeParse(invalid)
+    const result = CrypticExplanationZodSchema.safeParse(invalid as any)
     expect(result.success).toBe(false)
   })
 
@@ -170,11 +196,11 @@ describe('crypticSchema (Zod)', () => {
       clue_type: 'wordplay',
       explanation: {
         clue_type: 'wordplay',
-        // Missing definition, letter_breakdown, wordplay_steps, hint, full_explanation
+        // Missing clue_segmentation, definition, wordplay_steps, hint, full_explanation
       },
     }
 
-    const result = CrypticExplanationZodSchema.safeParse(invalid)
+    const result = CrypticExplanationZodSchema.safeParse(invalid as any)
     expect(result.success).toBe(false)
   })
 
@@ -183,9 +209,11 @@ describe('crypticSchema (Zod)', () => {
       clue_type: 'wordplay',
       explanation: {
         clue_type: 'wordplay',
+        clue_segmentation: [
+          { text: 'test', role: 'wordplay' },
+        ],
         definition: 'test',
-        letter_breakdown: [{ source: 'test', letters: 'TEST' }],
-        wordplay_steps: [{ indicator: 'None', operation: 'test', result: 'TEST' }],
+        wordplay_steps: [{ tokens: 'test', operation: 'test', result: 'TEST', clue_after: 'TEST' }],
         hint: {
           definition_location: 'end',
           wordplay_types: ['test'],
@@ -195,32 +223,7 @@ describe('crypticSchema (Zod)', () => {
       },
     }
 
-    const result = CrypticExplanationZodSchema.safeParse(invalid)
-    expect(result.success).toBe(false)
-  })
-
-  test('should reject invalid letter pattern', () => {
-    const invalid = {
-      clue_type: 'wordplay',
-      explanation: {
-        clue_type: 'wordplay',
-        definition: 'test',
-        letter_breakdown: [
-          {
-            source: 'test',
-            letters: 'test', // Should be uppercase
-          },
-        ],
-        wordplay_steps: [{ indicator: 'None', operation: 'test', result: 'TEST' }],
-        hint: {
-          definition_location: 'end',
-          wordplay_types: ['test'],
-        },
-        full_explanation: 'Test',
-      },
-    }
-
-    const result = CrypticExplanationZodSchema.safeParse(invalid)
+    const result = CrypticExplanationZodSchema.safeParse(invalid as any)
     expect(result.success).toBe(false)
   })
 
@@ -229,6 +232,9 @@ describe('crypticSchema (Zod)', () => {
       clue_type: 'double_definition',
       explanation: {
         clue_type: 'double_definition',
+        clue_segmentation: [
+          { text: 'test', role: 'definition' },
+        ],
         definitions: [
           { definition: 'only one', sense: 'test' }, // Should have at least 2
         ],
@@ -237,7 +243,7 @@ describe('crypticSchema (Zod)', () => {
       },
     }
 
-    const result = CrypticExplanationZodSchema.safeParse(invalid)
+    const result = CrypticExplanationZodSchema.safeParse(invalid as any)
     expect(result.success).toBe(false)
   })
 
@@ -246,9 +252,9 @@ describe('crypticSchema (Zod)', () => {
       clue_type: 'wordplay',
       explanation: {
         clue_type: 'wordplay',
+        clue_segmentation: [], // Should have at least 1 item
         definition: 'test',
-        letter_breakdown: [], // Should have at least 1 item
-        wordplay_steps: [{ indicator: 'None', operation: 'test', result: 'TEST' }],
+        wordplay_steps: [{ tokens: 'test', operation: 'test', result: 'TEST', clue_after: 'TEST' }],
         hint: {
           definition_location: 'end',
           wordplay_types: ['test'],
@@ -257,7 +263,7 @@ describe('crypticSchema (Zod)', () => {
       },
     }
 
-    const result = CrypticExplanationZodSchema.safeParse(invalid)
+    const result = CrypticExplanationZodSchema.safeParse(invalid as any)
     expect(result.success).toBe(false)
   })
 })
