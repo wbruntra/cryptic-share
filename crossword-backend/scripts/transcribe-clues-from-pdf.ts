@@ -41,6 +41,7 @@
 
 import { resolve, basename } from 'path'
 import { tmpdir } from 'os'
+import { unlink } from 'fs/promises'
 import minimist from 'minimist'
 import db from '../db-knex'
 import { getCrosswordClues } from '../utils/openai'
@@ -136,123 +137,161 @@ async function main() {
     process.exit(0)
   }
 
-  const pdfPath = argv._[0] as string | undefined
+  const pdfInput = argv._[0] as string | undefined
 
-  if (!pdfPath) {
-    console.error('Error: PDF file path is required\n')
+  if (!pdfInput) {
+    console.error('Error: PDF file path or URL is required\n')
     console.error(HELP_TEXT)
     process.exit(1)
   }
 
-  const resolvedPath = resolve(process.cwd(), pdfPath)
-  const book = argv.book ?? '3'
-  const dryRun = argv['dry-run'] ?? false
-  const publish = !argv['no-publish']
-  const explicitStart = argv.start ? Number(argv.start) : null
+  const isUrl = pdfInput.startsWith('http://') || pdfInput.startsWith('https://')
+  let resolvedPath = pdfInput
+  let tempPdfPath = ''
 
-  await checkPdftoppm()
-
-  const startPuzzle = explicitStart ?? parseStartFromFilename(resolvedPath)
-  if (startPuzzle === null) {
-    console.error('Error: Could not determine starting puzzle number')
-    console.error('Use --start <n> or name the file like clues_97_100.pdf\n')
-    console.error(HELP_TEXT)
-    process.exit(1)
-  }
-
-  console.log(`PDF: ${resolvedPath}`)
-  console.log(`Book: ${book}, Starting puzzle: ${startPuzzle}`)
-  if (dryRun) console.log('DRY RUN — no database changes will be made')
-  if (!publish) console.log('--no-publish: puzzles will NOT be marked as published')
-  else console.log('Puzzles will be marked is_published=true after clues are saved')
-
-  console.log('\nConverting PDF pages to images...')
-  const imageFiles = await pdfToImages(pdfPath)
-  console.log(`Found ${imageFiles.length} page(s)`)
-
-  let saved = 0
-  let skipped = 0
-  let failed = 0
-
-  for (let i = 0; i < imageFiles.length; i++) {
-    const imageFile = imageFiles[i]!
-    const puzzleNumber = startPuzzle + i
-
-    console.log(`\n[Page ${i + 1}] Puzzle ${puzzleNumber} — ${imageFile}`)
-
-    // Look up puzzle in DB
-    const puzzle = await db('puzzles')
-      .select('id', 'clues')
-      .where({ book, puzzle_number: puzzleNumber })
-      .first()
-
-    if (!puzzle) {
-      console.log(`  ⚠️  No puzzle found in DB for book=${book} puzzle_number=${puzzleNumber}, skipping`)
-      skipped++
-      continue
+  try {
+    if (isUrl) {
+      console.log(`Downloading PDF from URL: ${pdfInput}...`)
+      const response = await fetch(pdfInput)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const arrayBuffer = await response.arrayBuffer()
+      
+      let cleanFilename = pdfInput
+      try {
+        const urlObj = new URL(pdfInput)
+        cleanFilename = urlObj.pathname
+      } catch (e) {
+        // Fallback
+      }
+      
+      tempPdfPath = `${tmpdir()}/downloaded_${Date.now()}_${basename(cleanFilename)}`
+      await Bun.write(tempPdfPath, arrayBuffer)
+      resolvedPath = tempPdfPath
+      console.log(`Downloaded to temporary file: ${resolvedPath}`)
+    } else {
+      resolvedPath = resolve(process.cwd(), pdfInput)
     }
 
-    // Check if clues are already filled
-    let existingClues: any
-    try {
-      existingClues = JSON.parse(puzzle.clues)
-    } catch {
-      existingClues = null
+    const book = argv.book ?? '3'
+    const dryRun = argv['dry-run'] ?? false
+    const publish = !argv['no-publish']
+    const explicitStart = argv.start ? Number(argv.start) : null
+
+    await checkPdftoppm()
+
+    const startPuzzle = explicitStart ?? parseStartFromFilename(resolvedPath)
+    if (startPuzzle === null) {
+      console.error('Error: Could not determine starting puzzle number')
+      console.error('Use --start <n> or name the file like clues_97_100.pdf\n')
+      console.error(HELP_TEXT)
+      process.exit(1)
     }
 
-    const hasPending =
-      !existingClues ||
-      (existingClues.across ?? []).some((c: any) => c.clue === '[CLUE PENDING]') ||
-      (existingClues.down ?? []).some((c: any) => c.clue === '[CLUE PENDING]')
+    console.log(`PDF: ${isUrl ? `${pdfInput} (downloaded to ${resolvedPath})` : resolvedPath}`)
+    console.log(`Book: ${book}, Starting puzzle: ${startPuzzle}`)
+    if (dryRun) console.log('DRY RUN — no database changes will be made')
+    if (!publish) console.log('--no-publish: puzzles will NOT be marked as published')
+    else console.log('Puzzles will be marked is_published=true after clues are saved')
 
-    if (!hasPending) {
-      console.log(`  ⏭️  Clues already filled for puzzle ${puzzleNumber} (id=${puzzle.id}), skipping`)
-      skipped++
-      continue
-    }
+    console.log('\nConverting PDF pages to images...')
+    const imageFiles = await pdfToImages(resolvedPath)
+    console.log(`Found ${imageFiles.length} page(s)`)
 
-    // Transcribe
-    console.log(`  Transcribing clues via AI...`)
-    let transcribed: any
-    try {
-      const arrayBuffer = await Bun.file(imageFile).arrayBuffer()
-      const base64 = Buffer.from(arrayBuffer).toString('base64')
-      transcribed = await getCrosswordClues(base64)
-    } catch (err: any) {
-      console.error(`  ❌ Transcription failed: ${err.message}`)
-      failed++
-      continue
-    }
+    let saved = 0
+    let skipped = 0
+    let failed = 0
 
-    console.log(`  Got ${transcribed.across?.length ?? 0} across, ${transcribed.down?.length ?? 0} down clues`)
+    for (let i = 0; i < imageFiles.length; i++) {
+      const imageFile = imageFiles[i]!
+      const puzzleNumber = startPuzzle + i
 
-    if (dryRun) {
-      console.log(`  🧪 Would update puzzle id=${puzzle.id}`)
-      console.log('  Sample:', JSON.stringify(transcribed.across?.slice(0, 2)))
+      console.log(`\n[Page ${i + 1}] Puzzle ${puzzleNumber} — ${imageFile}`)
+
+      // Look up puzzle in DB
+      const puzzle = await db('puzzles')
+        .select('id', 'clues')
+        .where({ book, puzzle_number: puzzleNumber })
+        .first()
+
+      if (!puzzle) {
+        console.log(`  ⚠️  No puzzle found in DB for book=${book} puzzle_number=${puzzleNumber}, skipping`)
+        skipped++
+        continue
+      }
+
+      // Check if clues are already filled
+      let existingClues: any
+      try {
+        existingClues = JSON.parse(puzzle.clues)
+      } catch {
+        existingClues = null
+      }
+
+      const hasPending =
+        !existingClues ||
+        (existingClues.across ?? []).some((c: any) => c.clue === '[CLUE PENDING]') ||
+        (existingClues.down ?? []).some((c: any) => c.clue === '[CLUE PENDING]')
+
+      if (!hasPending) {
+        console.log(`  ⏭️  Clues already filled for puzzle ${puzzleNumber} (id=${puzzle.id}), skipping`)
+        skipped++
+        continue
+      }
+
+      // Transcribe
+      console.log(`  Transcribing clues via AI...`)
+      let transcribed: any
+      try {
+        const arrayBuffer = await Bun.file(imageFile).arrayBuffer()
+        const base64 = Buffer.from(arrayBuffer).toString('base64')
+        transcribed = await getCrosswordClues(base64)
+      } catch (err: any) {
+        console.error(`  ❌ Transcription failed: ${err.message}`)
+        failed++
+        continue
+      }
+
+      console.log(`  Got ${transcribed.across?.length ?? 0} across, ${transcribed.down?.length ?? 0} down clues`)
+
+      if (dryRun) {
+        console.log(`  🧪 Would update puzzle id=${puzzle.id}`)
+        console.log('  Sample:', JSON.stringify(transcribed.across?.slice(0, 2)))
+        saved++
+        continue
+      }
+
+      // Save to DB
+      const update: Record<string, any> = {
+        clues: JSON.stringify(transcribed),
+      }
+      if (publish) {
+        update.is_published = true
+      }
+
+      await db('puzzles').where({ id: puzzle.id }).update(update)
+      console.log(`  ✅ Saved clues for puzzle ${puzzleNumber} (id=${puzzle.id})${publish ? ', published' : ''}`)
       saved++
-      continue
     }
 
-    // Save to DB
-    const update: Record<string, any> = {
-      clues: JSON.stringify(transcribed),
-    }
-    if (publish) {
-      update.is_published = true
-    }
+    console.log('\nSummary')
+    console.log('-------')
+    console.log(`Saved:   ${saved}`)
+    console.log(`Skipped: ${skipped}`)
+    console.log(`Failed:  ${failed}`)
 
-    await db('puzzles').where({ id: puzzle.id }).update(update)
-    console.log(`  ✅ Saved clues for puzzle ${puzzleNumber} (id=${puzzle.id})${publish ? ', published' : ''}`)
-    saved++
+    await db.destroy()
+  } finally {
+    if (tempPdfPath) {
+      try {
+        await unlink(tempPdfPath)
+        console.log(`Cleaned up temporary PDF file: ${tempPdfPath}`)
+      } catch (err: any) {
+        console.warn(`Warning: Failed to clean up temporary PDF: ${err.message}`)
+      }
+    }
   }
-
-  console.log('\nSummary')
-  console.log('-------')
-  console.log(`Saved:   ${saved}`)
-  console.log(`Skipped: ${skipped}`)
-  console.log(`Failed:  ${failed}`)
-
-  await db.destroy()
 }
 
 main().catch(async (err) => {

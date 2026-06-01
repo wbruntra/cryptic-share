@@ -44,6 +44,7 @@
 
 import { resolve, basename } from 'path'
 import { tmpdir } from 'os'
+import { unlink } from 'fs/promises'
 import minimist from 'minimist'
 import db from '../db-knex'
 import { transcribeAnswers } from '../utils/openai'
@@ -173,200 +174,238 @@ async function main() {
     process.exit(0)
   }
 
-  const pdfPath = argv._[0] as string | undefined
+  const pdfInput = argv._[0] as string | undefined
 
-  if (!pdfPath) {
-    console.error('Error: PDF file path is required\n')
+  if (!pdfInput) {
+    console.error('Error: PDF file path or URL is required\n')
     console.error(HELP_TEXT)
     process.exit(1)
   }
 
-  const resolvedPath = resolve(process.cwd(), pdfPath)
-  const book = argv.book ?? '3'
-  const dryRun = argv['dry-run'] ?? false
-  const updateExisting = argv['update-existing'] ?? false
-  const skipValidation = argv['skip-validation'] ?? false
-  const width = argv.width ? Number(argv.width) : 15
-  const height = argv.height ? Number(argv.height) : 15
-  const explicitStart = argv.start ? Number(argv.start) : null
+  const isUrl = pdfInput.startsWith('http://') || pdfInput.startsWith('https://')
+  let resolvedPath = pdfInput
+  let tempPdfPath = ''
 
-  await checkPdftoppm()
-
-  const startPuzzle = explicitStart ?? parseStartFromFilename(resolvedPath)
-  if (startPuzzle === null) {
-    console.error('Error: Could not determine starting puzzle number')
-    console.error('Use --start <n> or name the file like solutions_105.pdf\n')
-    console.error(HELP_TEXT)
-    process.exit(1)
-  }
-
-  console.log(`PDF: ${resolvedPath}`)
-  console.log(`Book: ${book}, Starting puzzle: ${startPuzzle}`)
-  if (dryRun) console.log('DRY RUN — no database changes will be made')
-  if (updateExisting) console.log('--update-existing: existing puzzles will be updated')
-
-  console.log('\nConverting PDF pages to images...')
-  const imageFiles = await pdfToImages(resolvedPath)
-  console.log(`Found ${imageFiles.length} page(s)\n`)
-
-  let created = 0
-  let updated = 0
-  let skipped = 0
-  let failed = 0
-
-  for (let pageIndex = 0; pageIndex < imageFiles.length; pageIndex++) {
-    const imageFile = imageFiles[pageIndex]!
-    const pageNumber = pageIndex + 1
-    const firstPuzzleOnPage = startPuzzle + pageIndex * 4
-
-    console.log(`\n[Page ${pageNumber}] Puzzles ${firstPuzzleOnPage}-${firstPuzzleOnPage + 3} — ${imageFile}`)
-
-    // Transcribe answers from this page
-    let transcription: AnswerResponse
-    try {
-      const imageBuffer = await Bun.file(imageFile).arrayBuffer()
-      const base64 = Buffer.from(imageBuffer).toString('base64')
-      transcription = (await transcribeAnswers({ base64, mimeType: 'image/jpeg' })) as AnswerResponse
-    } catch (err: any) {
-      console.error(`  ❌ Transcription failed: ${err.message}`)
-      failed += 4 // Assume all 4 puzzles on page failed
-      continue
+  try {
+    if (isUrl) {
+      console.log(`Downloading PDF from URL: ${pdfInput}...`)
+      const response = await fetch(pdfInput)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const arrayBuffer = await response.arrayBuffer()
+      
+      let cleanFilename = pdfInput
+      try {
+        const urlObj = new URL(pdfInput)
+        cleanFilename = urlObj.pathname
+      } catch (e) {
+        // Fallback
+      }
+      
+      tempPdfPath = `${tmpdir()}/downloaded_${Date.now()}_${basename(cleanFilename)}`
+      await Bun.write(tempPdfPath, arrayBuffer)
+      resolvedPath = tempPdfPath
+      console.log(`Downloaded to temporary file: ${resolvedPath}`)
+    } else {
+      resolvedPath = resolve(process.cwd(), pdfInput)
     }
 
-    console.log(`  Got ${transcription.puzzles.length} puzzle(s)`)
+    const book = argv.book ?? '3'
+    const dryRun = argv['dry-run'] ?? false
+    const updateExisting = argv['update-existing'] ?? false
+    const skipValidation = argv['skip-validation'] ?? false
+    const width = argv.width ? Number(argv.width) : 15
+    const height = argv.height ? Number(argv.height) : 15
+    const explicitStart = argv.start ? Number(argv.start) : null
 
-    // Process each puzzle from this page
-    for (const puzzle of transcription.puzzles) {
-      const puzzleNumber = puzzle.puzzle_id
+    await checkPdftoppm()
 
-      const normalizedAcross = puzzle.across.map((a) => ({
-        number: a.number,
-        answer: normalizeAnswer(a.answer),
-      }))
-      const normalizedDown = puzzle.down.map((a) => ({
-        number: a.number,
-        answer: normalizeAnswer(a.answer),
-      }))
+    const startPuzzle = explicitStart ?? parseStartFromFilename(resolvedPath)
+    if (startPuzzle === null) {
+      console.error('Error: Could not determine starting puzzle number')
+      console.error('Use --start <n> or name the file like solutions_105.pdf\n')
+      console.error(HELP_TEXT)
+      process.exit(1)
+    }
 
-      // Try to construct grid from answers
-      let grid: string | null = null
-      const constructed = constructGridFromAnswerKey(
-        {
-          width,
-          height,
-          across: normalizedAcross,
-          down: normalizedDown,
-        },
-        { maxStates: 2_000_000, maxMillis: 12_000 },
-      )
+    console.log(`PDF: ${isUrl ? `${pdfInput} (downloaded to ${resolvedPath})` : resolvedPath}`)
+    console.log(`Book: ${book}, Starting puzzle: ${startPuzzle}`)
+    if (dryRun) console.log('DRY RUN — no database changes will be made')
+    if (updateExisting) console.log('--update-existing: existing puzzles will be updated')
 
-      if (!constructed.success || !constructed.gridString) {
-        console.warn(
-          `  ⚠️  Puzzle ${puzzleNumber}: failed to construct grid from answers (${constructed.message}), skipping`,
-        )
-        failed++
+    console.log('\nConverting PDF pages to images...')
+    const imageFiles = await pdfToImages(resolvedPath)
+    console.log(`Found ${imageFiles.length} page(s)\n`)
+
+    let created = 0
+    let updated = 0
+    let skipped = 0
+    let failed = 0
+
+    for (let pageIndex = 0; pageIndex < imageFiles.length; pageIndex++) {
+      const imageFile = imageFiles[pageIndex]!
+      const pageNumber = pageIndex + 1
+      const firstPuzzleOnPage = startPuzzle + pageIndex * 4
+
+      console.log(`\n[Page ${pageNumber}] Puzzles ${firstPuzzleOnPage}-${firstPuzzleOnPage + 3} — ${imageFile}`)
+
+      // Transcribe answers from this page
+      let transcription: AnswerResponse
+      try {
+        const imageBuffer = await Bun.file(imageFile).arrayBuffer()
+        const base64 = Buffer.from(imageBuffer).toString('base64')
+        transcription = (await transcribeAnswers({ base64, mimeType: 'image/jpeg' })) as AnswerResponse
+      } catch (err: any) {
+        console.error(`  ❌ Transcription failed: ${err.message}`)
+        failed += 4 // Assume all 4 puzzles on page failed
         continue
       }
 
-      grid = constructed.gridString
-      console.log(`  🧩 Puzzle ${puzzleNumber}: constructed grid from answers`)
+      console.log(`  Got ${transcription.puzzles.length} puzzle(s)`)
 
-      // Validate unless skipped
-      if (!skipValidation) {
-        const rows = grid.split('\n').map((row) => row.split(' '))
-        const gridWidth = rows[0]!.length
-        const gridHeight = rows.length
+      // Process each puzzle from this page
+      for (const puzzle of transcription.puzzles) {
+        const puzzleNumber = puzzle.puzzle_id
 
-        const validation = constructGridFromAnswerKey(
+        const normalizedAcross = puzzle.across.map((a) => ({
+          number: a.number,
+          answer: normalizeAnswer(a.answer),
+        }))
+        const normalizedDown = puzzle.down.map((a) => ({
+          number: a.number,
+          answer: normalizeAnswer(a.answer),
+        }))
+
+        // Try to construct grid from answers
+        let grid: string | null = null
+        const constructed = constructGridFromAnswerKey(
           {
-            width: gridWidth,
-            height: gridHeight,
+            width,
+            height,
             across: normalizedAcross,
             down: normalizedDown,
           },
           { maxStates: 2_000_000, maxMillis: 12_000 },
         )
 
-        if (!validation.success) {
+        if (!constructed.success || !constructed.gridString) {
           console.warn(
-            `  ⚠️  Puzzle ${puzzleNumber}: failed answer/grid validation (${validation.message}), skipping`,
+            `  ⚠️  Puzzle ${puzzleNumber}: failed to construct grid from answers (${constructed.message}), skipping`,
           )
           failed++
           continue
         }
-      }
 
-      const encryptedAnswers = {
-        puzzle_id: puzzleNumber,
-        across: puzzle.across.map((a) => ({
-          number: a.number,
-          answer: rot13(removeAccents(a.answer)),
-        })),
-        down: puzzle.down.map((a) => ({
-          number: a.number,
-          answer: rot13(removeAccents(a.answer)),
-        })),
-      }
+        grid = constructed.gridString
+        console.log(`  🧩 Puzzle ${puzzleNumber}: constructed grid from answers`)
 
-      const placeholderClues = {
-        across: puzzle.across.map((a) => ({ number: a.number, clue: '[CLUE PENDING]' })),
-        down: puzzle.down.map((a) => ({ number: a.number, clue: '[CLUE PENDING]' })),
-      }
+        // Validate unless skipped
+        if (!skipValidation) {
+          const rows = grid.split('\n').map((row) => row.split(' '))
+          const gridWidth = rows[0]!.length
+          const gridHeight = rows.length
 
-      const payload = {
-        title: String(puzzleNumber),
-        grid,
-        clues: JSON.stringify(placeholderClues),
-        answers_encrypted: JSON.stringify(encryptedAnswers),
-        letter_count: calculateLetterCount(grid),
-        puzzle_number: puzzleNumber,
-        book,
-        is_published: false,
-      }
-
-      const existing = await db('puzzles')
-        .where({ book, puzzle_number: puzzleNumber })
-        .first('id')
-
-      if (dryRun) {
-        if (existing) {
-          console.log(
-            `  🧪 Puzzle ${puzzleNumber}: would ${updateExisting ? 'update' : 'skip'} existing id=${existing.id}`,
+          const validation = constructGridFromAnswerKey(
+            {
+              width: gridWidth,
+              height: gridHeight,
+              across: normalizedAcross,
+              down: normalizedDown,
+            },
+            { maxStates: 2_000_000, maxMillis: 12_000 },
           )
-        } else {
-          console.log(`  🧪 Puzzle ${puzzleNumber}: would create new puzzle`)
-        }
-        continue
-      }
 
-      if (existing) {
-        if (!updateExisting) {
-          console.log(`  ⏭️  Puzzle ${puzzleNumber}: exists (id=${existing.id}), skipping`)
-          skipped++
+          if (!validation.success) {
+            console.warn(
+              `  ⚠️  Puzzle ${puzzleNumber}: failed answer/grid validation (${validation.message}), skipping`,
+            )
+            failed++
+            continue
+          }
+        }
+
+        const encryptedAnswers = {
+          puzzle_id: puzzleNumber,
+          across: puzzle.across.map((a) => ({
+            number: a.number,
+            answer: rot13(removeAccents(a.answer)),
+          })),
+          down: puzzle.down.map((a) => ({
+            number: a.number,
+            answer: rot13(removeAccents(a.answer)),
+          })),
+        }
+
+        const placeholderClues = {
+          across: puzzle.across.map((a) => ({ number: a.number, clue: '[CLUE PENDING]' })),
+          down: puzzle.down.map((a) => ({ number: a.number, clue: '[CLUE PENDING]' })),
+        }
+
+        const payload = {
+          title: String(puzzleNumber),
+          grid,
+          clues: JSON.stringify(placeholderClues),
+          answers_encrypted: JSON.stringify(encryptedAnswers),
+          letter_count: calculateLetterCount(grid),
+          puzzle_number: puzzleNumber,
+          book,
+          is_published: false,
+        }
+
+        const existing = await db('puzzles')
+          .where({ book, puzzle_number: puzzleNumber })
+          .first('id')
+
+        if (dryRun) {
+          if (existing) {
+            console.log(
+              `  🧪 Puzzle ${puzzleNumber}: would ${updateExisting ? 'update' : 'skip'} existing id=${existing.id}`,
+            )
+          } else {
+            console.log(`  🧪 Puzzle ${puzzleNumber}: would create new puzzle`)
+          }
           continue
         }
 
-        await db('puzzles').where({ id: existing.id }).update(payload)
-        console.log(`  ♻️  Puzzle ${puzzleNumber}: updated existing id=${existing.id}`)
-        updated++
-        continue
-      }
+        if (existing) {
+          if (!updateExisting) {
+            console.log(`  ⏭️  Puzzle ${puzzleNumber}: exists (id=${existing.id}), skipping`)
+            skipped++
+            continue
+          }
 
-      const [newId] = await db('puzzles').insert(payload)
-      console.log(`  ✅ Puzzle ${puzzleNumber}: created id=${newId}`)
-      created++
+          await db('puzzles').where({ id: existing.id }).update(payload)
+          console.log(`  ♻️  Puzzle ${puzzleNumber}: updated existing id=${existing.id}`)
+          updated++
+          continue
+        }
+
+        const [newId] = await db('puzzles').insert(payload)
+        console.log(`  ✅ Puzzle ${puzzleNumber}: created id=${newId}`)
+        created++
+      }
+    }
+
+    console.log('\n' + '='.repeat(60))
+    console.log('Summary')
+    console.log('='.repeat(60))
+    console.log(`Created: ${created}`)
+    console.log(`Updated: ${updated}`)
+    console.log(`Skipped: ${skipped}`)
+    console.log(`Failed:  ${failed}`)
+
+    await db.destroy()
+  } finally {
+    if (tempPdfPath) {
+      try {
+        await unlink(tempPdfPath)
+        console.log(`Cleaned up temporary PDF file: ${tempPdfPath}`)
+      } catch (err: any) {
+        console.warn(`Warning: Failed to clean up temporary PDF: ${err.message}`)
+      }
     }
   }
-
-  console.log('\n' + '='.repeat(60))
-  console.log('Summary')
-  console.log('='.repeat(60))
-  console.log(`Created: ${created}`)
-  console.log(`Updated: ${updated}`)
-  console.log(`Skipped: ${skipped}`)
-  console.log(`Failed:  ${failed}`)
-
-  await db.destroy()
 }
 
 main().catch(async (error) => {
