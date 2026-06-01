@@ -24,7 +24,7 @@ type Variables = {
 export const app = new Hono<{ Variables: Variables }>()
 
 app.use('*', createLogger({
-  ignoredPatterns: [/^\/api\/sessions\/[^/]+\/cell$/],
+  ignoredPatterns: [/^\/api\/sessions\/[^/]+\/cell$/, /^\/api\/sessions\/[^/]+\/cells$/],
   ignoredPaths: ['/api/notifications'],
   getUserId: (c) => c.get('user')?.id,
 }))

@@ -67,7 +67,7 @@ export function ParsewordsModal({ isOpen, onClose, puzzleId, onFillAnswer }: Par
       role="dialog"
       aria-modal="true"
     >
-      <div className="bg-surface border border-border rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-surface border border-border rounded-xl shadow-2xl w-full max-w-2xl min-h-[500px] max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
           <h2 className="text-xl font-bold text-text">Parsewords Puzzles</h2>

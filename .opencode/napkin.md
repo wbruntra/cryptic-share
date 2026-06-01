@@ -66,3 +66,18 @@
    - Strictly prevent consuming `definition` or `link` words in wordplay steps. They must remain completely untouched in the `clue_after` state.
 3. Updated backend TS types and schema tests to ensure backwards compatibility and validation conformance.
 4. Added visual "Clue Analysis & Word Roles" token breakdown in `ClueExplanationDisplay` to display word roles in color-coded pills.
+
+### 2026-06-01 - Session Puzzle Fill-in Reliability Fix
+
+**Goal**: Fix the race condition causing unreliable and partial letter fills during automated whole-word puzzle fill-ins.
+
+**Completed**:
+1. **Identified Race Condition**: Discovered that when multiple cell updates were fired concurrently (e.g. cell-by-cell in a loop on the client side), they caused the backend's async cache-load operations and grid-initialization DB queries to execute in parallel. The last one to resolve would overwrite the cache with its loaded state, wiping out updates from all other concurrent requests.
+2. **Concurrent Loading Cache Fix (Backend)**: Added `pendingLoads` promise cache map in `SessionService.getCachedOrLoad` to resolve all parallel loads of the same session to the exact same shared promise, resulting in a single memory cache reference.
+3. **Synchronized Grid Initialization (Backend)**: Added `pendingInits` promise cache map in `SessionService` to synchronize asynchronous puzzle grid dimensions fetching and initialization, ensuring parallel first-edit cell updates do not overwrite each other's state array references.
+4. **Bulk Cells Update Support (Backend)**: Added a new `POST /api/sessions/:sessionId/cells` endpoint and `updateCells` method in `SessionService` to process and broadcast multiple cell changes in a single tick.
+5. **Real-time Hint Broadcasts (Backend)**: Upgraded `POST /api/sessions/:sessionId/hint` (both single cell and word reveals) to use `updateCells` and broadcast real-time SSE events so all collaborative session users see hint reveals instantly.
+6. **Frontend Integration**: Updated `usePuzzleSync` hook to expose `sendCellsUpdate` and updated `PlaySession.tsx`'s `handleFillAnswer` to perform the entire word fill-in as a single REST request, reducing network calls and preventing race conditions completely.
+7. **Unit Testing**: Added exhaustive automated tests in `sessionService.test.ts` validating batch cell updates and confirming thundering herd prevention under heavy concurrent loads.
+8. **UX Enhancement**: Added a `min-h-[500px]` minimum size constraint to the `ParsewordsModal` container to prevent the modal dialog from expanding and contracting as tokens and operation buttons appear or disappear during parsewords gameplay.
+

@@ -241,6 +241,8 @@ sessions.post('/:sessionId/hint', async (c) => {
       }
 
       await SessionService.updateCell(sessionId, r, c, valueToReveal)
+      const senderId = c.req.query('socketId') || 'REST_API'
+      await Broadcaster.broadcastCellUpdate(sessionId, r, c, valueToReveal, senderId)
     } else if (type === 'word') {
       const { number, direction } = target
       const list = puzzleAnswers[direction]
@@ -270,10 +272,17 @@ sessions.post('/:sessionId/hint', async (c) => {
         return c.json({ success: true, value: valueToReveal })
       }
 
+      const cellUpdates: Array<{ r: number; c: number; value: string }> = []
       for (let i = 0; i < decrypted.length; i++) {
-        await SessionService.updateCell(sessionId, r, cc, decrypted[i] || '')
+        cellUpdates.push({ r, c: cc, value: decrypted[i] || '' })
         if (direction === 'across') cc++
         else r++
+      }
+
+      await SessionService.updateCells(sessionId, cellUpdates)
+      const senderId = c.req.query('socketId') || 'REST_API'
+      for (const update of cellUpdates) {
+        await Broadcaster.broadcastCellUpdate(sessionId, update.r, update.c, update.value, senderId)
       }
     } else {
       throw new HTTPException(400, { message: 'Invalid hint type' })
@@ -557,6 +566,37 @@ sessions.post('/:sessionId/cell', async (c) => {
   } catch (error) {
     console.error('Error updating cell:', error)
     throw new HTTPException(500, { message: 'Failed to update cell' })
+  }
+})
+
+// POST /api/sessions/:sessionId/cells - Bulk update cells
+sessions.post('/:sessionId/cells', async (c) => {
+  const sessionId = c.req.param('sessionId')
+  const body = await c.req.json().catch(() => ({}))
+  const { updates } = body
+
+  if (!Array.isArray(updates)) {
+    throw new HTTPException(400, { message: 'Missing or invalid updates array' })
+  }
+
+  for (const update of updates) {
+    if (update.r === undefined || update.c === undefined || update.value === undefined) {
+      throw new HTTPException(400, { message: 'Missing r, c, or value in update item' })
+    }
+  }
+
+  try {
+    await SessionService.updateCells(sessionId, updates)
+
+    const senderId = c.req.query('socketId') || 'REST_API'
+    for (const update of updates) {
+      await Broadcaster.broadcastCellUpdate(sessionId, update.r, update.c, update.value, senderId)
+    }
+
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error updating cells in bulk:', error)
+    throw new HTTPException(500, { message: 'Failed to update cells' })
   }
 })
 

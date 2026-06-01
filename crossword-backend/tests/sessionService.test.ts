@@ -190,4 +190,36 @@ describe('SessionService', () => {
     expect(session).toBeDefined()
     expect(session.user_id).toBe(userId)
   })
+
+  it('should support batch cell updates via updateCells', async () => {
+    const sessionId = await SessionService.createOrResetSession(null, 1)
+
+    await SessionService.updateCells(sessionId, [
+      { r: 0, c: 0, value: 'H' },
+      { r: 0, c: 2, value: 'I' }
+    ])
+
+    const result = await SessionService.getSessionWithPuzzle(sessionId)
+    expect(result.sessionState[0][0]).toBe('H')
+    expect(result.sessionState[0][2]).toBe('I')
+  })
+
+  it('should prevent race conditions on concurrent loading (thundering herd)', async () => {
+    const sessionId = await SessionService.createOrResetSession(null, 1)
+
+    // Clear cache to force a DB load
+    // @ts-ignore
+    SessionService.cache.delete(sessionId)
+
+    // Fire off multiple concurrent updateCell requests
+    const p1 = SessionService.updateCell(sessionId, 0, 0, 'X')
+    const p2 = SessionService.updateCell(sessionId, 0, 2, 'Y')
+
+    await Promise.all([p1, p2])
+
+    // Verify both succeeded and neither was wiped out
+    const result = await SessionService.getSessionWithPuzzle(sessionId)
+    expect(result.sessionState[0][0]).toBe('X')
+    expect(result.sessionState[0][2]).toBe('Y')
+  })
 })

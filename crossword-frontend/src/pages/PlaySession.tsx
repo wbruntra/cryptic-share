@@ -64,18 +64,19 @@ function PlaySessionInner({ sessionId }: { sessionId: string | undefined }) {
     }
   }, [puzzleComplete])
 
-  const { sendCellUpdate } = usePuzzleSync(sessionId)
+  const { sendCellUpdate, sendCellsUpdate } = usePuzzleSync(sessionId)
   const { checkCurrentWord, checkAllAnswers, checkIsPuzzleComplete, claimWord } = useAnswerChecker()
   const { selectCell, navigateToClue } = useCursorSelection()
 
   const handleFillAnswer = (clueNumber: number, direction: Direction, answer: string) => {
     const cells = getCellsForClue(grid, clueNumber, direction)
+    const updates: Array<{ r: number; c: number; value: string }> = []
     cells.forEach((cellKey, i) => {
       const [r, c] = cellKey.split('-').map(Number)
       const letter = answer[i] ?? ' '
-      dispatch(updateCell({ r, c, value: letter }))
-      sendCellUpdate(r, c, letter)
+      updates.push({ r, c, value: letter })
     })
+    sendCellsUpdate(updates)
   }
 
   const handleCheckAllAnswers = () => {

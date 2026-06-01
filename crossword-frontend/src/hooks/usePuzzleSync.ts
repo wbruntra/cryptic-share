@@ -211,5 +211,45 @@ export function usePuzzleSync(sessionId: string | undefined) {
           })
       }
     },
+    sendCellsUpdate: (updates: Array<{ r: number; c: number; value: string }>) => {
+      if (!sessionId || updates.length === 0) return
+
+      updates.forEach(({ r, c, value }) => {
+        dispatch(updateCell({ r, c, value }))
+      })
+
+      try {
+        const local = getLocalSessionById(sessionId)
+        if (local && local.lastKnownState) {
+          const state = [...local.lastKnownState]
+          updates.forEach(({ r, c, value }) => {
+            if (r >= 0 && r < state.length) {
+              const row = state[r] || ''
+              const paddedRow = row.padEnd(c + 1, ' ')
+              const newRow = paddedRow.substring(0, c) + value + paddedRow.substring(c + 1)
+              state[r] = newRow
+            }
+          })
+
+          saveLocalSession({
+            ...local,
+            lastKnownState: state,
+            lastPlayed: Date.now(),
+          })
+        }
+      } catch (e) {
+        console.error('Failed to update local storage', e)
+      }
+
+      if (isConnected) {
+        axios
+          .post(`/api/sessions/${sessionId}/cells${socketId ? `?socketId=${socketId}` : ''}`, {
+            updates,
+          })
+          .catch((err) => {
+            console.warn('[usePuzzleSync] Failed to send cells update via REST:', err)
+          })
+      }
+    },
   }
 }

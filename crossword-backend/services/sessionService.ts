@@ -285,6 +285,8 @@ export class SessionService {
     is_complete?: boolean
   }>()
   private static saveTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  private static pendingLoads = new Map<string, Promise<string[] | null>>()
+  private static pendingInits = new Map<string, Promise<string[]>>()
 
   private static MAX_CACHE_SIZE = 1000
   private static CACHE_CLEANUP_THRESHOLD = 0.9
@@ -329,29 +331,41 @@ export class SessionService {
       return cached.state
     }
 
-    const session = await db('puzzle_sessions')
-      .join('puzzles', 'puzzle_sessions.puzzle_id', 'puzzles.id')
-      .where('puzzle_sessions.session_id', sessionId)
-      .select('puzzle_sessions.*', 'puzzles.letter_count')
-      .first()
-    if (!session) return null
+    let promise = this.pendingLoads.get(sessionId)
+    if (!promise) {
+      promise = (async () => {
+        try {
+          const session = await db('puzzle_sessions')
+            .join('puzzles', 'puzzle_sessions.puzzle_id', 'puzzles.id')
+            .where('puzzle_sessions.session_id', sessionId)
+            .select('puzzle_sessions.*', 'puzzles.letter_count')
+            .first()
+          if (!session) return null
 
-    let state: string[] = []
-    try {
-      const parsed = JSON.parse(session.state)
-      state = migrateLegacyState(parsed)
-    } catch (e) {
-      console.error('Failed to parse session state', e)
+          let state: string[] = []
+          try {
+            const parsed = JSON.parse(session.state)
+            state = migrateLegacyState(parsed)
+          } catch (e) {
+            console.error('Failed to parse session state', e)
+          }
+
+          this.setCache(sessionId, {
+            state,
+            lastAccess: Date.now(),
+            dirty: false,
+            letter_count: session.letter_count,
+            is_complete: Boolean(session.is_complete),
+          })
+          return state
+        } finally {
+          this.pendingLoads.delete(sessionId)
+        }
+      })()
+      this.pendingLoads.set(sessionId, promise)
     }
 
-    this.setCache(sessionId, {
-      state,
-      lastAccess: Date.now(),
-      dirty: false,
-      letter_count: session.letter_count,
-      is_complete: Boolean(session.is_complete),
-    })
-    return state
+    return promise
   }
 
   static async getSessionState(sessionId: string): Promise<string[] | null> {
@@ -421,26 +435,36 @@ export class SessionService {
 
     // Initialize state if empty (first edit)
     if (!Array.isArray(state) || state.length === 0 || !state[r]) {
-      // Fetch puzzle dimensions to initialize
-      // We need to fetch the puzzle associated with this session
-      const session = await db('puzzle_sessions')
-        .join('puzzles', 'puzzle_sessions.puzzle_id', 'puzzles.id')
-        .where('puzzle_sessions.session_id', sessionId)
-        .select('puzzles.grid')
-        .first()
+      let initPromise = this.pendingInits.get(sessionId)
+      if (!initPromise) {
+        initPromise = (async () => {
+          const session = await db('puzzle_sessions')
+            .join('puzzles', 'puzzle_sessions.puzzle_id', 'puzzles.id')
+            .where('puzzle_sessions.session_id', sessionId)
+            .select('puzzles.grid')
+            .first()
 
-      if (session && session.grid) {
-        const rows = session.grid.split('\n').map((row: string) => row.trim().split(' '))
-        const height = rows.length
-        const width = rows[0].length
-        // Initializing with space-filled strings
-        state = createEmptyState(height, width)
+          if (session && session.grid) {
+            const rows = session.grid.split('\n').map((row: string) => row.trim().split(' '))
+            const height = rows.length
+            const width = rows[0].length
+            const newState = createEmptyState(height, width)
 
-        // Update cache reference
-        const cached = this.cache.get(sessionId)
-        if (cached) cached.state = state
-      } else {
-        // Can't initialize
+            const cached = this.cache.get(sessionId)
+            if (cached) cached.state = newState
+            return newState
+          } else {
+            throw new Error('Cannot initialize session')
+          }
+        })().finally(() => {
+          this.pendingInits.delete(sessionId)
+        })
+        this.pendingInits.set(sessionId, initPromise)
+      }
+
+      try {
+        state = await initPromise
+      } catch (err) {
         return
       }
     }
@@ -451,6 +475,76 @@ export class SessionService {
       state[r] = setCharAt(state[r], c, value || ' ')
 
       // Mark dirty and schedule save
+      const cached = this.cache.get(sessionId)
+      if (cached) {
+        cached.dirty = true
+        this.scheduleSave(sessionId)
+      }
+    }
+  }
+
+  static async updateCells(
+    sessionId: string,
+    updates: Array<{ r: number; c: number; value: string }>
+  ): Promise<void> {
+    let state = await this.getCachedOrLoad(sessionId)
+    if (!state) return // Session not found
+
+    // Initialize state if empty (first edit)
+    let needsInit = !Array.isArray(state) || state.length === 0
+    if (!needsInit) {
+      for (const update of updates) {
+        if (!state[update.r]) {
+          needsInit = true
+          break
+        }
+      }
+    }
+
+    if (needsInit) {
+      let initPromise = this.pendingInits.get(sessionId)
+      if (!initPromise) {
+        initPromise = (async () => {
+          const session = await db('puzzle_sessions')
+            .join('puzzles', 'puzzle_sessions.puzzle_id', 'puzzles.id')
+            .where('puzzle_sessions.session_id', sessionId)
+            .select('puzzles.grid')
+            .first()
+
+          if (session && session.grid) {
+            const rows = session.grid.split('\n').map((row: string) => row.trim().split(' '))
+            const height = rows.length
+            const width = rows[0].length
+            const newState = createEmptyState(height, width)
+
+            const cached = this.cache.get(sessionId)
+            if (cached) cached.state = newState
+            return newState
+          } else {
+            throw new Error('Cannot initialize session')
+          }
+        })().finally(() => {
+          this.pendingInits.delete(sessionId)
+        })
+        this.pendingInits.set(sessionId, initPromise)
+      }
+
+      try {
+        state = await initPromise
+      } catch (err) {
+        return
+      }
+    }
+
+    let changed = false
+    for (const { r, c, value } of updates) {
+      if (state && state[r] !== undefined) {
+        state[r] = setCharAt(state[r], c, value || ' ')
+        changed = true
+      }
+    }
+
+    if (changed) {
       const cached = this.cache.get(sessionId)
       if (cached) {
         cached.dirty = true
