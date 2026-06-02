@@ -81,3 +81,19 @@
 7. **Unit Testing**: Added exhaustive automated tests in `sessionService.test.ts` validating batch cell updates and confirming thundering herd prevention under heavy concurrent loads.
 8. **UX Enhancement**: Added a `min-h-[500px]` minimum size constraint to the `ParsewordsModal` container to prevent the modal dialog from expanding and contracting as tokens and operation buttons appear or disappear during parsewords gameplay.
 
+### 2026-06-02 - Parsewords Puzzle Generator Upgraded with Multi-Tier Red Herrings
+
+**Goal**: Make LLM-generated Parsewords puzzles highly challenging and robust by systematically introducing red herrings (dead ends) and role-confusion triggers.
+
+**Completed**:
+1. **Added Type Definition Support**: Updated `ParsewordsPuzzle` type declaration in `parsewordsGenerator.ts` to support the new optional `"analysis"` metadata block containing the correct path steps and a mapped catalog of red-herring opportunities.
+2. **Rewrote Generator Prompt**: Rewrote `SYSTEM_PROMPT` inside `parsewordsGenerator.ts` to instruct the LLM to use a structured, multi-tier strategy for puzzle creation:
+   - **JSON-based Chain of Thought**: Enforced that the model generates an `"analysis"` field *first*, serving as a scratchpad to map out correct solution steps and audit the clue's tokens for misleading opportunities before producing the puzzle structure.
+   - **5 Tiers of Red Herrings**:
+     - *Indicator Role Confusion*: Replace triggers that offer literal synonyms for indicator tokens, causing players to lose their indicator capability.
+     - *Filler/Link Word Distractors*: Literal synonyms for non-essential link words that lead to dead ends.
+     - *Fodder/Wordplay Synonym Dead Ends*: Extremely plausible alternate synonyms in replace options that leave players stuck.
+     - *False Cryptic Operations*: Triggers offering plausible but incorrect operations (e.g. reversing when synonym swap is required).
+     - *Definition Red Herrings*: Synonyms of the definition that never lead to the correct answer.
+3. **Refined Trigger Ordering**: Instructed the LLM to strictly order the triggers: correct solution path first, then misleading red herrings, and definition red herrings last.
+4. **Validation and Testing**: Verified that the generated puzzles pass the BFS solver validation. Ran all 106 backend tests, confirming perfect backward and forward compatibility.

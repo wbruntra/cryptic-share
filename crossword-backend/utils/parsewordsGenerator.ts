@@ -44,6 +44,10 @@ export type PuzzleToken = {
 }
 
 export type ParsewordsPuzzle = {
+  analysis?: {
+    correct_path_steps: string[]
+    red_herring_opportunities: { token_or_phrase: string; concept: string }[]
+  }
   label: string
   clue: string
   answer: string
@@ -56,11 +60,37 @@ export type ParsewordsPuzzle = {
 // Prompt
 // ---------------------------------------------------------------------------
 
-const SYSTEM_PROMPT = `You are an expert at converting cryptic crossword clue explanations into interactive puzzle definitions for a word game called Parsewords.
+const SYSTEM_PROMPT = `You are an expert at converting cryptic crossword clue explanations into highly engaging, challenging, and interactive puzzle definitions for a word game called Parsewords.
 
 ## The Parsewords game
 
 The player sees the clue words as clickable tokens. They click tokens (one or several at a time) to discover operations that gradually reduce the clue to the answer. The goal is to consume all non-definition tokens into the answer string, leaving only the definition tokens and the answer token.
+
+A great Parsewords puzzle MUST be challenging. In a real cryptic crossword, a solver does not know which word is the definition, which is an indicator, which is a fodder word, or how they combine. To simulate this mystery, **your puzzle must contain multiple layers of misleading "red herrings" (dead-ends)**. If a player blindly clicks words, treats indicators as synonyms, or chooses wrong synonyms, they should be led down plausible false paths that eventually get stuck!
+
+## Misleading "Red Herrings" Strategy (Critical Requirement)
+
+To make the puzzle challenging, you must systematically analyze every single word or combination of words in the clue and identify opportunities to throw in misleading clues (red herrings) to make it harder. Include the following types of red herrings:
+
+1. **Indicator Role Confusion (Literal Swaps)**:
+   - *Concept*: In a cryptic crossword, players must determine whether a word is an indicator (e.g., reversal, anagram, trim) or literal wordplay/fodder.
+   - *Implementation*: For indicator words (e.g., "nearly", "frustrated", "about", "back"), add a \`replace\` trigger that swaps the word with literal synonyms (e.g., "nearly" -> ["ALMOST", "CLOSELY"], "frustrated" -> ["ANNOYED", "ANGRY"]). If the player chooses one of these synonyms, they lose the ability to use the token as an indicator in subsequent compute/result triggers, leading to a dead end!
+
+2. **Filler / Link Word Distractors**:
+   - *Concept*: Players might think link/connecting words (e.g., "for", "and", "in", "gives") are part of the wordplay or definition.
+   - *Implementation*: Add a \`replace\` trigger for link words that swaps them with plausible synonyms (e.g., "for" -> ["PRO", "TO"], "gives" -> ["YIELDS", "PROVIDES"]). These lead to dead ends since no other triggers will match these replacement words.
+
+3. **Fodder / Wordplay Synonym Dead Ends**:
+   - *Concept*: When a wordplay token requires a synonym replacement (e.g., "Christmas" -> "YULE" in the correct path), you must provide highly plausible alternative synonyms as red herrings (e.g., "NOEL", "XMAS") that are NOT used in subsequent triggers.
+   - *Implementation*: Inside the correct \`replace\` trigger's \`options\`, place the correct synonym first, followed by at least 2-3 genuine, highly plausible synonyms. Selecting any of the wrong synonyms will leave the player stuck.
+
+4. **False Cryptic Operations**:
+   - *Concept*: If a wordplay word or fodder looks like it *could* be reversed, trimmed, or anagrammed, add a trigger for that false operation.
+   - *Implementation*: For example, if a token is "dump", add a \`compute\` reversal trigger: match: "dump back", action: compute reverse -> "PMUD". Even though this is not part of the correct path, it tempts the player to try it.
+
+5. **Definition Red Herrings (Mandatory)**:
+   - *Concept*: Provide synonyms for the definition token(s) that are plausible, but do not contain or lead to the correct answer.
+   - *Implementation*: Add a \`replace\` trigger for the definition token(s) at the very end of the triggers array. Options must be genuine synonyms of the definition, but **must NEVER include the actual answer itself**.
 
 ## Token roles
 
@@ -142,28 +172,39 @@ Example: if after earlier triggers the remaining wordplay tokens are "I" and "MP
 
 This applies whenever the answer is assembled by concatenating two or more independently derived fragments. Without this final trigger the puzzle is unsolvable — the player has no way to finish.
 
+## Required Chain-of-Thought (The \`analysis\` Field)
+
+To ensure the correct path is perfectly solvable and that the red herrings are highly challenging, you must perform a step-by-step audit of the clue before generating the tokens and triggers.
+You **must** include an \`"analysis"\` field at the very beginning of your JSON output. This field must be structured as follows:
+- \`"correct_path_steps"\`: A step-by-step description of the exact sequence of trigger matches and actions that the player must perform to solve the puzzle.
+- \`"red_herring_opportunities"\`: A list of objects, each containing:
+  - \`"token_or_phrase"\`: The specific word or adjacent words in the clue.
+  - \`"concept"\`: A detailed explanation of how this word/phrase is utilized as a red herring (e.g. "We provide literal synonyms for 'frustrated' like ANNOYED or ANGRY to mislead players into treating it as wordplay rather than an anagram indicator").
+
 ## Trigger ordering (required)
 
-**Put solution triggers first, red herring triggers last.**
+**Put solution triggers first, red herring triggers next, definition red herrings last.**
 
-The triggers array must be ordered so that the correct solution path comes first. Red herring triggers (especially the definition red herring below) must be appended at the end of the array, after all solution triggers.
+The triggers array must be ordered so that the correct solution path comes first. All misleading red herring triggers (indicator swaps, link word swaps, false operations) must follow. The definition red herring(s) must be appended at the very end of the array.
 
 This ordering is used by automated validation to verify the puzzle is solvable.
-
-## Definition red herrings (required)
-
-Always add a **replace** trigger for the definition token(s) **at the end of the triggers array**. The options should be plausible synonyms of the definition — but must NOT include the actual answer. These are intentional dead ends: the player may try clicking the definition, get a synonym, and discover it leads nowhere, which teaches them that the definition is not the wordplay path. This is an important part of the puzzle design.
-
-- If the definition is a single word, add a single-token replace trigger.
-- If the definition spans multiple adjacent tokens, add a multi-token replace trigger for the whole span.
-- Options must be genuine synonyms of the definition sense (not nonsense). **Never include the answer itself** as one of the options — the whole point is that this path leads nowhere.
-- Include exactly 3 options.
 
 ## Output format
 
 Return a single JSON object with this exact shape:
 \`\`\`json
 {
+  "analysis": {
+    "correct_path_steps": [
+      "Step 1: Description of correct action 1",
+      "Step 2: Description of correct action 2",
+      ...
+    ],
+    "red_herring_opportunities": [
+      { "token_or_phrase": "Word", "concept": "Explanation of how it misleads the player" },
+      ...
+    ]
+  },
   "label": "ANSWER",
   "clue": "original clue text",
   "answer": "ANSWER",
@@ -179,13 +220,32 @@ Return a single JSON object with this exact shape:
 }
 \`\`\`
 
-## Example puzzle (TROUNCE — anagram)
+## Example puzzle (TROUNCE — anagram + indicator and fodder red herrings)
 
 Clue: "Beat counter, frustrated (7)"
 Answer: TROUNCE
 
 \`\`\`json
 {
+  "analysis": {
+    "correct_path_steps": [
+      "Step 1: Anagram 'counter,' (wordplay fodder) signaled by 'frustrated' (anagram indicator) to yield the correct answer 'TROUNCE'."
+    ],
+    "red_herring_opportunities": [
+      {
+        "token_or_phrase": "frustrated",
+        "concept": "Mislead player into treating 'frustrated' as literal wordplay (synonyms ANNOYED/ANGRY) rather than an anagram indicator, leading to a dead end."
+      },
+      {
+        "token_or_phrase": "counter,",
+        "concept": "Mislead player into treating 'counter,' as a synonym swap (SHOP-DESK/REBUT) rather than rearranging its letters, leading to a dead end."
+      },
+      {
+        "token_or_phrase": "Beat",
+        "concept": "Definition red herring: provide synonyms for the definition 'Beat' (DEFEAT/THRASH/PUMMEL) which do not lead to the answer."
+      }
+    ]
+  },
   "label": "TROUNCE",
   "clue": "Beat counter, frustrated (7)",
   "answer": "TROUNCE",
@@ -200,6 +260,14 @@ Answer: TROUNCE
       "action": { "kind": "result", "label": "anagram", "options": ["TROUNCE", "RECOUNT", "CORNUTE"] }
     },
     {
+      "match": "frustrated",
+      "action": { "kind": "replace", "label": "synonym", "options": ["ANNOYED", "ANGRY", "STYMIED"] }
+    },
+    {
+      "match": "counter,",
+      "action": { "kind": "replace", "label": "synonym", "options": ["SHOP-DESK", "REBUT", "OPPOSE"] }
+    },
+    {
       "match": "Beat",
       "action": { "kind": "replace", "label": "definition", "options": ["DEFEAT", "THRASH", "PUMMEL"] }
     }
@@ -207,13 +275,45 @@ Answer: TROUNCE
 }
 \`\`\`
 
-## Example puzzle (LULLABY — deletion + reversals + container)
+## Example puzzle (LULLABY — deletion + reversals + container + multi-tier red herrings)
 
 Clue: "With Christmas nearly over recall dance's sleepy tune (7)"
 Answer: LULLABY
 
 \`\`\`json
 {
+  "analysis": {
+    "correct_path_steps": [
+      "Step 1: Replace 'Christmas' with synonym 'YULE'.",
+      "Step 2: Replace 'dance's' with synonym 'BALL'.",
+      "Step 3: Trim the last letter of 'YULE' using 'nearly' (trim-last) to get 'YUL'.",
+      "Step 4: Reverse 'YUL' using 'over' (reversal) to get 'LUY'.",
+      "Step 5: Reverse 'BALL' using 'recall' (reversal) to get 'LLAB'.",
+      "Step 6: Insert 'LUY' inside 'LLAB' using 'With' (container) to get 'LULLABY'."
+    ],
+    "red_herring_opportunities": [
+      {
+        "token_or_phrase": "Christmas",
+        "concept": "Provide alternate synonyms like NOEL or XMAS which lead to a dead end because subsequent triggers only accept YULE."
+      },
+      {
+        "token_or_phrase": "dance's",
+        "concept": "Provide alternate synonyms like WALTZ or JIVE which lead to a dead end because subsequent triggers only accept BALL."
+      },
+      {
+        "token_or_phrase": "nearly",
+        "concept": "Provide literal replace trigger for 'nearly' -> ['ALMOST', 'APPROXIMATELY'] to distract the player from using it as a trim indicator."
+      },
+      {
+        "token_or_phrase": "over",
+        "concept": "Provide literal replace trigger for 'over' -> ['FINISHED', 'ENDED'] to distract from its reversal indicator role."
+      },
+      {
+        "token_or_phrase": "sleepy tune",
+        "concept": "Definition red herring: replace definition phrase 'sleepy tune' with CRADLE SONG/SERENADE/NOCTURNE which lead nowhere."
+      }
+    ]
+  },
   "label": "LULLABY",
   "clue": "With Christmas nearly over recall dance's sleepy tune (7)",
   "answer": "LULLABY",
@@ -234,21 +334,42 @@ Answer: LULLABY
     { "match": "YUL over", "action": { "kind": "compute", "label": "reversal", "fn": "reverse", "source": "YUL" } },
     { "match": "BALL recall", "action": { "kind": "compute", "label": "reversal", "fn": "reverse", "source": "BALL" } },
     { "match": "With LUY LLAB", "action": { "kind": "container", "label": "container" } },
+    { "match": "nearly", "action": { "kind": "replace", "label": "synonym", "options": ["ALMOST", "APPROXIMATELY", "CLOSELY"] } },
+    { "match": "over", "action": { "kind": "replace", "label": "synonym", "options": ["FINISHED", "ENDED", "ABOVE"] } },
+    { "match": "recall", "action": { "kind": "replace", "label": "synonym", "options": ["REMEMBER", "REMEMBRANCE", "EVOKE"] } },
     { "match": "sleepy tune", "action": { "kind": "replace", "label": "definition", "options": ["CRADLE SONG", "SERENADE", "NOCTURNE"] } }
   ]
 }
 \`\`\`
 
-Note: the first trigger is the definition red herring — "sleepy tune" can be replaced with synonyms like CRADLE SONG, but none lead to LULLABY via wordplay, making it a dead end. The answer LULLABY is intentionally absent from those options.
-Note: after "Christmas" is replaced with "YULE", subsequent triggers reference "YULE" (the new text), not "Christmas".
-
-## Example puzzle (IMPOUND — abbreviation + anagram + concatenation)
+## Example puzzle (IMPOUND — abbreviation + anagram + concatenation + red herrings)
 
 Clue: "Seize first person playing on dump (7)"
 Answer: IMPOUND
 
 \`\`\`json
 {
+  "analysis": {
+    "correct_path_steps": [
+      "Step 1: Take first letter of 'person' to get 'I' (abbreviation).",
+      "Step 2: Anagram 'on dump' using 'playing' (anagram) to get 'MPOUND'.",
+      "Step 3: Concatenate 'I' and 'MPOUND' (charade) to form 'IMPOUND'."
+    ],
+    "red_herring_opportunities": [
+      {
+        "token_or_phrase": "first person",
+        "concept": "Include incorrect initials like ME or HE to mislead players."
+      },
+      {
+        "token_or_phrase": "playing",
+        "concept": "Provide literal synonyms for 'playing' -> ['PERFORMING', 'ACTING'] to distract from its anagram indicator role."
+      },
+      {
+        "token_or_phrase": "Seize",
+        "concept": "Definition red herring: provide synonyms for the definition 'Seize' (CONFISCATE/CAPTURE/GRAB) that lead to a dead end."
+      }
+    ]
+  },
   "label": "IMPOUND",
   "clue": "Seize first person playing on dump (7)",
   "answer": "IMPOUND",
@@ -264,12 +385,13 @@ Answer: IMPOUND
     { "match": "first person", "action": { "kind": "result", "label": "initials", "options": ["I", "ME", "HE"] } },
     { "match": "on dump playing", "action": { "kind": "result", "label": "anagram", "options": ["MPOUND", "DUNPOM", "PONDMU"] } },
     { "match": "I MPOUND", "action": { "kind": "result", "label": "charade", "options": ["IMPOUND", "IMOPUND", "MIPOUND"] } },
+    { "match": "playing", "action": { "kind": "replace", "label": "synonym", "options": ["PERFORMING", "ACTING", "TOYING"] } },
     { "match": "Seize", "action": { "kind": "replace", "label": "definition", "options": ["CONFISCATE", "CAPTURE", "GRAB"] } }
   ]
 }
 \`\`\`
 
-Note: solution triggers come first (abbreviation → I, anagram → MPOUND, concatenation → IMPOUND), and the definition red herring ("Seize" → CONFISCATE etc.) is last. The final concatenation trigger is mandatory — without it the puzzle is unsolvable.
+Note: the triggers array strictly places correct solution path triggers first, then misleading red herrings (like 'playing' -> PERFORMING), and finally the definition red herring ('Seize' -> CONFISCATE).
 `
 
 // ---------------------------------------------------------------------------

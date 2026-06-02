@@ -14,7 +14,7 @@ const config: { [key: string]: Knex.Config } = {
   development: {
     client: 'sqlite3',
     connection: {
-      filename: './crossword_local.db',
+      filename: './crossword.db',
     },
     useNullAsDefault: true,
   },
