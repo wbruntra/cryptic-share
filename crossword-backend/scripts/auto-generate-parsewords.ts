@@ -284,44 +284,47 @@ async function resolvePuzzleId(puzzleTitle: string, book: string): Promise<numbe
 
 async function main() {
   const argv = minimist(Bun.argv.slice(2), {
-    boolean: ['save', 'dry-run', 'help', 'force'],
+    boolean: ['dry-run', 'help', 'force'],
     string: ['puzzle-title', 'book', 'count', 'model'],
-    alias: { h: 'help' },
+    alias: { h: 'help', t: 'puzzle-title', b: 'book', n: 'count', m: 'model' },
   })
 
   if (argv.help) {
-    console.log(`Usage: bun scripts/auto-generate-parsewords.ts --puzzle-title <title> [options]
+    console.log(`Usage: bun scripts/auto-generate-parsewords.ts [options]
 
 Pipeline: explanations → verify wordplay steps → generate parsewords → BFS validate → save
 
 Options:
-  --puzzle-title <t>  Puzzle title to process (exact match; required)
+  --puzzle-title <t>  Puzzle title to process (partial match; default: most recent)
   --book <b>          Book number to search in (default: 3)
   --count <n>         Max parsewords puzzles to generate (default: 4)
   --model <slug>      Model for parsewords generation (default: deepseek-pro)
-  --save              Save generated puzzles to DB (default: dry-run preview)
   --force             Regenerate parsewords even if already saved for a clue
-  --dry-run           Only show what would be processed, without generating
+  --dry-run           Preview without saving to DB
 
 Examples:
-  bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet" --dry-run
-  bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet" --count 4 --save
+  bun scripts/auto-generate-parsewords.ts
+  bun scripts/auto-generate-parsewords.ts --puzzle-title "Ham"
   bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet" --count 2 --model flash
+  bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet" --dry-run
 `)
     process.exit(0)
   }
 
   const puzzleTitleFilter: string | null = argv['puzzle-title'] || null
   const book: string = argv['book'] || '3'
-  if (!puzzleTitleFilter) {
-    console.error('Error: --puzzle-title is required')
-    process.exit(1)
+
+  let puzzleId: number
+  if (puzzleTitleFilter) {
+    puzzleId = await resolvePuzzleId(puzzleTitleFilter, book)
+  } else {
+    const recent = await resolveMostRecentPuzzleId(book)
+    console.log(`  No --puzzle-title given; using most recent: "${recent.title}"`)
+    puzzleId = recent.id
   }
 
-  const puzzleId = await resolvePuzzleId(puzzleTitleFilter, book)
-
   const count = parseInt(argv['count'] ?? '4', 10)
-  const save = argv['save'] ?? false
+  const save = true
   const force = argv['force'] ?? false
   const dryRunOnly = argv['dry-run'] ?? false
   const modelKey = argv['model'] ?? 'deepseek-pro'
@@ -516,7 +519,7 @@ Examples:
         failed++
       }
     } else {
-      console.log(`  (Dry-run: pass --save to write to DB)\n`)
+      console.log(`  (Dry-run: remove --dry-run to write to DB)\n`)
     }
   }
 
@@ -525,8 +528,8 @@ Examples:
   // ------------------------------------------------------------------
   console.log('='.repeat(70))
   console.log(`Summary: generated=${generated}, saved=${saved}, failed=${failed}`)
-  if (!save) {
-    console.log('(Pass --save to write generated puzzles to DB)')
+  if (dryRunOnly) {
+    console.log('(Dry run — remove --dry-run to save to DB)')
   }
   console.log('='.repeat(70))
 
