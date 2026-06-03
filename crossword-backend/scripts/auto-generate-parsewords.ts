@@ -7,18 +7,19 @@
  *   3. Run verifyExplanation() to validate step-by-step correctness
  *   4. For verified clues not yet in parsewords_puzzles, generate puzzles
  *   5. BFS-validate each generated puzzle is solvable
- *   6. Save to parsewords_puzzles table (if --save)
+ *   6. Save to parsewords_puzzles table (unless --dry-run)
  *
  * Usage:
- *   bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet"
- *   bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet" --book 3 --count 4 --save
+ *   bun scripts/auto-generate-parsewords.ts                         # uses most recent puzzle
+ *   bun scripts/auto-generate-parsewords.ts --puzzle-title "Ham"    # partial match ok
+ *   bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet" --book 3 --count 4
  *   bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet" --dry-run
  *
  * Options:
- *   --puzzle-title <t>  Puzzle title to process (exact match; required)
+ *   --puzzle-title <t>  Puzzle title to process (partial match; default: most recent)
  *   --book <b>          Book number to search in (default: 3)
  *   --count <n>         Max parsewords puzzles to generate (default: 4)
- *   --save              Save generated puzzles to DB (default: dry-run)
+ *   --dry-run           Preview without saving to DB
  *   --model <slug>      Model for parsewords generation (default: deepseek-pro)
  */
 
@@ -245,18 +246,32 @@ function validatePuzzle(puzzle: Puzzle): ValidationResult {
 // Puzzle lookup
 // ---------------------------------------------------------------------------
 
+async function resolveMostRecentPuzzleId(book: string): Promise<{ id: number; title: string }> {
+  // Use the puzzle that most recently had a clue_explanation inserted
+  const row = await db('clue_explanations')
+    .join('puzzles', 'puzzles.id', 'clue_explanations.puzzle_id')
+    .where('puzzles.book', book)
+    .orderBy('clue_explanations.id', 'desc')
+    .select('puzzles.id', 'puzzles.title')
+    .first()
+  if (!row) {
+    throw new Error(`No puzzles with clue explanations found in book ${book}`)
+  }
+  return row
+}
+
 async function resolvePuzzleId(puzzleTitle: string, book: string): Promise<number> {
   const matches = await db<PuzzleRow>('puzzles')
     .select('id', 'title', 'book', 'puzzle_number')
     .where('book', book)
-    .where('title', puzzleTitle)
+    .whereRaw('LOWER(title) LIKE LOWER(?)', [`%${puzzleTitle}%`])
 
   if (matches.length === 0) {
-    throw new Error(`No puzzle found with title "${puzzleTitle}" in book ${book}`)
+    throw new Error(`No puzzle found matching "${puzzleTitle}" in book ${book}`)
   }
   if (matches.length > 1) {
     const list = matches.map((p) => `  ID ${p.id}: "${p.title}" (P#${p.puzzle_number ?? '—'})`).join('\n')
-    throw new Error(`Multiple puzzles match title "${puzzleTitle}" in book ${book}:\n${list}\nBe more specific.`)
+    throw new Error(`Multiple puzzles match "${puzzleTitle}" in book ${book}:\n${list}\nBe more specific.`)
   }
   const match = matches[0]!
   console.log(`  Resolved puzzle: ID ${match.id} — "${match.title}"`)
