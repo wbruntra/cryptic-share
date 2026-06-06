@@ -42,24 +42,33 @@ export class SessionService {
     const now = new Date().toISOString()
     let count = 0
 
-    for (const anonymousSessionId of sessionIds) {
-      // 1. Get the anonymous session
-      const anonymousSession = await db('puzzle_sessions')
-        .where({ session_id: anonymousSessionId })
-        .first()
+    // 1. Fetch all candidate anonymous sessions
+    const anonymousSessions = await db('puzzle_sessions')
+      .whereIn('session_id', sessionIds)
+      .whereNull('user_id')
 
-      // If it doesn't exist or already belongs to a user (any user), skip
-      if (!anonymousSession || anonymousSession.user_id) {
-        continue
-      }
+    if (anonymousSessions.length === 0) {
+      return 0
+    }
 
-      // 2. Check for an existing session for this user and puzzle
-      const userSession = await db('puzzle_sessions')
-        .where({
-          user_id: userId,
-          puzzle_id: anonymousSession.puzzle_id,
-        })
-        .first()
+    // 2. Identify puzzle IDs involved
+    const puzzleIds = anonymousSessions.map((s) => s.puzzle_id)
+
+    // 3. Fetch all existing user sessions for these puzzles
+    const userSessions = await db('puzzle_sessions')
+      .where({ user_id: userId })
+      .whereIn('puzzle_id', puzzleIds)
+      .select('*')
+
+    // Map for quick lookup: puzzle_id -> userSession
+    const userSessionMap = new Map<number, any>()
+    for (const session of userSessions) {
+      userSessionMap.set(session.puzzle_id, session)
+    }
+
+    // 4. Iterate and process
+    for (const anonymousSession of anonymousSessions) {
+      const userSession = userSessionMap.get(anonymousSession.puzzle_id)
 
       if (userSession) {
         // CONFLICT: Merge required
@@ -94,29 +103,30 @@ export class SessionService {
 
           // Update user session with merged state
           const filledCount = countFilledLetters(mergedState)
-          
+
           // Get puzzle's letter_count for completion check
           const puzzle = await db('puzzles')
             .where({ id: anonymousSession.puzzle_id })
             .select('letter_count')
             .first()
-            
-          const isComplete = puzzle?.letter_count != null && filledCount >= puzzle.letter_count
 
-          await db('puzzle_sessions')
-            .where({ session_id: userSession.session_id })
-            .update({
-              state: JSON.stringify(mergedState),
-              updated_at: now,
-              is_complete: isComplete
-            })
+          const isComplete = puzzle?.letter_count != null && filledCount >= puzzle.letter_count
+          const newStateStr = JSON.stringify(mergedState)
+
+          await db('puzzle_sessions').where({ session_id: userSession.session_id }).update({
+            state: newStateStr,
+            updated_at: now,
+            is_complete: isComplete,
+          })
 
           // Invalidate cache for user session if it exists so next load gets merged state
           this.cache.delete(userSession.session_id)
+          // Update the map to reflect the new state, in case we encounter another anon session for same puzzle
+          userSession.state = newStateStr
 
           // Delete anonymous session
-          await db('puzzle_sessions').where({ session_id: anonymousSessionId }).del()
-          this.cache.delete(anonymousSessionId)
+          await db('puzzle_sessions').where({ session_id: anonymousSession.session_id }).del()
+          this.cache.delete(anonymousSession.session_id)
 
           count++
         } catch (e) {
@@ -127,10 +137,18 @@ export class SessionService {
         }
       } else {
         // NO CONFLICT: Just claim it
-        await db('puzzle_sessions').where({ session_id: anonymousSessionId }).update({
+        await db('puzzle_sessions').where({ session_id: anonymousSession.session_id }).update({
           user_id: userId,
           updated_at: now,
         })
+
+        // Update map so next iteration knows user has a session now
+        userSessionMap.set(anonymousSession.puzzle_id, {
+          ...anonymousSession,
+          user_id: userId,
+          updated_at: now,
+        })
+
         count++
       }
     }
