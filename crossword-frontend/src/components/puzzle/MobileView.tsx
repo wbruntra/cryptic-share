@@ -163,16 +163,6 @@ export function MobileView({
                 className={`bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 ${!cursor || !currentClue ? 'opacity-50 cursor-not-allowed' : 'active:bg-blue-500/20'}`}
               />
             )}
-            {puzzleId && (
-              <button
-                onClick={() => setShowParsewords(true)}
-                className="w-9 h-9 flex items-center justify-center rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30 active:bg-purple-500/20 transition-colors"
-                aria-label="Parsewords puzzles"
-                title="Play Parsewords mini-puzzles to discover clue answers"
-              >
-                <LuPuzzle size={18} />
-</button>
-            )}
             {sessionId && (
               <ToolbarButton
                 onClick={onCheckAnswers}
@@ -187,12 +177,22 @@ export function MobileView({
               onClick={() => dispatch(toggleLockMode())}
               icon={isLockModeEnabled ? <LuLock size={18} /> : <LuLockOpen size={18} />}
               label={isLockModeEnabled ? 'Lock mode enabled' : 'Lock mode disabled'}
-              title={isLockModeEnabled ? 'Lock mode: Correct words are locked' : 'Lock mode: All cells editable'}
+              title={isLockModeEnabled ? 'Lock: Correct words locked' : 'Lock: All cells editable'}
               compact
               className={isLockModeEnabled
                 ? 'bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400'
                 : 'bg-surface border-border text-text-secondary active:border-green-500 active:text-green-600'}
             />
+            {puzzleId && (
+              <button
+                onClick={() => setShowParsewords(true)}
+                className="w-9 h-9 flex items-center justify-center rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30 active:bg-purple-500/20 transition-colors"
+                aria-label="Parsewords puzzles"
+                title="Play Parsewords mini-puzzles to discover clue answers"
+              >
+                <LuPuzzle size={18} />
+              </button>
+            )}
             {sessionId && (
               <ToolbarButton
                 onClick={() => setShowAttributions(true)}
@@ -230,6 +230,7 @@ export function MobileView({
             attributions={attributions}
             showAttributions={showAttributions}
             clueMetadata={clueMetadata}
+            selectedDirection={cursor?.direction}
           />
         </div>
       </div>

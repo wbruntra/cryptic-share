@@ -106,3 +106,17 @@
      - *Definition Red Herrings*: Synonyms of the definition that never lead to the correct answer.
 3. **Refined Trigger Ordering**: Instructed the LLM to strictly order the triggers: correct solution path first, then misleading red herrings, and definition red herrings last.
 4. **Validation and Testing**: Verified that the generated puzzles pass the BFS solver validation. Ran all 106 backend tests, confirming perfect backward and forward compatibility.
+
+### 2026-06-11 - Selected Cell Direction Indicators
+
+**Goal**: Add a superimposed arrow on the selected square to show the current clue direction (across or down) without interfering with letter input.
+
+**Completed**:
+1. Added CSS keyframe animations `arrow-pop-across` and `arrow-pop-down` to `crossword-frontend/src/index.css` to handle spring-like scale and slide-in effects for arrows when a cell is selected or direction changes.
+2. Updated `GridCell.tsx` to accept `selectedDirection?: Direction` and render `FaLongArrowAltRight` (bottom-centered) for across direction or `FaLongArrowAltDown` (right-centered) for down direction, with mobile vs. desktop responsive sizes (10px / 12px) to prevent interfering with letter inputs.
+3. Updated `CrosswordGrid.tsx` to pass the `selectedDirection` prop down to the individual `GridCell` render loop.
+4. Updated `DesktopView.tsx` and `MobileView.tsx` to extract the cursor's current direction (`cursor?.direction`) and supply it as `selectedDirection` to the `CrosswordGrid`.
+5. Added a mock for `react-icons/fa` to `CrosswordGrid.perf.test.tsx` to prevent dual React resolution issues under Vitest.
+
+6. Reordered the menu buttons in `DesktopView.tsx` and `MobileView.tsx` to place the Parsewords puzzle piece button on the right of the lock mode button.
+

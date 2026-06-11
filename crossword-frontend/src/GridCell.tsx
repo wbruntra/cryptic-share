@@ -1,5 +1,6 @@
 import React, { memo } from 'react'
-import type { RenderedCell, Mode } from '@/types'
+import type { RenderedCell, Mode, Direction } from '@/types'
+import { FaLongArrowAltRight, FaLongArrowAltDown } from 'react-icons/fa'
 import { getAttributionBackground, getAttributionBorder } from './utils/attributionColors'
 
 export interface GridCellProps {
@@ -14,6 +15,7 @@ export interface GridCellProps {
   attribution: { userId: number | null; username: string } | null
   showAttributions: boolean
   onCellClick: (r: number, c: number) => void
+  selectedDirection?: Direction
 }
 
 // Memoized cell component to prevent unnecessary re-renders
@@ -29,6 +31,7 @@ export const GridCell = memo(function GridCell({
   attribution,
   showAttributions,
   onCellClick,
+  selectedDirection,
 }: GridCellProps) {
   const isBlack = cell.type === 'B'
 
@@ -118,6 +121,18 @@ export const GridCell = memo(function GridCell({
       )}
       {mode === 'play' && cell.answer && (
         <span className="text-xl md:text-2xl font-bold uppercase z-1 shrink-0">{cell.answer}</span>
+      )}
+      {cell.isSelected && selectedDirection === 'across' && (
+        <span className="absolute bottom-[2px] left-1/2 text-primary dark:text-blue-400 pointer-events-none flex items-center justify-center animate-arrow-across">
+          <FaLongArrowAltRight size={10} className="md:hidden" />
+          <FaLongArrowAltRight size={12} className="hidden md:block" />
+        </span>
+      )}
+      {cell.isSelected && selectedDirection === 'down' && (
+        <span className="absolute right-[2px] top-1/2 text-primary dark:text-blue-400 pointer-events-none flex items-center justify-center animate-arrow-down">
+          <FaLongArrowAltDown size={10} className="md:hidden" />
+          <FaLongArrowAltDown size={12} className="hidden md:block" />
+        </span>
       )}
     </div>
   )

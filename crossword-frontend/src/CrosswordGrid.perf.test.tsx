@@ -1,4 +1,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
+
+// Mock react-icons/fa to prevent React dual-resolution issues in Vitest
+vi.mock('react-icons/fa', () => ({
+  FaLongArrowAltRight: () => <span data-testid="arrow-right" />,
+  FaLongArrowAltDown: () => <span data-testid="arrow-down" />,
+}))
+
 import { screen, fireEvent, act } from '@testing-library/react'
 import { memo } from 'react'
 import { renderWithProviders } from './test-utils'

@@ -14,6 +14,7 @@ interface CrosswordGridProps {
   attributions?: Record<string, { userId: number | null; username: string; timestamp: string }>
   showAttributions?: boolean
   clueMetadata?: Array<{ number: number; direction: 'across' | 'down'; row: number; col: number }>
+  selectedDirection?: 'across' | 'down'
 }
 
 export function CrosswordGrid({
@@ -27,6 +28,7 @@ export function CrosswordGrid({
   attributions,
   showAttributions = false,
   clueMetadata,
+  selectedDirection,
 }: CrosswordGridProps) {
   // Pre-compute cell attributions map for O(1) lookup
   const cellAttributionMap = useMemo(() => {
@@ -83,6 +85,7 @@ export function CrosswordGrid({
                     attribution={cellAttributionMap.get(cellKey) ?? null}
                     showAttributions={showAttributions}
                     onCellClick={onCellClick}
+                    selectedDirection={selectedDirection}
                   />
                 )
               })}

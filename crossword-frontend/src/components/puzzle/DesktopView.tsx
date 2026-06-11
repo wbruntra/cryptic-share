@@ -118,16 +118,6 @@ export function DesktopView({
             disabled={!cursor || !currentClue}
             className={`bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 ${!cursor || !currentClue ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-500/20'}`}
           />
-          {puzzleId && (
-            <button
-              onClick={() => setShowParsewords(true)}
-              className="w-10 h-10 flex items-center justify-center rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30 hover:bg-purple-500/20 transition-colors"
-              aria-label="Parsewords puzzles"
-              title="Play Parsewords mini-puzzles to discover clue answers"
-            >
-              <LuPuzzle size={20} />
-            </button>
-          )}
           {sessionId && (
             <ToolbarButton
               onClick={() => {
@@ -149,6 +139,16 @@ export function DesktopView({
               ? 'bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400'
               : 'bg-surface border-border text-text-secondary hover:border-green-500 hover:text-green-600'}
           />
+          {puzzleId && (
+            <button
+              onClick={() => setShowParsewords(true)}
+              className="w-10 h-10 flex items-center justify-center rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30 hover:bg-purple-500/20 transition-colors"
+              aria-label="Parsewords puzzles"
+              title="Play Parsewords mini-puzzles to discover clue answers"
+            >
+              <LuPuzzle size={20} />
+            </button>
+          )}
           {isSupported && sessionId && (
             <ToolbarButton
               onClick={handleNotificationClick}
@@ -198,6 +198,7 @@ export function DesktopView({
             attributions={attributions}
             showAttributions={showAttributions}
             clueMetadata={clueMetadata}
+            selectedDirection={cursor?.direction}
           />
 
           <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
