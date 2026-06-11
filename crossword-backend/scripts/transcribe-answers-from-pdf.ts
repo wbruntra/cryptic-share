@@ -74,6 +74,7 @@ OPTIONS:
   --help              Show this help message
   --book <n>          Book number (default: 3)
   --start <n>         Starting puzzle number (overrides filename)
+  --page <n>          Only process this page number (1-based), skip all others
   --dry-run           Preview changes without saving to DB
   --update-existing   Update existing puzzles instead of skipping
   --skip-validation   Skip answer/grid validation (faster but riskier)
@@ -83,6 +84,9 @@ OPTIONS:
 EXAMPLES:
   # Process puzzles 105-112+ from book 3
   bun scripts/transcribe-answers-from-pdf.ts solutions_105.pdf
+
+  # Redo only page 4 (puzzles 117-120) with update-existing
+  bun scripts/transcribe-answers-from-pdf.ts solutions_105.pdf --page 4 --update-existing
 
   # Dry run to preview
   bun scripts/transcribe-answers-from-pdf.ts solutions_105.pdf --dry-run
@@ -160,12 +164,13 @@ async function pdfToImages(pdfPath: string): Promise<string[]> {
 
 async function main() {
   const argv = minimist(Bun.argv.slice(2), {
-    string: ['book', 'start', 'width', 'height'],
+    string: ['book', 'start', 'page', 'width', 'height'],
     boolean: ['dry-run', 'update-existing', 'skip-validation', 'help'],
     alias: {
       h: 'help',
       b: 'book',
       s: 'start',
+      p: 'page',
     },
   })
 
@@ -218,6 +223,7 @@ async function main() {
     const width = argv.width ? Number(argv.width) : 15
     const height = argv.height ? Number(argv.height) : 15
     const explicitStart = argv.start ? Number(argv.start) : null
+    const onlyPage = argv.page ? Number(argv.page) : null
 
     await checkPdftoppm()
 
@@ -233,6 +239,7 @@ async function main() {
     console.log(`Book: ${book}, Starting puzzle: ${startPuzzle}`)
     if (dryRun) console.log('DRY RUN — no database changes will be made')
     if (updateExisting) console.log('--update-existing: existing puzzles will be updated')
+    if (onlyPage !== null) console.log(`--page ${onlyPage}: only processing page ${onlyPage}`)
 
     console.log('\nConverting PDF pages to images...')
     const imageFiles = await pdfToImages(resolvedPath)
@@ -247,6 +254,11 @@ async function main() {
       const imageFile = imageFiles[pageIndex]!
       const pageNumber = pageIndex + 1
       const firstPuzzleOnPage = startPuzzle + pageIndex * 4
+
+      if (onlyPage !== null && pageNumber !== onlyPage) {
+        console.log(`\n[Page ${pageNumber}] Puzzles ${firstPuzzleOnPage}-${firstPuzzleOnPage + 3} — skipped`)
+        continue
+      }
 
       console.log(`\n[Page ${pageNumber}] Puzzles ${firstPuzzleOnPage}-${firstPuzzleOnPage + 3} — ${imageFile}`)
 
@@ -264,8 +276,30 @@ async function main() {
 
       console.log(`  Got ${transcription.puzzles.length} puzzle(s)`)
 
+      // Sanity-check: only keep puzzles whose ID falls in the expected range for this page
+      const expectedIds = new Set([
+        firstPuzzleOnPage,
+        firstPuzzleOnPage + 1,
+        firstPuzzleOnPage + 2,
+        firstPuzzleOnPage + 3,
+      ])
+      const validPuzzles = transcription.puzzles.filter((p) => {
+        if (!expectedIds.has(p.puzzle_id)) {
+          console.warn(
+            `  ⚠️  Puzzle ${p.puzzle_id}: out-of-range for this page (expected ${firstPuzzleOnPage}-${firstPuzzleOnPage + 3}), skipping`,
+          )
+          return false
+        }
+        return true
+      })
+      if (validPuzzles.length !== transcription.puzzles.length) {
+        console.warn(
+          `  ⚠️  Discarded ${transcription.puzzles.length - validPuzzles.length} out-of-range puzzle(s)`,
+        )
+      }
+
       // Process each puzzle from this page
-      for (const puzzle of transcription.puzzles) {
+      for (const puzzle of validPuzzles) {
         const puzzleNumber = puzzle.puzzle_id
 
         const normalizedAcross = puzzle.across.map((a) => ({

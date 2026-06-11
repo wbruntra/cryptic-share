@@ -61,7 +61,7 @@ export function ParsewordsGame({ puzzle, onWin }: Props) {
   const nonDefinitionTokens = displayTokens.filter(
     (t) => t.role !== 'definition' && t.role !== 'link',
   )
-  const won = nonDefinitionTokens.length === 1 && nonDefinitionTokens[0].text === puzzle.answer
+  const won = nonDefinitionTokens.length === 1 && normalize(nonDefinitionTokens[0].text) === normalize(puzzle.answer)
 
   const onWinRef = useRef(onWin)
   onWinRef.current = onWin

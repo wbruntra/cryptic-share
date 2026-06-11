@@ -42,13 +42,13 @@ describe('crypticSchema (Zod)', () => {
         wordplay_steps: [
           {
             tokens: 'Germany Peru illegally',
-            operation: 'Anagram of URPED',
+            operation: 'anagram',
             result: 'URPED',
             clue_after: 'US URPED gives took over',
           },
           {
             tokens: 'US URPED',
-            operation: 'Concatenate US + URPED',
+            operation: 'concatenate',
             result: 'USURPED',
             clue_after: 'USURPED gives took over',
           },
@@ -109,7 +109,7 @@ describe('crypticSchema (Zod)', () => {
         wordplay_steps: [
           {
             tokens: 'confused customers',
-            operation: 'Anagram of CUSTOMERS',
+            operation: 'anagram',
             result: 'CUSTOMERS',
             clue_after: 'CUSTOMERS',
           },

@@ -10,7 +10,7 @@ const ClueTokenSchema = z
     text: z
       .string()
       .describe(
-        'A single word token verbatim from the clue (ignore standard punctuation like commas/periods; keep trailing question mark "?").',
+        'A single word token verbatim from the clue. Strip all punctuation (commas, periods, dashes, question marks, exclamation marks) — never include punctuation-only tokens.',
       ),
     role: z
       .enum(['definition', 'wordplay', 'indicator', 'link'])
@@ -27,7 +27,23 @@ const WordplayStepSchema = z
       .describe(
         'The exact contiguous span of clue text consumed in this step (e.g. "Christmas" or "YULE nearly"). Must be a verbatim substring of the current clue state — no skipping words.',
       ),
-    operation: z.string().describe('The cryptic operation performed (e.g. "anagram", "reverse", "abbreviate", "delete OR from MORE")'),
+    operation: z
+      .enum([
+        'synonym',      // replace a word with its synonym (e.g. "old" → "EX")
+        'abbreviate',   // replace a word with its standard abbreviation (e.g. "right" → "R", "women" → "W")
+        'literal',      // use the word's own letters verbatim (e.g. "Do" → "DO")
+        'translation',  // translate to/from another language (e.g. "the French" → "LE", "German article" → "DER")
+        'anagram',      // rearrange all letters of the fodder (indicator consumed with fodder)
+        'reversal',     // reverse the letter string (indicator consumed with token)
+        'trim',         // delete one letter from start or end only (indicator consumed with token)
+        'delete',       // remove specified letters from elsewhere, e.g. "H" from THREE → TREE (indicator + removed letters consumed)
+        'concatenate',  // join two or more adjacent already-resolved fragments into one
+        'container',    // insert one fragment inside another (indicator consumed with both fragments)
+        'hidden',       // extract letters hidden consecutively inside the tokens
+        'homophone',    // take the sound-alike of a word (indicator consumed with word)
+        'initials',     // take the first letter of each word (indicator consumed with words)
+      ])
+      .describe('The cryptic operation performed in this step'),
     result: z.string().describe('Resulting letter string after the operation'),
     clue_after: z
       .string()
@@ -215,8 +231,7 @@ You will be given:
 Your task:
 1. Perform a verbatim, word-by-word token segmentation of the entire clue in the clue_segmentation array.
    Every single word in the clue MUST be represented as a token in the exact order they appear, with no words omitted or skipped.
-   Note on punctuation: Standard punctuation (commas, periods, dashes, exclamation marks) is surface noise and must be ignored during tokenization. Do not create separate tokens for them, and strip them from the word tokens.
-   The only exception is a trailing question mark "?". If the clue ends in a question mark, you must represent it as a separate token with the role "indicator", as it signals that the clue involves a cryptic/loose definition, pun, or non-standard wordplay.
+   Note on punctuation: All punctuation (commas, periods, dashes, question marks, exclamation marks) is surface noise. Do not create separate tokens for punctuation-only characters. Strip punctuation from word tokens (e.g. "right," becomes "right", "Lady?" becomes "Lady").
    Assign exactly one role to each token:
    - "definition": words that belong to the definition part of the clue.
    - "wordplay": words that contribute letters or fodder or act as synonym/abbreviation sources.
@@ -266,17 +281,30 @@ Each step must show exactly how the clue is being reduced, one operation at a ti
 
 Each step has four fields:
 - tokens: a single string — the exact contiguous span of clue text selected and consumed (e.g. “Christmas” or “YULE nearly”). It must be a verbatim substring of the current clue state; you cannot skip over words.
-- operation: what is done (e.g. “synonym”, “anagram”, “reverse”, “trim last letter”, “abbreviate”, “insert into”, “hidden word”, “translate to French”)
+- operation: MUST be exactly one of the allowed enum values:
+    synonym      — replace a word with its synonym (e.g. “old” → “EX”)
+    abbreviate   — replace with a standard abbreviation (e.g. “right” → “R”, “women” → “W”)
+    literal      — use the word's own letters verbatim (e.g. “Do” → “DO”)
+    translation  — translate to/from another language (e.g. “the French” → “LE”)
+    anagram      — rearrange letters; include the indicator in tokens
+    reversal     — reverse letters; include the indicator in tokens
+    trim         — delete ONE letter from the start or end only; include the indicator in tokens
+    delete       — remove specified letters from somewhere OTHER than just the start/end (e.g. remove "H" from THREE → TREE, remove "MOD" from SUPERMODEL → SUPEREL); include the indicator and the letters being removed in tokens
+    concatenate  — join two or more already-resolved fragments; no separate indicator
+    container    — insert one already-resolved fragment inside another; include indicator and both fragments in tokens
+    hidden       — extract letters hidden inside tokens; include the indicator
+    homophone    — take the sound-alike; include the indicator
+    initials     — take first letters; include the indicator
 - result: the letter string produced
 - clue_after: the full clue text after replacing the consumed tokens with the result
 
 Example for “With Christmas nearly over recall dance's sleepy tune (7)” → LULLABY:
 Step 1: tokens=”Christmas”, operation=”synonym”, result=”YULE”, clue_after=”With YULE nearly over recall dance's sleepy tune”
-Step 2: tokens=”YULE nearly”, operation=”trim last letter”, result=”YUL”, clue_after=”With YUL over recall dance's sleepy tune”
-Step 3: tokens=”YUL over”, operation=”reverse”, result=”LUY”, clue_after=”With LUY recall dance's sleepy tune”
+Step 2: tokens=”YULE nearly”, operation=”trim”, result=”YUL”, clue_after=”With YUL over recall dance's sleepy tune”
+Step 3: tokens=”YUL over”, operation=”reversal”, result=”LUY”, clue_after=”With LUY recall dance's sleepy tune”
 Step 4: tokens=”dance's”, operation=”synonym”, result=”BALL”, clue_after=”With LUY recall BALL sleepy tune”
-Step 5: tokens=”BALL recall”, operation=”reverse”, result=”LLAB”, clue_after=”With LUY LLAB sleepy tune”
-Step 6: tokens=”With LUY LLAB”, operation=”insert LLAB into LUY (container)”, result=”LULLABY”, clue_after=”LULLABY sleepy tune”
+Step 5: tokens=”BALL recall”, operation=”reversal”, result=”LLAB”, clue_after=”With LUY LLAB sleepy tune”
+Step 6: tokens=”With LUY LLAB”, operation=”container”, result=”LULLABY”, clue_after=”LULLABY sleepy tune”
 
 Rules:
 - tokens must be a contiguous span — a verbatim substring of the current clue state. Never select words that are not adjacent to each other.
@@ -285,6 +313,18 @@ Rules:
 - Indicator words are consumed alongside the wordplay words they govern (e.g. “nearly” is consumed with “YULE” as the span “YULE nearly”, not separately).
 - For abbreviation/synonym steps with no indicator, use only the wordplay word being replaced.
 - clue_after must reflect the actual clue string with substitutions applied; do not paraphrase.
+
+ONE OPERATION PER STEP — ATOMICITY (CRITICAL):
+Each step must perform EXACTLY ONE elementary operation. Never fold a synonym, abbreviation, or anagram into the same step as a container, deletion, or concatenation. Each step is replayed mechanically by software, so every transformation must be its own explicit step.
+
+- A word needs its OWN resolution step ONLY when the letters it contributes differ from its plain spelling: synonyms (grow older → AGE), abbreviations (right → R, women → W), and symbol/number spell-outs (3 → THREE). Resolve every such word to its letters BEFORE it is used in a container, concatenate, or delete step.
+- A word used LITERALLY — whose own letters are exactly what the answer uses (e.g. "Do" → DO) — does NOT need its own step. Do NOT emit no-op "literal" steps that merely uppercase a word. Instead, fold the literal word directly into the combining (concatenate/charade/container/delete) step; the operation consumes it in place. Link words ("by", "and", "for") are likewise dropped by being consumed inside the combining step's token span.
+- Every abbreviation is its own step. WRONG: tokens="HOUS to entertain king", operation="container" (king is an abbreviation, still raw). RIGHT: first tokens="king", operation="abbreviate", result="R"; THEN tokens="HOUS to entertain R", operation="container", result="HOURS".
+- Every synonym used as container/charade fodder is its own step. WRONG: tokens="project involving navy", operation="container" (project/navy are raw). RIGHT: tokens="project", operation="synonym", result="JUT"; tokens="navy", operation="abbreviate", result="N"; tokens="JUT involving N", operation="container", result="JUNT".
+- Charade example folding in a literal word and dropping a link word — "Do women grow older by right" → DOWAGER: tokens="women", operation="abbreviate", result="W"; tokens="grow older", operation="synonym", result="AGE"; tokens="right", operation="abbreviate", result="R"; THEN tokens="Do W AGE by R", operation="concatenate", result="DOWAGER" (the literal "Do" is consumed as DO and the link word "by" is dropped in the same join). Do NOT add a "Do"→"DO" step.
+- An anagram is its own step and may NOT be combined with a container. WRONG: tokens="IV enter sort of diner", operation="container". RIGHT: tokens="sort of diner", operation="anagram", result="DREIN"; THEN tokens="IV enter DREIN", operation="container", result="DRIVEIN". When the anagram intermediate must combine with another fragment, choose the specific anagram arrangement that makes the following step produce the answer.
+- When anagram (or charade) fodder spans a link word, COMBINE the fodder into one token first (the combine step drops the link word), then operate on the combined token. Example for "Schweitzer and Lenin ordered" → WIENER SCHNITZEL: tokens="Schweitzer and Lenin", operation="concatenate", result="SCHWEITZERLENIN" (the link word "and" is dropped); THEN tokens="SCHWEITZERLENIN ordered", operation="anagram", result="WIENER SCHNITZEL".
+- Deletion of letters from anywhere other than the very start/end uses operation="delete", and any letters being removed that are abbreviations/synonyms must already be resolved. Example for "Without Henry, 3" → TREE: tokens="Henry", operation="abbreviate", result="H"; tokens="3", operation="literal", result="THREE"; tokens="Without H THREE", operation="delete", result="TREE". (Here "3"→THREE is a genuine spell-out, not a no-op.)
 
 Style constraints:
 - Write like a crossword setter explaining a clue to another setter.
@@ -358,14 +398,14 @@ export const crypticSchema = {
 
               clue_segmentation: {
                 type: 'array',
-                description: 'Verbatim word-by-word token segmentation of the entire clue, where EVERY single word or punctuation mark in the clue is assigned its exact role.',
+                description: 'Verbatim word-by-word token segmentation of the entire clue. Every word must be represented; strip all punctuation from tokens and do not emit punctuation-only tokens.',
                 minItems: 1,
                 items: {
                   type: 'object',
                   properties: {
                     text: {
                       type: 'string',
-                      description: 'A single word or punctuation token verbatim from the clue.'
+                      description: 'A single word token from the clue (punctuation stripped; no punctuation-only tokens).'
                     },
                     role: {
                       type: 'string',
@@ -395,7 +435,12 @@ export const crypticSchema = {
                     },
                     operation: {
                       type: 'string',
-                      description: 'The cryptic operation performed',
+                      enum: [
+                        'synonym', 'abbreviate', 'literal', 'translation',
+                        'anagram', 'reversal', 'trim', 'delete', 'concatenate',
+                        'container', 'hidden', 'homophone', 'initials',
+                      ],
+                      description: 'The cryptic operation performed (must be one of the allowed values)',
                     },
                     result: {
                       type: 'string',
@@ -454,14 +499,14 @@ export const crypticSchema = {
 
               clue_segmentation: {
                 type: 'array',
-                description: 'Verbatim word-by-word token segmentation of the entire clue, where EVERY single word or punctuation mark in the clue is assigned its exact role.',
+                description: 'Verbatim word-by-word token segmentation of the entire clue. Every word must be represented; strip all punctuation from tokens and do not emit punctuation-only tokens.',
                 minItems: 1,
                 items: {
                   type: 'object',
                   properties: {
                     text: {
                       type: 'string',
-                      description: 'A single word or punctuation token verbatim from the clue.'
+                      description: 'A single word token from the clue (punctuation stripped; no punctuation-only tokens).'
                     },
                     role: {
                       type: 'string',
@@ -521,14 +566,14 @@ export const crypticSchema = {
 
               clue_segmentation: {
                 type: 'array',
-                description: 'Verbatim word-by-word token segmentation of the entire clue, where EVERY single word or punctuation mark in the clue is assigned its exact role.',
+                description: 'Verbatim word-by-word token segmentation of the entire clue. Every word must be represented; strip all punctuation from tokens and do not emit punctuation-only tokens.',
                 minItems: 1,
                 items: {
                   type: 'object',
                   properties: {
                     text: {
                       type: 'string',
-                      description: 'A single word or punctuation token verbatim from the clue.'
+                      description: 'A single word token from the clue (punctuation stripped; no punctuation-only tokens).'
                     },
                     role: {
                       type: 'string',
@@ -553,7 +598,12 @@ export const crypticSchema = {
                     },
                     operation: {
                       type: 'string',
-                      description: 'The cryptic operation performed',
+                      enum: [
+                        'synonym', 'abbreviate', 'literal', 'translation',
+                        'anagram', 'reversal', 'trim', 'delete', 'concatenate',
+                        'container', 'hidden', 'homophone', 'initials',
+                      ],
+                      description: 'The cryptic operation performed (must be one of the allowed values)',
                     },
                     result: {
                       type: 'string',
@@ -614,14 +664,14 @@ export const crypticSchema = {
 
               clue_segmentation: {
                 type: 'array',
-                description: 'Verbatim word-by-word token segmentation of the entire clue, where EVERY single word or punctuation mark in the clue is assigned its exact role.',
+                description: 'Verbatim word-by-word token segmentation of the entire clue. Every word must be represented; strip all punctuation from tokens and do not emit punctuation-only tokens.',
                 minItems: 1,
                 items: {
                   type: 'object',
                   properties: {
                     text: {
                       type: 'string',
-                      description: 'A single word or punctuation token verbatim from the clue.'
+                      description: 'A single word token from the clue (punctuation stripped; no punctuation-only tokens).'
                     },
                     role: {
                       type: 'string',
@@ -682,14 +732,14 @@ export const crypticSchema = {
 
               clue_segmentation: {
                 type: 'array',
-                description: 'Verbatim word-by-word token segmentation of the entire clue, where EVERY single word or punctuation mark in the clue is assigned its exact role.',
+                description: 'Verbatim word-by-word token segmentation of the entire clue. Every word must be represented; strip all punctuation from tokens and do not emit punctuation-only tokens.',
                 minItems: 1,
                 items: {
                   type: 'object',
                   properties: {
                     text: {
                       type: 'string',
-                      description: 'A single word or punctuation token verbatim from the clue.'
+                      description: 'A single word token from the clue (punctuation stripped; no punctuation-only tokens).'
                     },
                     role: {
                       type: 'string',

@@ -7,6 +7,7 @@ export type CrypticType =
   | 'synonym'
   | 'reversal'
   | 'trim'
+  | 'deletion'
   | 'container'
   | 'hidden'
   | 'homophone'
@@ -19,6 +20,7 @@ export const CRYPTIC_DISPLAY: Record<CrypticType, string> = {
   synonym:    'Synonym',
   reversal:   'Reversal',
   trim:       'Trim',
+  deletion:   'Deletion',
   container:  'Container',
   hidden:     'Hidden word',
   homophone:  'Homophone',

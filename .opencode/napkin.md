@@ -7,19 +7,28 @@
 
 ## User Preferences
 
-- (accumulate here as you learn them)
+- When (re)generating explanations, do NOT feed prior/unverified explanations back to the LLM as context — they can anchor it on bad logic. Provide only clue + answer.
+- The cryptic explainer model is `gpt-5-mini` via the Responses API (`utils/openai.ts` → `buildExplanationRequestBody` / `explainCrypticClue`). Do not swap models.
+- Punctuation is never part of an answer; the explainer must strip ALL punctuation from clue_segmentation tokens (no punctuation-only tokens, including "?").
 
 ## Patterns That Work
 
-- (approaches that succeeded)
+- **Deterministic Parsewords skeletons from explanations**: `utils/parsewordsSkeleton.ts` (`buildSkeletonFromExplanation`) turns a verified wordplay/&lit explanation into a one-correct-path Parsewords puzzle; `utils/parsewordsSolver.ts` (`validatePuzzle`, shared BFS) confirms solvability. No LLM needed for the skeleton — LLM only adds red herrings later.
+- Explainer `operation` is a fixed enum (synonym, abbreviate, literal, translation, anagram, reversal, trim, delete, concatenate, container, hidden, homophone, initials) in `utils/crypticSchema.ts` (Zod + AJV + instructions all must stay in sync).
+- Skeleton builder promotes any never-consumed indicator token to role `link` so the BFS win check (exactly one non-definition/non-link token == answer) isn't blocked.
 
 ## Patterns That Don't Work
 
-- (approaches that failed and why)
+- **Non-atomic explanation steps break skeleton generation.** Containers/concatenate/delete must operate on already-resolved UPPERCASE letter strings — if the explainer folds a synonym/abbreviation into the same step (e.g. `"HOUS to entertain king"` container without first `king→R`), the BFS inserts the raw word and fails. Fix was strengthening the explainer instructions to require ONE atomic operation per step.
+- BUT don't over-correct into forcing a step for EVERY word. A word used literally (its own letters == contribution, e.g. "Do"→DO) needs NO step — fold it directly into the combining concatenate/charade step (which also drops link words like "by"/"and"). Only synonyms, abbreviations, and symbol/number spell-outs (3→THREE) need their own resolution step. No-op `literal` steps that just uppercase a word are wrong.
+- `trim` (compute trim-first/trim-last) only removes the FIRST or LAST letter. Interior/substring removal (THREE−H→TREE, SUPERMODEL−MOD→SUPEREL) needs the `delete` op → mapped to a `result` trigger (explicit answer) since it can't be mechanically derived.
 
 ## Domain Notes
 
-- (project/domain context that matters)
+- Parsewords win check lives in `crossword-frontend/src/components/parsewords/ParsewordsGame.tsx` — must use `normalize()` (strips spaces/punct) to compare to `puzzle.answer`, else multi-word answers like ROCKET SCIENTIST never register a win.
+- Frontend & backend both define `CrypticType` + trigger types; keep `crossword-frontend/.../parsewords/types.ts` and `crossword-backend/utils/parsewordsGenerator.ts` in sync (e.g. the `deletion` label was added to both).
+- `clue_explanations` table has NO `updated_at` column (only created_at/verified/verified_at). `parsewords_puzzles` DOES have updated_at.
+- Admin test page for skeletons: http://crossword.localhost:1355/admin/parsewords?puzzle=3
 
 ## Recent Work Log
 
