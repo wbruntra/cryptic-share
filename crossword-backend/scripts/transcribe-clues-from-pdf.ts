@@ -44,7 +44,7 @@ import { tmpdir } from 'os'
 import { unlink } from 'fs/promises'
 import minimist from 'minimist'
 import db from '../db-knex'
-import { getCrosswordClues } from '../utils/openai'
+import { getCrosswordClues, getCrosswordCluesOpenRouter } from '../utils/openai'
 
 const HELP_TEXT = `
 Transcribe crossword clues from a PDF using OpenAI vision.
@@ -122,8 +122,8 @@ async function pdfToImages(pdfPath: string): Promise<string[]> {
 
 async function main() {
   const argv = minimist(Bun.argv.slice(2), {
-    string: ['book', 'start'],
-    boolean: ['dry-run', 'no-publish', 'help'],
+    string: ['book', 'start', 'model'],
+    boolean: ['dry-run', 'no-publish', 'help', 'openrouter'],
     default: { 'no-publish': false },
     alias: {
       h: 'help',
@@ -178,6 +178,8 @@ async function main() {
     const dryRun = argv['dry-run'] ?? false
     const publish = !argv['no-publish']
     const explicitStart = argv.start ? Number(argv.start) : null
+    const useOpenRouter = argv.openrouter ?? false
+    const modelOverride = argv.model as string | undefined
 
     await checkPdftoppm()
 
@@ -246,7 +248,13 @@ async function main() {
       try {
         const arrayBuffer = await Bun.file(imageFile).arrayBuffer()
         const base64 = Buffer.from(arrayBuffer).toString('base64')
-        transcribed = await getCrosswordClues(base64)
+        if (useOpenRouter) {
+          const model = modelOverride ?? 'google/gemini-3.1-flash-lite'
+          console.log(`  Using OpenRouter model: ${model}`)
+          transcribed = await getCrosswordCluesOpenRouter(base64, model)
+        } else {
+          transcribed = await getCrosswordClues(base64)
+        }
       } catch (err: any) {
         console.error(`  ❌ Transcription failed: ${err.message}`)
         failed++

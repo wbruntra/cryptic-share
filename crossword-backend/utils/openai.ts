@@ -77,6 +77,49 @@ Rules:
   return JSON.parse(outputText)
 }
 
+export const getCrosswordCluesOpenRouter = async (
+  base64Image: string,
+  model = 'google/gemini-3.1-flash-lite',
+) => {
+  const instructions = `You are transcribing crossword clues from an image.
+
+The image contains two sections: "Across" and "Down". Each section contains numbered crossword clues.
+
+Your task:
+1. Read the image carefully.
+2. Extract all crossword clues.
+3. Preserve the original clue numbers.
+4. Do NOT infer answers or modify wording.
+5. Return ONLY valid JSON in this exact format:
+{
+  "across": [{ "number": <integer>, "clue": <string> }],
+  "down": [{ "number": <integer>, "clue": <string> }]
+}
+
+Rules:
+- If a section is missing, return an empty array for it.
+- If a clue number is unclear, omit that clue.
+- Do not include any commentary, markdown, or extra text.`
+
+  const response = await openrouter.chat.completions.create({
+    model,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: instructions },
+          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64Image}` } },
+        ],
+      },
+    ],
+    response_format: { type: 'json_object' },
+  })
+
+  const content = response.choices[0]?.message?.content
+  if (!content) throw new Error('No content received from OpenRouter')
+  return JSON.parse(content)
+}
+
 export const transcribeAnswers = async (input: any, expectedPuzzleIds?: number[], model = 'gpt-5-mini') => {
   // Prepare the image data
   let base64Data: string
