@@ -145,6 +145,14 @@ export function useAnswerChecker() {
 
       if (!result) return
 
+      // If the word is already correctly solved and attributed, a re-typed
+      // letter shouldn't re-flash or re-broadcast it. Skip the correct path
+      // entirely for already-claimed clues. (Incorrect still flashes red.)
+      const clueKey = `${clueNumber}-${direction}`
+      if (result.isCorrect && attributionsRef.current[clueKey]) {
+        return 'correct'
+      }
+
       const cellKeys = result.cells.map((cell) => `${cell.r}-${cell.c}`)
 
       if (result.isCorrect) {

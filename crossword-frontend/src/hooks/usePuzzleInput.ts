@@ -87,10 +87,19 @@ export function usePuzzleInput(
 
       if (!currentCursor || !checkCallback) return
 
-      // Get the clue number for the current position
-      const clueNumber = getCurrentClueNumber(currentCursor.r, currentCursor.c, direction)
-      if (clueNumber) {
-        checkCallback(clueNumber, direction, answersOverride)
+      // The typed cell sits at the intersection of an across word and a down
+      // word. Completing EITHER deserves a flash + attribution, regardless of
+      // which way the cursor happens to be oriented (e.g. typing the last
+      // missing letter of a down clue while pointed across). Check the cursor's
+      // direction first, then the crossing one. checkCallback is a no-op for any
+      // word that isn't fully filled, so the crossing check only fires when that
+      // word was actually just completed.
+      const crossing: Direction = direction === 'across' ? 'down' : 'across'
+      for (const dir of [direction, crossing]) {
+        const clueNumber = getCurrentClueNumber(currentCursor.r, currentCursor.c, dir)
+        if (clueNumber) {
+          checkCallback(clueNumber, dir, answersOverride)
+        }
       }
     },
     [getCurrentClueNumber],

@@ -268,10 +268,18 @@ const puzzleSlice = createSlice({
       }
     },
     setCorrectFlashCells: (state, action: PayloadAction<string[]>) => {
-      state.correctFlashCells = action.payload
+      // Additive (union, deduped): a single keystroke can complete both the
+      // across and down word sharing the typed cell. Each completion dispatches
+      // its own cells, and we want every completed cell to flash, not just the
+      // last one. The shared timeout clears all of them together after 500ms.
+      state.correctFlashCells = Array.from(
+        new Set([...state.correctFlashCells, ...action.payload]),
+      )
     },
     setIncorrectFlashCells: (state, action: PayloadAction<string[]>) => {
-      state.incorrectFlashCells = action.payload
+      state.incorrectFlashCells = Array.from(
+        new Set([...state.incorrectFlashCells, ...action.payload]),
+      )
     },
     clearFlashCells: (state) => {
       state.correctFlashCells = []
