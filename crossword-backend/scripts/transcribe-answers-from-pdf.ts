@@ -47,7 +47,7 @@ import { tmpdir } from 'os'
 import { unlink } from 'fs/promises'
 import minimist from 'minimist'
 import db from '../db-knex'
-import { transcribeAnswers } from '../utils/openai'
+import { transcribeAnswers, transcribeAnswersOpenRouter } from '../utils/openai'
 import { calculateLetterCount } from '../utils/stateHelpers'
 import { constructGridFromAnswerKey } from '../utils/gridConstructor'
 
@@ -164,8 +164,8 @@ async function pdfToImages(pdfPath: string): Promise<string[]> {
 
 async function main() {
   const argv = minimist(Bun.argv.slice(2), {
-    string: ['book', 'start', 'page', 'width', 'height'],
-    boolean: ['dry-run', 'update-existing', 'skip-validation', 'help'],
+    string: ['book', 'start', 'page', 'width', 'height', 'model'],
+    boolean: ['dry-run', 'update-existing', 'skip-validation', 'help', 'openrouter'],
     alias: {
       h: 'help',
       b: 'book',
@@ -224,6 +224,8 @@ async function main() {
     const height = argv.height ? Number(argv.height) : 15
     const explicitStart = argv.start ? Number(argv.start) : null
     const onlyPage = argv.page ? Number(argv.page) : null
+    const useOpenRouter = argv.openrouter ?? false
+    const modelOverride = argv.model as string | undefined
 
     await checkPdftoppm()
 
@@ -273,7 +275,13 @@ async function main() {
       try {
         const imageBuffer = await Bun.file(imageFile).arrayBuffer()
         const base64 = Buffer.from(imageBuffer).toString('base64')
-        transcription = (await transcribeAnswers({ base64, mimeType: 'image/jpeg' }, expectedIdsArray)) as AnswerResponse
+        if (useOpenRouter) {
+          const model = modelOverride ?? 'google/gemini-3.1-flash-lite'
+          console.log(`  Using OpenRouter model: ${model}`)
+          transcription = (await transcribeAnswersOpenRouter({ base64, mimeType: 'image/jpeg' }, expectedIdsArray, model)) as AnswerResponse
+        } else {
+          transcription = (await transcribeAnswers({ base64, mimeType: 'image/jpeg' }, expectedIdsArray)) as AnswerResponse
+        }
       } catch (err: any) {
         console.error(`  ❌ Transcription failed: ${err.message}`)
         failed += 4 // Assume all 4 puzzles on page failed

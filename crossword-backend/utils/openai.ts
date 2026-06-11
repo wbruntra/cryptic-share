@@ -14,6 +14,11 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
+const openrouter = new OpenAI({
+  apiKey: process.env.OPENROUTER_API_KEY,
+  baseURL: 'https://openrouter.ai/api/v1',
+})
+
 export const getCrosswordClues = async (base64Image: string) => {
   const instructions = `
 You are transcribing crossword clues from an image.
@@ -129,6 +134,63 @@ Extract all puzzle IDs, across clues with their numbers and answers, and down cl
     console.error('Error parsing grid:', error)
     throw error
   }
+}
+
+export const transcribeAnswersOpenRouter = async (
+  input: any,
+  expectedPuzzleIds?: number[],
+  model = 'google/gemini-3.1-flash-lite',
+): Promise<TranscribeAnswersResponse> => {
+  let base64Data: string
+  let mimeType: string
+
+  if (input.base64 && input.mimeType) {
+    base64Data = input.base64
+    mimeType = input.mimeType
+  } else if (input.arrayBuffer && input.type) {
+    const arrayBuffer = await input.arrayBuffer()
+    base64Data = Buffer.from(arrayBuffer).toString('base64')
+    mimeType = input.type
+  } else {
+    throw new Error('Invalid input format. Expected File object or { base64, mimeType }')
+  }
+
+  const puzzleHint = expectedPuzzleIds?.length
+    ? ` The puzzles on this page are numbered ${expectedPuzzleIds.join(', ')} — use these exact numbers as the puzzle IDs.`
+    : ''
+
+  const promptText = `Transcribe these cryptic crossword answers. Each section represents a different numbered puzzle, and within each section there are "Across" and "Down" sub-sections.
+Extract all puzzle IDs, across clues with their numbers and answers, and down clues with their numbers and answers.${puzzleHint}
+
+Return ONLY valid JSON matching this exact structure:
+{
+  "puzzles": [
+    {
+      "puzzle_id": <integer>,
+      "across": [{ "number": <integer>, "answer": <string> }],
+      "down": [{ "number": <integer>, "answer": <string> }]
+    }
+  ]
+}`
+
+  const response = await openrouter.chat.completions.create({
+    model,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: promptText },
+          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Data}` } },
+        ],
+      },
+    ],
+    response_format: { type: 'json_object' },
+  })
+
+  const content = response.choices[0]?.message?.content
+  if (!content) throw new Error('No content received from OpenRouter')
+
+  return JSON.parse(content) as TranscribeAnswersResponse
 }
 
 /**
