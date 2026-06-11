@@ -10,7 +10,7 @@ const CrosswordAnswerSchema = z
 
 const PuzzleAnswersSchema = z
   .object({
-    puzzle_id: z.number().int().positive().max(200),
+    puzzle_id: z.number().int().positive(),
     across: z.array(CrosswordAnswerSchema),
     down: z.array(CrosswordAnswerSchema),
   })
