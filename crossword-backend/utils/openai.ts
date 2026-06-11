@@ -72,7 +72,7 @@ Rules:
   return JSON.parse(outputText)
 }
 
-export const transcribeAnswers = async (input: any, model = 'gpt-5-mini') => {
+export const transcribeAnswers = async (input: any, expectedPuzzleIds?: number[], model = 'gpt-5-mini') => {
   // Prepare the image data
   let base64Data: string
   let mimeType: string
@@ -90,9 +90,13 @@ export const transcribeAnswers = async (input: any, model = 'gpt-5-mini') => {
     throw new Error('Invalid input format. Expected File object or { base64, mimeType }')
   }
 
+  const puzzleHint = expectedPuzzleIds?.length
+    ? ` The puzzles on this page are numbered ${expectedPuzzleIds.join(', ')} — use these exact numbers as the puzzle IDs.`
+    : ''
+
   const promptText = `
 Transcribe these cryptic crossword answers. Each section represents a different numbered puzzle, and within each section there are "Across" and "Down" sub-sections.
-Extract all puzzle IDs, across clues with their numbers and answers, and down clues with their numbers and answers.
+Extract all puzzle IDs, across clues with their numbers and answers, and down clues with their numbers and answers.${puzzleHint}
 `
 
   try {

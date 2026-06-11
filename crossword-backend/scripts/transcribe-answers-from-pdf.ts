@@ -263,11 +263,17 @@ async function main() {
       console.log(`\n[Page ${pageNumber}] Puzzles ${firstPuzzleOnPage}-${firstPuzzleOnPage + 3} — ${imageFile}`)
 
       // Transcribe answers from this page
+      const expectedIdsArray = [
+        firstPuzzleOnPage,
+        firstPuzzleOnPage + 1,
+        firstPuzzleOnPage + 2,
+        firstPuzzleOnPage + 3,
+      ]
       let transcription: AnswerResponse
       try {
         const imageBuffer = await Bun.file(imageFile).arrayBuffer()
         const base64 = Buffer.from(imageBuffer).toString('base64')
-        transcription = (await transcribeAnswers({ base64, mimeType: 'image/jpeg' })) as AnswerResponse
+        transcription = (await transcribeAnswers({ base64, mimeType: 'image/jpeg' }, expectedIdsArray)) as AnswerResponse
       } catch (err: any) {
         console.error(`  ❌ Transcription failed: ${err.message}`)
         failed += 4 // Assume all 4 puzzles on page failed
@@ -277,12 +283,7 @@ async function main() {
       console.log(`  Got ${transcription.puzzles.length} puzzle(s)`)
 
       // Sanity-check: only keep puzzles whose ID falls in the expected range for this page
-      const expectedIds = new Set([
-        firstPuzzleOnPage,
-        firstPuzzleOnPage + 1,
-        firstPuzzleOnPage + 2,
-        firstPuzzleOnPage + 3,
-      ])
+      const expectedIds = new Set(expectedIdsArray)
       const validPuzzles = transcription.puzzles.filter((p) => {
         if (!expectedIds.has(p.puzzle_id)) {
           console.warn(
