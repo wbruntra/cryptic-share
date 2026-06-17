@@ -3,14 +3,22 @@ module.exports = {
     {
       name: 'crossword-backend',
       cwd: __dirname,
-      script: '/home/william/.bun/bin/bun',
-      args: 'run bin/server.ts',
+
+      // Bun invocation
+      interpreter: '/home/william/.bun/bin/bun',
+      script: 'bin/server.ts',
+
       exec_mode: 'fork',
+
       env: {
-        NODE_ENV: 'development',
+        NODE_ENV: 'production',
         PORT: 8921,
       },
-      restart_delay: 5000,
+
+      // Crash/restart behavior
+      min_uptime: 5000,
+      max_restarts: 10,
+      exp_backoff_restart_delay: 1000,
     },
   ],
 }
