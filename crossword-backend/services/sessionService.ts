@@ -639,22 +639,38 @@ export class SessionService {
         'puzzles.title as puzzle_title',
         'puzzles.id as puzzle_id',
         'puzzles.grid',
+        'puzzles.letter_count',
       )
       .orderBy('puzzle_sessions.updated_at', 'desc')
 
     // Calculate completion percentage for each
     return sessions.map((s: any) => {
-      const state = migrateLegacyState(JSON.parse(s.state))
+      // Prefer the in-memory cache (which may contain unsaved edits) so the
+      // HomePage progress always matches what the user sees on the play page.
+      const cached = this.cache.get(s.session_id)
+      let state: string[]
+      if (cached) {
+        state = cached.state
+        cached.lastAccess = Date.now()
+      } else {
+        state = migrateLegacyState(JSON.parse(s.state))
+      }
+
       const filledCount = this.countFilledCells(state)
-      const totalCount = this.countTotalCells(s.grid)
+      // Use the puzzle's stored letter_count when available so the percentage
+      // is computed with the same denominator used to set is_complete.
+      const totalCount = s.letter_count != null
+        ? Number(s.letter_count)
+        : this.countTotalCells(s.grid)
       const completionPct = totalCount > 0 ? Math.round((filledCount / totalCount) * 100) : 0
+      const isComplete = totalCount > 0 ? filledCount >= totalCount : Boolean(s.is_complete)
 
       return {
         session_id: s.session_id,
         puzzle_id: s.puzzle_id,
         puzzle_title: s.puzzle_title,
         state,
-        is_complete: Boolean(s.is_complete),
+        is_complete: isComplete,
         owner_user_id: s.owner_user_id,
         owner_username: s.owner_username,
         filled_count: filledCount,
@@ -720,7 +736,9 @@ export class SessionService {
   }
 
   /**
-   * Helper: Count total playable cells from grid
+   * Helper: Count total playable cells from grid.
+   * Only 'W' (white) and 'N' (numbered) cells are fillable; this matches
+   * calculateLetterCount() in utils/stateHelpers.
    */
   private static countTotalCells(gridString: string): number {
     const rows = gridString.split('\n')
@@ -728,7 +746,7 @@ export class SessionService {
     for (const row of rows) {
       const cells = row.trim().split(' ')
       for (const cell of cells) {
-        if (cell !== 'B') total++ // 'B' = black square
+        if (cell === 'W' || cell === 'N') total++
       }
     }
     return total

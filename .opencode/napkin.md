@@ -4,6 +4,7 @@
 
 | Date | Source | What Went Wrong | What To Do Instead |
 | ---- | ------ | --------------- | ------------------ |
+| 2026-06-17 | user + code review | HomePage showed 99% for a fully-filled session; play page showed complete. Two root causes: (1) `getUserAndFriendsSessions` read stale DB state while `getSessionWithPuzzle` returned newer in-memory cache state; (2) `countTotalCells` counted any non-'B' cell, so a trailing newline in `puzzles.grid` made the denominator one larger than `calculateLetterCount`/`letter_count`. Puzzle creation/update also did not trim grid strings, allowing trailing newlines to be persisted. | Use cached state (when present) in `getUserAndFriendsSessions`, derive completion from `puzzles.letter_count`, make `countTotalCells` count only 'W'/'N' cells to match `calculateLetterCount`, and trim `grid` in `PuzzleService.createPuzzle`/`updatePuzzle`. |
 
 ## User Preferences
 

@@ -65,12 +65,15 @@ export class PuzzleService {
   }
 
   static async createPuzzle(title: string, grid: string, clues: any) {
-    const letterCount = calculateLetterCount(grid)
+    // Normalize the grid so trailing/leading whitespace doesn't create phantom
+    // cells that mismatch letter_count later.
+    const normalizedGrid = grid.trim()
+    const letterCount = calculateLetterCount(normalizedGrid)
     const isPublished = !PuzzleService.hasMissingClues(clues)
-    
+
     const [id] = await db('puzzles').insert({
       title,
-      grid,
+      grid: normalizedGrid,
       clues: JSON.stringify(clues),
       letter_count: letterCount,
       answers_encrypted: clues.answers_encrypted
@@ -82,7 +85,7 @@ export class PuzzleService {
       is_published: isPublished,
     })
 
-    return { id, title, grid, clues, letter_count: letterCount, answers: clues.answers_encrypted, is_published: isPublished }
+    return { id, title, grid: normalizedGrid, clues, letter_count: letterCount, answers: clues.answers_encrypted, is_published: isPublished }
   }
 
   static async updatePuzzle(id: number, updates: { grid?: string; clues?: any; title?: string; is_published?: boolean }) {
@@ -94,9 +97,12 @@ export class PuzzleService {
 
     const dbUpdates: any = {}
     if (updates.grid !== undefined) {
-      dbUpdates.grid = updates.grid
+      // Normalize the grid so trailing/leading whitespace doesn't create phantom
+      // cells that mismatch letter_count later.
+      const normalizedGrid = updates.grid.trim()
+      dbUpdates.grid = normalizedGrid
       // Recalculate letter_count when grid changes
-      dbUpdates.letter_count = calculateLetterCount(updates.grid)
+      dbUpdates.letter_count = calculateLetterCount(normalizedGrid)
     }
     if (updates.clues !== undefined) {
       dbUpdates.clues = JSON.stringify(updates.clues)

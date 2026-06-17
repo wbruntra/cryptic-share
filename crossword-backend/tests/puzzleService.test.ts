@@ -74,6 +74,16 @@ describe('PuzzleService', () => {
       expect(dbPuzzle).toBeDefined()
       expect(dbPuzzle.title).toBe('New Puzzle')
     })
+
+    it('should trim leading/trailing whitespace from grid', async () => {
+      const testClues = [{ number: 1, clue: 'Test', answer: 'ANSWER' }]
+      const result = await PuzzleService.createPuzzle('Trimmed Puzzle', '\n[[1]]\n', testClues)
+
+      expect(result.grid).toBe('[[1]]')
+
+      const dbPuzzle: any = await db('puzzles').where({ id: result.id }).first()
+      expect(dbPuzzle.grid).toBe('[[1]]')
+    })
   })
 
   describe('updatePuzzle', () => {
@@ -106,6 +116,14 @@ describe('PuzzleService', () => {
 
     it('should update grid', async () => {
       const result = await PuzzleService.updatePuzzle(1, { grid: '[[2,3]]' })
+      expect(result).toEqual({ updated: true, id: 1 })
+
+      const dbPuzzle: any = await db('puzzles').where({ id: 1 }).first()
+      expect(dbPuzzle.grid).toBe('[[2,3]]')
+    })
+
+    it('should trim leading/trailing whitespace when updating grid', async () => {
+      const result = await PuzzleService.updatePuzzle(1, { grid: '\n[[2,3]]\n' })
       expect(result).toEqual({ updated: true, id: 1 })
 
       const dbPuzzle: any = await db('puzzles').where({ id: 1 }).first()

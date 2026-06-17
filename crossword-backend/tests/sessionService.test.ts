@@ -205,7 +205,7 @@ describe('SessionService', () => {
   })
 
   it('should prevent race conditions on concurrent loading (thundering herd)', async () => {
-    const sessionId = await SessionService.createOrResetSession(null, 1)
+    const sessionId = await SessionService.createOrResetSession(null, 1) // Anon session
 
     // Clear cache to force a DB load
     // @ts-ignore
@@ -221,5 +221,108 @@ describe('SessionService', () => {
     const result = await SessionService.getSessionWithPuzzle(sessionId)
     expect(result.sessionState[0][0]).toBe('X')
     expect(result.sessionState[0][2]).toBe('Y')
+  })
+
+  describe('session completion percentage', () => {
+    it('should report 100% for a fully filled session', async () => {
+      const userId = 100
+      await db('users').insert({
+        id: userId,
+        username: 'completiontest',
+        password_hash: 'hash',
+      })
+
+      // 2x2 grid with 2 fillable cells (W and N)
+      await db('puzzles').insert({
+        id: 2,
+        title: 'Completion Test',
+        grid: 'B W\nN B',
+        letter_count: 2,
+        clues: JSON.stringify({ across: [], down: [] }),
+      })
+
+      const sessionId = await SessionService.createOrResetSession(userId, 2)
+      await db('puzzle_sessions')
+        .where({ session_id: sessionId })
+        .update({ state: JSON.stringify([' A', 'B ']) })
+
+      // @ts-ignore
+      SessionService.cache.delete(sessionId)
+
+      const sessions = await SessionService.getUserAndFriendsSessions(userId)
+      const found = sessions.find((s) => s.session_id === sessionId)
+      expect(found).toBeDefined()
+      expect(found?.filled_count).toBe(2)
+      expect(found?.total_count).toBe(2)
+      expect(found?.completion_pct).toBe(100)
+      expect(found?.is_complete).toBe(true)
+    })
+
+    it('should not under-report completion when grid has a trailing newline', async () => {
+      const userId = 101
+      await db('users').insert({
+        id: userId,
+        username: 'trailtest',
+        password_hash: 'hash',
+      })
+
+      // Grid with a trailing newline; letter_count stored as 2
+      await db('puzzles').insert({
+        id: 3,
+        title: 'Trailing Newline Test',
+        grid: 'B W\nN B\n',
+        letter_count: 2,
+        clues: JSON.stringify({ across: [], down: [] }),
+      })
+
+      const sessionId = await SessionService.createOrResetSession(userId, 3)
+      await db('puzzle_sessions')
+        .where({ session_id: sessionId })
+        .update({ state: JSON.stringify([' A', 'B ']) })
+
+      // @ts-ignore
+      SessionService.cache.delete(sessionId)
+
+      const sessions = await SessionService.getUserAndFriendsSessions(userId)
+      const found = sessions.find((s) => s.session_id === sessionId)
+      expect(found?.completion_pct).toBe(100)
+      expect(found?.is_complete).toBe(true)
+    })
+
+    it('should use cached state for completion percentage before debounced save', async () => {
+      const userId = 102
+      await db('users').insert({
+        id: userId,
+        username: 'cachetest',
+        password_hash: 'hash',
+      })
+
+      await db('puzzles').insert({
+        id: 4,
+        title: 'Cache Test',
+        grid: 'B W\nN B',
+        letter_count: 2,
+        clues: JSON.stringify({ across: [], down: [] }),
+      })
+
+      const sessionId = await SessionService.createOrResetSession(userId, 4)
+      // Start with one cell filled
+      await db('puzzle_sessions')
+        .where({ session_id: sessionId })
+        .update({ state: JSON.stringify([' A', '  ']) })
+
+      // @ts-ignore
+      SessionService.cache.delete(sessionId)
+
+      // Fill the second cell via updateCell (updates cache, schedules DB save)
+      await SessionService.updateCell(sessionId, 1, 0, 'B')
+
+      // Before the 1s debounce fires, the HomePage should see the cached change
+      const sessions = await SessionService.getUserAndFriendsSessions(userId)
+      const found = sessions.find((s) => s.session_id === sessionId)
+      expect(found?.filled_count).toBe(2)
+      expect(found?.completion_pct).toBe(100)
+      expect(found?.is_complete).toBe(true)
+    })
   })
 })
