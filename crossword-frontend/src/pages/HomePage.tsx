@@ -20,6 +20,7 @@ export function HomePage() {
     return localStorage.getItem('homeShowCompleted') === 'true'
   })
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [navigating, setNavigating] = useState<number | null>(null)
   const [viewMode, setViewMode] = useState<'card' | 'table'>(() => {
     return (localStorage.getItem('homeViewMode') as 'card' | 'table') || 'card'
@@ -46,7 +47,10 @@ export function HomePage() {
           setPuzzles([])
         }
       })
-      .catch(console.error)
+      .catch((err) => {
+        console.error('Failed to load puzzles:', err)
+        setLoadError(true)
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -228,7 +232,11 @@ export function HomePage() {
                       {visiblePuzzles.length === 0 && (
                         <tr>
                           <td colSpan={5} className="py-8 text-center text-text-secondary italic">
-                            {puzzles.length > 0 ? 'No active puzzles found.' : 'No puzzles found. Create one!'}
+                            {loadError
+                              ? 'Unable to connect to the server. Please check your connection and try again.'
+                              : puzzles.length > 0
+                                ? 'No active puzzles found.'
+                                : 'No puzzles found. Create one!'}
                           </td>
                         </tr>
                       )}
@@ -304,9 +312,11 @@ export function HomePage() {
             {viewMode === 'card' && visiblePuzzles.length === 0 && (
               <div className="col-span-full py-16 text-center bg-surface rounded-2xl border-2 border-dashed border-border shadow-inner">
                 <p className="text-text-secondary italic">
-                  {puzzles.length > 0
-                    ? 'No active puzzles found.'
-                    : 'No puzzles found. Create one!'}
+                  {loadError
+                    ? 'Unable to connect to the server. Please check your connection and try again.'
+                    : puzzles.length > 0
+                      ? 'No active puzzles found.'
+                      : 'No puzzles found. Create one!'}
                 </p>
               </div>
             )}
