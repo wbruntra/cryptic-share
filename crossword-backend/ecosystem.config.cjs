@@ -5,7 +5,7 @@ module.exports = {
       cwd: __dirname,
 
       // Bun invocation
-      interpreter: '/home/william/.bun/bin/bun',
+      interpreter: 'bun',
       script: 'bin/server.ts',
 
       exec_mode: 'fork',

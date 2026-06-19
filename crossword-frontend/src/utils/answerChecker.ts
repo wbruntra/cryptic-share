@@ -40,7 +40,7 @@ export function extractClueMetadata(grid: CellType[][]): ClueMetadata[] {
   // Helper to check if a cell contains a letter (White or Numbered)
   const isLetter = (r: number, c: number) => {
     if (r < 0 || r >= height || c < 0 || c >= width) return false
-    return grid[r][c] !== 'B'
+    return grid[r][c] === 'W' || grid[r][c] === 'N'
   }
 
   let currentNumber = 1
@@ -90,7 +90,7 @@ function extractWord(
   let r = startRow
   let c = startCol
 
-  while (r < grid.length && c < grid[0].length && grid[r][c] !== 'B') {
+  while (r < grid.length && c < grid[0].length && (grid[r][c] === 'W' || grid[r][c] === 'N')) {
     const char = getCharAt(sessionState, r, c) || ' '
     word += char
 
@@ -130,7 +130,7 @@ export function checkSingleWord(
   const cells: { r: number; c: number }[] = []
   let r = clueMeta.row
   let c = clueMeta.col
-  while (r < grid.length && c < grid[0].length && grid[r][c] !== 'B') {
+  while (r < grid.length && c < grid[0].length && (grid[r][c] === 'W' || grid[r][c] === 'N')) {
     cells.push({ r, c })
     if (direction === 'across') c++
     else r++
@@ -190,7 +190,7 @@ export function checkSessionAnswers(
     const cells: { r: number; c: number }[] = []
     let r = item.row
     let c = item.col
-    while (r < grid.length && c < grid[0].length && grid[r][c] !== 'B') {
+    while (r < grid.length && c < grid[0].length && (grid[r][c] === 'W' || grid[r][c] === 'N')) {
       cells.push({ r, c })
       if (item.direction === 'across') c++
       else r++
@@ -241,7 +241,7 @@ export function checkSessionAnswers(
 
   for (let r = 0; r < grid.length; r++) {
     for (let c = 0; c < grid[0].length; c++) {
-      if (grid[r][c] !== 'B') {
+      if (grid[r][c] === 'W' || grid[r][c] === 'N') {
         totalLetters++
         const char = getCharAt(sessionState, r, c)
         if (char && char.trim() !== '') {
