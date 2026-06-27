@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
-import { LuX, LuLightbulb, LuSearch, LuLock, LuLockOpen, LuBell, LuBellOff, LuPuzzle } from 'react-icons/lu'
+import { LuX, LuLightbulb, LuSearch, LuLock, LuLockOpen, LuBell, LuBellOff, LuPuzzle, LuShare2 } from 'react-icons/lu'
 import { CrosswordGrid } from '@/CrosswordGrid'
 import { ClueList } from '@/ClueList'
 import { AttributionControls } from '@/components/AttributionControls'
@@ -159,6 +159,19 @@ export function DesktopView({
               className={`${isSubscribed
                 ? 'bg-primary/10 border-primary text-primary'
                 : 'bg-surface border-border text-text-secondary hover:border-primary hover:text-primary'} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            />
+          )}
+          {sessionId && (
+            <ToolbarButton
+              onClick={() => {
+                void navigator.clipboard.writeText(window.location.href).then(() => {
+                  setToastMessage('Link copied!')
+                })
+              }}
+              icon={<LuShare2 size={20} />}
+              label="Share session"
+              title="Copy link to this session"
+              className="bg-surface border-border text-text-secondary hover:border-primary hover:text-primary"
             />
           )}
         </div>

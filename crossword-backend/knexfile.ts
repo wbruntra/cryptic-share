@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const unifiedConfig = {
   client: 'sqlite3',
   connection: {
-    filename: path.join(__dirname, './crossword.db'),
+    filename: path.join(__dirname, 'crossword.db'),
   },
   useNullAsDefault: true,
 }
@@ -16,7 +16,7 @@ const config: { [key: string]: Knex.Config } = {
   development: {
     client: 'sqlite3',
     connection: {
-      filename: path.join(__dirname, './crossword.db'),
+      filename: path.join(__dirname, 'crossword.db'),
     },
     useNullAsDefault: true,
   },

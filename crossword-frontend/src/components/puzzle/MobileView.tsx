@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
-import { LuX, LuLightbulb, LuSearch, LuLock, LuLockOpen, LuChartBarBig, LuBell, LuBellOff, LuKeyboard, LuClipboardList, LuPuzzle } from 'react-icons/lu'
+import { LuX, LuLightbulb, LuSearch, LuLock, LuLockOpen, LuChartBarBig, LuBell, LuBellOff, LuKeyboard, LuClipboardList, LuPuzzle, LuShare2 } from 'react-icons/lu'
 import { CrosswordGrid } from '@/CrosswordGrid'
 import { FloatingClueBar, VirtualKeyboard, BottomSheet, MobileClueList } from '@/components/mobile'
 import { AttributionControls } from '@/components/AttributionControls'
@@ -213,6 +213,20 @@ export function MobileView({
                 className={`${isSubscribed
                   ? 'bg-primary/10 border-primary text-primary'
                   : 'bg-surface border-border text-text-secondary'} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              />
+            )}
+            {sessionId && (
+              <ToolbarButton
+                onClick={() => {
+                  void navigator.clipboard.writeText(window.location.href).then(() => {
+                    setToastMessage('Link copied!')
+                  })
+                }}
+                icon={<LuShare2 size={18} />}
+                label="Share session"
+                title="Copy link to this session"
+                compact
+                className="bg-surface border-border text-text-secondary active:bg-input-bg"
               />
             )}
           </div>
