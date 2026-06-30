@@ -104,45 +104,45 @@ export function AdminDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 pb-12">
-      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10 pb-6 border-b border-border">
+      <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-10 pb-6 border-b border-border">
         <div>
           <h1 className="text-3xl font-bold text-text italic tracking-tight">Admin Dashboard</h1>
           <p className="text-text-secondary text-sm">Manage and create cryptic crosswords.</p>
         </div>
-        <div className="flex gap-4 w-full sm:w-auto">
+        <div className="grid grid-cols-2 lg:flex lg:flex-row gap-3 lg:gap-4 w-full lg:w-auto">
           <Link
             to="/admin/parsewords"
-            className="flex-1 sm:flex-none px-6 py-3 rounded-xl bg-surface border-2 border-primary text-primary font-bold shadow-sm hover:bg-primary/5 hover:shadow-md active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
+            className="px-4 lg:px-6 py-3 text-sm lg:text-base rounded-xl bg-surface border-2 border-primary text-primary font-bold shadow-sm hover:bg-primary/5 hover:shadow-md active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
           >
             Parsewords Builder
           </Link>
           <Link
             to="/admin/missing-clues"
-            className="flex-1 sm:flex-none px-6 py-3 rounded-xl bg-surface border-2 border-primary text-primary font-bold shadow-sm hover:bg-primary/5 hover:shadow-md active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
+            className="px-4 lg:px-6 py-3 text-sm lg:text-base rounded-xl bg-surface border-2 border-primary text-primary font-bold shadow-sm hover:bg-primary/5 hover:shadow-md active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
           >
             Missing Clues Queue
           </Link>
           <Link
             to="/admin/batch-explanations"
-            className="flex-1 sm:flex-none px-6 py-3 rounded-xl bg-surface border-2 border-primary text-primary font-bold shadow-sm hover:bg-primary/5 hover:shadow-md active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
+            className="px-4 lg:px-6 py-3 text-sm lg:text-base rounded-xl bg-surface border-2 border-primary text-primary font-bold shadow-sm hover:bg-primary/5 hover:shadow-md active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
           >
             Batch Explanations
           </Link>
           <Link
             to="/admin/reports"
-            className="flex-1 sm:flex-none px-6 py-3 rounded-xl bg-surface border-2 border-primary text-primary font-bold shadow-sm hover:bg-primary/5 hover:shadow-md active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
+            className="px-4 lg:px-6 py-3 text-sm lg:text-base rounded-xl bg-surface border-2 border-primary text-primary font-bold shadow-sm hover:bg-primary/5 hover:shadow-md active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
           >
             Manage Reports
           </Link>
           <Link
             to="/admin/sessions"
-            className="flex-1 sm:flex-none px-6 py-3 rounded-xl bg-surface border-2 border-primary text-primary font-bold shadow-sm hover:bg-primary/5 hover:shadow-md active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
+            className="px-4 lg:px-6 py-3 text-sm lg:text-base rounded-xl bg-surface border-2 border-primary text-primary font-bold shadow-sm hover:bg-primary/5 hover:shadow-md active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
           >
             Manage Sessions
           </Link>
           <Link
             to="/create"
-            className="flex-1 sm:flex-none px-6 py-3 rounded-xl bg-primary text-white font-bold shadow-md hover:bg-primary-hover hover:shadow-lg active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
+            className="col-span-2 lg:col-span-1 px-4 lg:px-6 py-3 text-sm lg:text-base rounded-xl bg-primary text-white font-bold shadow-md hover:bg-primary-hover hover:shadow-lg active:scale-95 transition-all text-center no-underline flex items-center justify-center gap-2"
           >
             <span className="text-xl">+</span> Create New Puzzle
           </Link>
