@@ -366,12 +366,76 @@ Answer: ${answer}
   ]
 }
 
+// Shared sub-schemas hoisted into $defs to avoid repeating clue_segmentation
+// and wordplay_steps across all five explanation variants. OpenAI structured
+// outputs (strict mode) resolve $ref against the root schema's $defs.
+const crypticSchemaDefs = {
+  clueSegmentation: {
+    type: 'array',
+    description: 'Verbatim word-by-word token segmentation of the entire clue. Every word must be represented; strip all punctuation from tokens and do not emit punctuation-only tokens.',
+    minItems: 1,
+    items: {
+      type: 'object',
+      properties: {
+        text: {
+          type: 'string',
+          description: 'A single word token from the clue (punctuation stripped; no punctuation-only tokens).'
+        },
+        role: {
+          type: 'string',
+          enum: ['definition', 'wordplay', 'indicator', 'link'],
+          description: 'The role of this token in the clue structure.'
+        }
+      },
+      required: ['text', 'role'],
+      additionalProperties: false
+    }
+  },
+
+  wordplaySteps: {
+    type: 'array',
+    minItems: 1,
+    items: {
+      type: 'object',
+      properties: {
+        tokens: {
+          type: 'string',
+          description: 'Exact contiguous span of clue text consumed in this step — must be a verbatim substring of the current clue state',
+        },
+        operation: {
+          type: 'string',
+          enum: [
+            'synonym', 'abbreviate', 'literal', 'translation',
+            'anagram', 'reversal', 'trim', 'delete', 'concatenate',
+            'container', 'hidden', 'homophone', 'initials',
+          ],
+          description: 'The cryptic operation performed (must be one of the allowed values)',
+        },
+        result: {
+          type: 'string',
+          description: 'Resulting letter string after the operation',
+        },
+        clue_after: {
+          type: 'string',
+          description: 'The clue with consumed tokens replaced by the result',
+        },
+      },
+      required: ['tokens', 'operation', 'result', 'clue_after'],
+      additionalProperties: false,
+    },
+  },
+}
+
+const refSegmentation = { $ref: '#/$defs/clueSegmentation' }
+const refWordplaySteps = { $ref: '#/$defs/wordplaySteps' }
+
 export const crypticSchema = {
   type: 'json_schema',
   name: 'cryptic_explanation',
   strict: true,
   schema: {
     type: 'object',
+    $defs: crypticSchemaDefs,
     properties: {
       clue_type: {
         type: 'string',
@@ -395,67 +459,12 @@ export const crypticSchema = {
             description: 'A standard cryptic clue with definition and wordplay',
             properties: {
               clue_type: { type: 'string', const: 'wordplay' },
-
-              clue_segmentation: {
-                type: 'array',
-                description: 'Verbatim word-by-word token segmentation of the entire clue. Every word must be represented; strip all punctuation from tokens and do not emit punctuation-only tokens.',
-                minItems: 1,
-                items: {
-                  type: 'object',
-                  properties: {
-                    text: {
-                      type: 'string',
-                      description: 'A single word token from the clue (punctuation stripped; no punctuation-only tokens).'
-                    },
-                    role: {
-                      type: 'string',
-                      enum: ['definition', 'wordplay', 'indicator', 'link'],
-                      description: 'The role of this token in the clue structure.'
-                    }
-                  },
-                  required: ['text', 'role'],
-                  additionalProperties: false
-                }
-              },
-
+              clue_segmentation: refSegmentation,
               definition: {
                 type: 'string',
                 description: 'The exact definition from the clue',
               },
-
-              wordplay_steps: {
-                type: 'array',
-                minItems: 1,
-                items: {
-                  type: 'object',
-                  properties: {
-                    tokens: {
-                      type: 'string',
-                      description: 'Exact contiguous span of clue text consumed in this step — must be a verbatim substring of the current clue state',
-                    },
-                    operation: {
-                      type: 'string',
-                      enum: [
-                        'synonym', 'abbreviate', 'literal', 'translation',
-                        'anagram', 'reversal', 'trim', 'delete', 'concatenate',
-                        'container', 'hidden', 'homophone', 'initials',
-                      ],
-                      description: 'The cryptic operation performed (must be one of the allowed values)',
-                    },
-                    result: {
-                      type: 'string',
-                      description: 'Resulting letter string after the operation',
-                    },
-                    clue_after: {
-                      type: 'string',
-                      description: 'The clue with consumed tokens replaced by the result',
-                    },
-                  },
-                  required: ['tokens', 'operation', 'result', 'clue_after'],
-                  additionalProperties: false,
-                },
-              },
-
+              wordplay_steps: refWordplaySteps,
               hint: {
                 type: 'object',
                 properties: {
@@ -472,7 +481,6 @@ export const crypticSchema = {
                 required: ['definition_location', 'wordplay_types'],
                 additionalProperties: false,
               },
-
               full_explanation: {
                 type: 'string',
               },
@@ -496,29 +504,7 @@ export const crypticSchema = {
             description: 'A double definition clue',
             properties: {
               clue_type: { type: 'string', const: 'double_definition' },
-
-              clue_segmentation: {
-                type: 'array',
-                description: 'Verbatim word-by-word token segmentation of the entire clue. Every word must be represented; strip all punctuation from tokens and do not emit punctuation-only tokens.',
-                minItems: 1,
-                items: {
-                  type: 'object',
-                  properties: {
-                    text: {
-                      type: 'string',
-                      description: 'A single word token from the clue (punctuation stripped; no punctuation-only tokens).'
-                    },
-                    role: {
-                      type: 'string',
-                      enum: ['definition', 'wordplay', 'indicator', 'link'],
-                      description: 'The role of this token in the clue structure.'
-                    }
-                  },
-                  required: ['text', 'role'],
-                  additionalProperties: false
-                }
-              },
-
+              clue_segmentation: refSegmentation,
               definitions: {
                 type: 'array',
                 minItems: 2,
@@ -532,7 +518,6 @@ export const crypticSchema = {
                   additionalProperties: false,
                 },
               },
-
               hint: {
                 type: 'object',
                 properties: {
@@ -541,7 +526,6 @@ export const crypticSchema = {
                 required: ['definition_count'],
                 additionalProperties: false,
               },
-
               full_explanation: {
                 type: 'string',
               },
@@ -558,67 +542,12 @@ export const crypticSchema = {
             description: 'An &lit clue where the entire clue is both definition and wordplay',
             properties: {
               clue_type: { type: 'string', const: '&lit' },
-
               definition_scope: {
                 type: 'string',
                 const: 'entire_clue',
               },
-
-              clue_segmentation: {
-                type: 'array',
-                description: 'Verbatim word-by-word token segmentation of the entire clue. Every word must be represented; strip all punctuation from tokens and do not emit punctuation-only tokens.',
-                minItems: 1,
-                items: {
-                  type: 'object',
-                  properties: {
-                    text: {
-                      type: 'string',
-                      description: 'A single word token from the clue (punctuation stripped; no punctuation-only tokens).'
-                    },
-                    role: {
-                      type: 'string',
-                      enum: ['definition', 'wordplay', 'indicator', 'link'],
-                      description: 'The role of this token in the clue structure.'
-                    }
-                  },
-                  required: ['text', 'role'],
-                  additionalProperties: false
-                }
-              },
-
-              wordplay_steps: {
-                type: 'array',
-                minItems: 1,
-                items: {
-                  type: 'object',
-                  properties: {
-                    tokens: {
-                      type: 'string',
-                      description: 'Exact contiguous span of clue text consumed in this step — must be a verbatim substring of the current clue state',
-                    },
-                    operation: {
-                      type: 'string',
-                      enum: [
-                        'synonym', 'abbreviate', 'literal', 'translation',
-                        'anagram', 'reversal', 'trim', 'delete', 'concatenate',
-                        'container', 'hidden', 'homophone', 'initials',
-                      ],
-                      description: 'The cryptic operation performed (must be one of the allowed values)',
-                    },
-                    result: {
-                      type: 'string',
-                      description: 'Resulting letter string after the operation',
-                    },
-                    clue_after: {
-                      type: 'string',
-                      description: 'The clue with consumed tokens replaced by the result',
-                    },
-                  },
-                  required: ['tokens', 'operation', 'result', 'clue_after'],
-                  additionalProperties: false,
-                },
-              },
-
+              clue_segmentation: refSegmentation,
+              wordplay_steps: refWordplaySteps,
               hint: {
                 type: 'object',
                 properties: {
@@ -631,7 +560,6 @@ export const crypticSchema = {
                 required: ['wordplay_types'],
                 additionalProperties: false,
               },
-
               full_explanation: {
                 type: 'string',
               },
@@ -656,40 +584,16 @@ export const crypticSchema = {
               'A cryptic definition clue: no separable wordplay; the entire clue is a single misleading definition',
             properties: {
               clue_type: { type: 'string', const: 'cryptic_definition' },
-
               definition_scope: {
                 type: 'string',
                 const: 'entire_clue',
               },
-
-              clue_segmentation: {
-                type: 'array',
-                description: 'Verbatim word-by-word token segmentation of the entire clue. Every word must be represented; strip all punctuation from tokens and do not emit punctuation-only tokens.',
-                minItems: 1,
-                items: {
-                  type: 'object',
-                  properties: {
-                    text: {
-                      type: 'string',
-                      description: 'A single word token from the clue (punctuation stripped; no punctuation-only tokens).'
-                    },
-                    role: {
-                      type: 'string',
-                      enum: ['definition', 'wordplay', 'indicator', 'link'],
-                      description: 'The role of this token in the clue structure.'
-                    }
-                  },
-                  required: ['text', 'role'],
-                  additionalProperties: false
-                }
-              },
-
+              clue_segmentation: refSegmentation,
               definition_paraphrase: {
                 type: 'string',
                 description:
                   'A concise paraphrase of what the whole clue is defining (no wordplay decomposition)',
               },
-
               hint: {
                 type: 'object',
                 properties: {
@@ -698,7 +602,6 @@ export const crypticSchema = {
                 required: ['definition_scope'],
                 additionalProperties: false,
               },
-
               full_explanation: {
                 type: 'string',
               },
@@ -723,46 +626,21 @@ export const crypticSchema = {
               'Used when no clean parse can be produced without inventing indicators or forcing letter accounting',
             properties: {
               clue_type: { type: 'string', const: 'no_clean_parse' },
-
               intended_clue_type: {
                 type: 'string',
                 enum: ['wordplay', 'double_definition', '&lit', 'cryptic_definition'],
                 description: 'Best-guess clue type if the clue were clued cleanly',
               },
-
-              clue_segmentation: {
-                type: 'array',
-                description: 'Verbatim word-by-word token segmentation of the entire clue. Every word must be represented; strip all punctuation from tokens and do not emit punctuation-only tokens.',
-                minItems: 1,
-                items: {
-                  type: 'object',
-                  properties: {
-                    text: {
-                      type: 'string',
-                      description: 'A single word token from the clue (punctuation stripped; no punctuation-only tokens).'
-                    },
-                    role: {
-                      type: 'string',
-                      enum: ['definition', 'wordplay', 'indicator', 'link'],
-                      description: 'The role of this token in the clue structure.'
-                    }
-                  },
-                  required: ['text', 'role'],
-                  additionalProperties: false
-                }
-              },
-
+              clue_segmentation: refSegmentation,
               definition: {
                 type: 'string',
                 description: 'The exact definition from the clue (best guess)',
               },
-
               issue: {
                 type: 'string',
                 description:
                   'Precise reason a clean parse is not possible (missing indicator, letter accounting mismatch, etc.)',
               },
-
               hint: {
                 type: 'object',
                 properties: {
@@ -774,7 +652,6 @@ export const crypticSchema = {
                 required: ['intended_clue_type'],
                 additionalProperties: false,
               },
-
               full_explanation: {
                 type: 'string',
               },

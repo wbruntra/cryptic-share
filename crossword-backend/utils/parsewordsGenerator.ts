@@ -5,8 +5,9 @@
  *   1. Build a deterministic SKELETON from the verified explanation
  *      (buildSkeletonFromExplanation) — the single correct solution path,
  *      one correct option per choice. No LLM, guaranteed solvable.
- *   2. Ask an LLM to ENHANCE the skeleton: add plausible wrong options and
- *      red-herring (dead-end) triggers, without touching the correct path.
+ *   2. Ask an LLM to ENHANCE the skeleton: add as many genuine wrong options as
+ *      possible to the existing first-stage choices, without touching the
+ *      correct path. (No new triggers — just more distractor options.)
  *   3. BFS-validate the enhanced puzzle; if the LLM broke it, fall back to the
  *      bare skeleton (which is always solvable).
  */
@@ -68,7 +69,7 @@ export type ParsewordsPuzzle = {
 // Enhancement prompt
 // ---------------------------------------------------------------------------
 
-const SYSTEM_PROMPT = `You enhance Parsewords puzzles. You are given a SKELETON puzzle that already contains the single correct solution path — every choice currently has only its one correct option. Your job is to make the puzzle challenging by adding plausible WRONG options and red-herring (dead-end) triggers, WITHOUT breaking the correct path.
+const SYSTEM_PROMPT = `You enhance Parsewords puzzles. You are given a SKELETON puzzle that already contains the single correct solution path — every choice currently has only its one correct option. Your ONLY job is to throw the player off by adding as many GENUINE wrong options as you can to the existing choices, without breaking the correct path.
 
 ## How Parsewords works
 The player sees the clue as clickable word tokens. Selecting a contiguous group of tokens whose joined text equals a trigger's "match" fires that trigger:
@@ -76,46 +77,26 @@ The player sees the clue as clickable word tokens. Selecting a contiguous group 
 - result: several tokens combine into one new token the player picks (anagram, charade, hidden, etc.).
 - compute: a deterministic single-token operation (trim/reverse) — no options.
 - container: insert one resolved letter-string into another — no options.
-The player wins when the only remaining non-definition, non-link token equals the answer. A "dead end" is any option/trigger whose result cannot lead to the answer.
+The player wins when the only remaining non-definition, non-link token equals the answer.
 
-## ABSOLUTE RULES — never break the correct path
-- Return the puzzle with "label", "clue", "answer", "displayAnswer", and "tokens" COPIED EXACTLY from the input. Never change token text or roles.
-- Keep EVERY existing trigger, in the same order. For each existing replace/result trigger, its FIRST option is the correct one and MUST stay first and unchanged.
-- Do NOT modify "compute" or "container" triggers at all (they have no options).
-- You may ONLY: (a) append extra options after the correct one on existing replace/result triggers, and (b) append brand-new red-herring triggers at the end. Never reorder or delete anything.
+## What to do
+For each existing "replace" and "result" trigger, add as MANY plausible wrong options as genuinely exist, AFTER the correct first option:
+- A SYNONYM replace (a clue word maps to a whole word, e.g. "grow older" -> AGE) usually has several real synonyms — add all the good ones you can think of (e.g. AGE plus MATURE, RIPEN, DEVELOP). These first-stage synonym choices are the main way to throw the player off, so be generous here.
+- An ABBREVIATION replace (a clue word maps to one or two letters, e.g. "women" -> W, "right" -> R) — add any other standard abbreviations a solver might really try.
+- A result trigger (anagram/charade/hidden) — add other plausible arrangements or near-misses of the same letters.
+- Letter-string options (abbreviations, fodder, anagram results) must be ALL CAPS, matching the correct option's style.
 
-## Adding wrong options to existing replace triggers
-For each existing "replace" trigger, add 1-2 wrong options AFTER the correct first option:
-- They must be GENUINE — real synonyms of the clue word, or real alternative abbreviations a solver might actually try.
-- A SYNONYM replace (the clue word maps to a whole word, e.g. "grow older" -> AGE) almost always has other real synonyms — add 1-2 (e.g. AGE plus MATURE, RIPEN). Default to adding distractors here.
-- An ABBREVIATION replace (the clue word maps to one or two letters, e.g. "women" -> W, "right" -> R) often has only one standard abbreviation. Add another ONLY if a real alternative abbreviation exists; otherwise leave just the correct option.
-- CRITICAL: never invent fake or nonsense words just to reach a count. Quality over quantity. One real option beats three with junk.
-- Wrong options must be dead ends: they must not equal the text any other trigger matches on.
-- Letter-string options (abbreviations, fodder) should be ALL CAPS, matching the style of the correct option.
-
-## Adding wrong options to existing result triggers
-For each existing "result" trigger, add 1-2 wrong options AFTER the correct one:
-- For anagrams: other plausible arrangements of the SAME letters (these are not "invented words", so they are fine).
-- For charades/concatenations/hidden/etc.: a wrong ordering or a near-miss of the same letters.
-- All wrong options must be dead ends.
-
-## Adding red-herring triggers (new dead-end triggers)
-Append NEW triggers that tempt the solver onto false paths. Add them only where they make genuine cryptic sense — do NOT force one onto every token. Every red herring must be a dead end (its result enables no further progress), and must use only REAL words/abbreviations (no junk).
-1. Indicator role confusion: for an indicator word, add a "replace" (label "synonym") giving a real literal synonym (e.g. "back" -> ["REAR"], "frustrated" -> ["ANNOYED"]). A solver who treats the indicator as fodder gets stuck.
-2. Link/filler distractor: for a link word, add a "replace" (label "synonym") with a real synonym (e.g. "for" -> ["PRO"]).
-3. Definition red herring (include one when there is a clear definition): add a "replace" (label "definition") on the definition token(s) with REAL synonyms of the definition. They must NOT equal the answer, and must NOT contain or be a fragment of the answer.
-4. False operation (optional): if a wordplay token plausibly looks reversible/trimmable, add a wrong "compute" trigger (label "reversal" or "trim").
-
-## label values (strict)
-Every trigger's "label" MUST be exactly one of: anagram, synonym, reversal, trim, deletion, container, hidden, homophone, initials, charade, definition. NEVER invent a label such as "distractor" or "red-herring". Red-herring synonym swaps use label "synonym"; definition red herrings use label "definition".
-
-## Ordering
-Keep all original correct-path triggers first (unchanged order). Then append red-herring triggers. Put definition red herrings last.
+## Rules
+- Return "label", "clue", "answer", "displayAnswer", and "tokens" COPIED EXACTLY from the input. Never change token text or roles.
+- Keep EVERY existing trigger in the same order. The FIRST option of each replace/result trigger is correct and MUST stay first and unchanged.
+- Do NOT add any new triggers. Do NOT modify "compute" or "container" triggers (they have no options). You ONLY append extra options to the existing replace/result triggers.
+- Wrong options must be GENUINE real words/abbreviations/anagrams. NEVER invent fake or nonsense words to pad the count — one real option beats three with junk.
+- Every trigger's "label" MUST be exactly one of: anagram, synonym, reversal, trim, deletion, container, hidden, homophone, initials, charade, definition. Keep the input labels as-is.
 
 ## Output
 Return ONLY the puzzle JSON object with this shape (no commentary):
 { "label": "...", "clue": "...", "answer": "...", "displayAnswer": "...", "tokens": [...], "triggers": [...] }
-"tokens" and the leading correct triggers must be identical to the input; you are only adding options and trailing triggers.`
+"tokens" and the triggers must be identical to the input except for the extra options you appended.`
 
 // ---------------------------------------------------------------------------
 // Core: enhance a skeleton with red herrings
@@ -125,7 +106,7 @@ export async function enhanceSkeletonPuzzle(
   skeleton: ParsewordsPuzzle,
   model = DEFAULT_MODEL,
 ): Promise<ParsewordsPuzzle> {
-  const userMessage = `Here is the SKELETON Parsewords puzzle (correct path only). Enhance it with genuine wrong options and red herrings per the rules. Keep the correct path intact.
+  const userMessage = `Here is the SKELETON Parsewords puzzle (correct path only). Add as many genuine wrong options as possible to the existing replace/result triggers to throw the player off. Do not add new triggers and keep the correct path intact.
 
 ${JSON.stringify(skeleton, null, 2)}
 

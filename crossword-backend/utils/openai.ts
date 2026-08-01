@@ -113,6 +113,8 @@ Rules:
       },
     ],
     response_format: { type: 'json_object' },
+    // @ts-expect-error provider routing is an OpenRouter extension not typed by the openai SDK
+    provider: { sort: 'price' },
   })
 
   const content = response.choices[0]?.message?.content
@@ -228,6 +230,8 @@ Return ONLY valid JSON matching this exact structure:
       },
     ],
     response_format: { type: 'json_object' },
+    // @ts-expect-error provider routing is an OpenRouter extension not typed by the openai SDK
+    provider: { sort: 'price' },
   })
 
   const content = response.choices[0]?.message?.content
@@ -239,11 +243,20 @@ Return ONLY valid JSON matching this exact structure:
 /**
  * Build the Responses API request body for a clue explanation.
  * Used both by explainCrypticClue (direct) and batch-explanation-auto (batch JSONL).
+ *
+ * Every request shares an identical ~4.3k-token prefix (crypticInstructions +
+ * structured-output schema) with only the clue/answer varying at the end, so it
+ * qualifies for OpenAI prompt caching (auto-enabled ≥1024 tokens). prompt_cache_key
+ * routes these same-prefix requests to the same cache to maximize hit rate. Bump
+ * the version suffix whenever crypticInstructions or crypticSchema change.
  */
+const EXPLANATION_CACHE_KEY = 'cryptic-explanation-v1'
+
 export function buildExplanationRequestBody(clue: string, answer: string, mode: 'hint' | 'full' = 'full') {
   return {
-    model: 'gpt-5-mini',
+    model: 'gpt-5.6-luna',
     reasoning: { effort: 'medium' },
+    prompt_cache_key: EXPLANATION_CACHE_KEY,
     input: generateExplanationMessages(clue, answer, mode),
     text: { format: crypticSchema },
   }
@@ -284,7 +297,7 @@ export const regenerateCrypticClueExplanation = async (input: {
     },
   ]
 
-  console.log('[regenerateCrypticClueExplanation] Sending request to OpenAI (gpt-5-mini)...')
+  console.log('[regenerateCrypticClueExplanation] Sending request to OpenAI (gpt-5.6-luna)...')
   const startTime = performance.now()
   const response = await (openai as any).responses.create({ ...body, input: inputWithFeedback })
   const duration = (performance.now() - startTime) / 1000

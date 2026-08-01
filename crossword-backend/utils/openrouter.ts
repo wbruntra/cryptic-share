@@ -30,6 +30,7 @@ Rules:
   const result = await client.chat.send({
     chatRequest: {
       model,
+      provider: { sort: 'price' },
       messages: [
         {
           role: 'user',
@@ -127,6 +128,7 @@ export const generateGrid = async (input: any) => {
     const result = await client.chat.send({
       chatRequest: {
         model: 'google/gemini-3-flash-preview',
+        provider: { sort: 'price' },
         messages: [
           {
             role: 'user',
@@ -225,6 +227,7 @@ export const transcribeAnswers = async (input: any, model = models.flash) => {
     const result = await client.chat.send({
       chatRequest: {
         model,
+        provider: { sort: 'price' },
         messages: [
           {
             role: 'user',
@@ -323,7 +326,7 @@ export const explainCrypticClue = async (input: {
   model?: string
   timeoutMs?: number
 }) => {
-  const { clue, answer, mode = 'full', model = models['deepseek-pro'], timeoutMs = 60_000 } = input
+  const { clue, answer, mode = 'full', model = models['gpt-terra'], timeoutMs = 60_000 } = input
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -332,6 +335,7 @@ export const explainCrypticClue = async (input: {
     const fetchPromise = client.chat.send({
       chatRequest: {
         model: model,
+        provider: { sort: 'price' },
         messages: [
           {
             role: 'user',
@@ -392,7 +396,14 @@ export const regenerateCrypticClueExplanation = async (input: {
   model?: string
   timeoutMs?: number
 }) => {
-  const { clue, answer, feedback, previousExplanation, model = models['deepseek-pro'], timeoutMs = 120_000 } = input
+  const {
+    clue,
+    answer,
+    feedback,
+    previousExplanation,
+    model = models['gpt-terra'],
+    timeoutMs = 120_000,
+  } = input
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -430,6 +441,7 @@ export const regenerateCrypticClueExplanation = async (input: {
     const fetchPromise = client.chat.send({
       chatRequest: {
         model,
+        provider: { sort: 'price' },
         messages,
         responseFormat: {
           type: 'json_schema',
@@ -485,7 +497,7 @@ if (import.meta.main) {
 
   const clue = args[0]!
   const answer = args[1]!
-  const model = args[2] ?? models['gpt-5.4-mini']
+  const model = args[2] ?? models['gpt-terra']
 
   console.log(`Clue:   ${clue}`)
   console.log(`Answer: ${answer}`)
