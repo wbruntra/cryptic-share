@@ -218,10 +218,10 @@ export type CrypticDefinitionExplanation = z.infer<typeof CrypticDefinitionExpla
 export type NoCleanParseExplanation = z.infer<typeof NoCleanParseExplanationSchema>
 
 // =========================
-// ORIGINAL JSON SCHEMA (PRESERVED)
+// LEGACY PROMPT (kept temporarily as a reference while the concise prompt is evaluated)
 // =========================
 
-export const crypticInstructions = `
+export const legacyCrypticInstructions = `
 You are a cryptic crossword expert explaining a solved clue.
 
 You will be given:
@@ -342,6 +342,46 @@ Final check (required):
 
 Constraints:
 - full_explanation must be at most 4 sentences.
+`
+
+/**
+ * Instructions for the active explanation prompt. The JSON schema carries the
+ * field-level contract, so this focuses on accurate parsing and reader-facing
+ * prose rather than repeating every schema detail.
+ */
+export const crypticInstructions = `
+You are a cryptic crossword expert explaining a solved clue. Return only valid JSON matching the supplied schema.
+
+Parse accurately:
+- Segment every clue word, in order, after stripping punctuation. Assign each exactly one role: definition, wordplay, indicator, or link.
+- Choose wordplay, double_definition, &lit, cryptic_definition, or no_clean_parse. Use no_clean_parse only when a strict parse would require an invented indicator or fails letter accounting.
+- Quote the exact definition for wordplay. For a double definition, give two distinct senses. For an &lit or cryptic definition, the whole clue is the definition; never invent wordplay for a cryptic definition.
+- For wordplay and &lit, account for every answer letter with the simplest indicated parse.
+- Indicators are instructions, not permission to use any convenient operation. Apply each indicator to its local operand with its conventional operation: a reversal indicator must produce a reversal, a trim indicator a trim, and an anagram indicator an anagram. Do not relabel or combine indicators merely because a different operation happens to yield the answer.
+- Check algebraic (answer-participating) anagrams before using no_clean_parse. If an indicated visible target B is exactly an anagram of a visible remainder A plus the answer, accept the parse: anagram(A + ANSWER) = B. The definition is outside that equation; do not reject it because the answer is not ordinary fodder or because the equation crosses word boundaries.
+
+Build replayable wordplay_steps:
+- Each step consumes one contiguous span from the current clue state and gives the exact resulting clue_after.
+- Perform one operation per step. Resolve synonyms, abbreviations, translations, and number spell-outs before using them in a join, container, deletion, or anagram.
+- Consume an indicator with the material it governs. Do not consume definition or link words in a wordplay operation; links remain untouched in clue_after.
+- Use concatenate only for adjacent resolved fragments. Use trim only for a first or last letter; use delete for other removals. The final step produces the answer.
+
+Write full_explanation for a solver, not a trace:
+- Use one or two short sentences (maximum 240 characters). State the definition once, then the essential wordplay in clue order.
+- Prefer direct equations and standard abbreviations. Do not repeat the schema fields, explain basic conventions, hedge, offer alternatives, or say that every letter has been checked.
+- For no_clean_parse, state the definition and the exact missing or invalid mechanism in one sentence.
+
+Style examples (each is Clue → Answer: full_explanation):
+- “Composition of exotic soup (4)” → OPUS: “'Composition' is the definition; 'exotic' anagrams SOUP to OPUS.”
+- “Purple, mature feathers (7)” → PLUMAGE: “'Feathers' is the definition; PLUM + AGE gives PLUMAGE.”
+- “Surrey town makes an appearance in James Herriot (5)” → ESHER: “'Surrey town' is the definition; ESHER is hidden in JamES HERriot.”
+- “Mother clothes a man in red (7)” → MAGENTA: “'Red' is the definition; MA contains AGENT (A + GENT) to make MAGENTA.”
+- “Gosh, with this sultanate neighbours may be agitated (6)” → BRUNEI: “'This sultanate' is the definition; 'agitated' gives NEIGHBOURS = anagram of GOSH + BRUNEI, so the answer is BRUNEI.”
+- “With Christmas nearly over recall dance's sleepy tune (7)” → LULLABY: “'Sleepy tune' is the definition; YULE nearly → YUL, reversed by 'over' to LUY; BALL (dance) reversed by 'recall' to LLAB; LUY + LLAB gives LULLABY.” Do not replace those two reversals with one anagram.
+- “Soil planet (5)” → EARTH: “'Soil' and 'planet' both define EARTH.”
+- “Resonant sound precedes foxtrot (4)” → ECHO: “The whole clue defines ECHO: a resonant sound and the NATO word before Foxtrot.”
+- “Scottish town where everything's allowed? (4)” → OBAN: “A whole-clue pun: OBAN reads as 'no ban'—a place where everything is allowed.”
+- “Run more (5)” → EXTRA: “'Run' and 'more' both define EXTRA: a cricket extra is a run, and an extra is something additional.”
 `
 
 export const generateExplanationMessages = (

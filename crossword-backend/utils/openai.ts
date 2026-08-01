@@ -250,7 +250,7 @@ Return ONLY valid JSON matching this exact structure:
  * routes these same-prefix requests to the same cache to maximize hit rate. Bump
  * the version suffix whenever crypticInstructions or crypticSchema change.
  */
-const EXPLANATION_CACHE_KEY = 'cryptic-explanation-v1'
+const EXPLANATION_CACHE_KEY = 'cryptic-explanation-v2'
 
 export function buildExplanationRequestBody(clue: string, answer: string, mode: 'hint' | 'full' = 'full') {
   return {

@@ -357,7 +357,7 @@ export const explainCrypticClue = async (input: {
           },
         },
         plugins: [{ id: 'response-healing' }],
-        maxTokens: 16000,
+        maxTokens: 4000,
         stream: false,
       },
     })
@@ -452,7 +452,7 @@ export const regenerateCrypticClueExplanation = async (input: {
           },
         },
         plugins: [{ id: 'response-healing' }],
-        maxTokens: 16000,
+        maxTokens: 4000,
         stream: false,
       },
     })
