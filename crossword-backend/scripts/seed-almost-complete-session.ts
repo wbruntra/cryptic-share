@@ -36,6 +36,11 @@ async function main() {
     console.log(`No --puzzle-id given, using first puzzle: [${puzzleId}] "${first.title}"`)
   }
 
+  if (puzzleId === null) {
+    console.error('No puzzle ID resolved.')
+    process.exit(1)
+  }
+
   // Load puzzle and correct answers
   const puzzle = await PuzzleService.getPuzzleById(puzzleId)
   if (!puzzle) {

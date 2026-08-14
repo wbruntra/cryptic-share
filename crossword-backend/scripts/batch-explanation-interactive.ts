@@ -223,15 +223,15 @@ async function checkBatch(batchId: string) {
   console.log(`\n🔍 Checking status for batch: ${batchId}`)
   const batch = await openai.batches.retrieve(batchId)
 
-  const statusEmoji =
-    {
-      pending: '⏳',
-      completed: '✅',
-      failed: '❌',
-      in_progress: '🔄',
-    }[batch.status] || '❓'
+  const statusEmoji: Record<string, string> = {
+    pending: '⏳',
+    completed: '✅',
+    failed: '❌',
+    in_progress: '🔄',
+  }
+  const emoji = statusEmoji[batch.status] || '❓'
 
-  console.log(`${statusEmoji} Status: ${batch.status}`)
+  console.log(`${emoji} Status: ${batch.status}`)
   console.log(
     `   Request Counts: Completed=${batch.request_counts?.completed}, Failed=${batch.request_counts?.failed}, Total=${batch.request_counts?.total}`,
   )
@@ -435,7 +435,7 @@ async function showPuzzleStats() {
       .count('* as count')
       .first()
 
-    const explained = explainedCount?.count || 0
+    const explained = Number(explainedCount?.count || 0)
     const percentage = totalClues > 0 ? Math.round((explained / totalClues) * 100) : 0
 
     stats.push({
@@ -547,7 +547,7 @@ async function getPuzzleChoices() {
   return choices
 }
 
-async function mainMenu(rl: readline.Interface) {
+async function mainMenu() {
   while (true) {
     console.log('\n' + '='.repeat(60))
     console.log('🔤 BATCH EXPLANATION MANAGER')
@@ -741,7 +741,7 @@ ${' '.repeat(0)}and attempt to cancel it with OpenAI if still pending/in-progres
 
 async function main() {
   try {
-    await mainMenu(undefined as any)
+    await mainMenu()
   } finally {
     process.exit(0)
   }

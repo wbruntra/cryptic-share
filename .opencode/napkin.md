@@ -122,3 +122,16 @@
 
 6. Reordered the menu buttons in `DesktopView.tsx` and `MobileView.tsx` to place the Parsewords puzzle piece button on the right of the lock mode button.
 
+### 2026-08-14 - TypeScript 7 & Tooling Upgrades
+
+**Goal**: Upgrade repository to TypeScript v7 (`typescript@^7.0.2`), Vite 8, and Oxlint.
+
+**Completed**:
+1. Upgraded `typescript` to `^7.0.2` across `crossword-frontend` and `crossword-backend`.
+2. Removed removed compiler option `"baseUrl": "."` from `crossword-frontend/tsconfig.app.json` (deprecated in TS 6, removed in TS 7).
+3. Resolved backend type adjustments for TS 7 compatibility and removed obsolete `middleware/auth.ts`.
+4. Verified `tsc -b` and `bun run build` succeed with TypeScript 7.
+5. All 122 backend tests and all frontend Vitest tests pass cleanly.
+
+
+

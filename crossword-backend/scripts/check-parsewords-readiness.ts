@@ -108,7 +108,7 @@ Examples:
     .groupBy('puzzle_id')
   const parsewordsCounts = new Map<number, number>()
   for (const r of parsewordsRows) {
-    parsewordsCounts.set(r.puzzle_id, (r as any).count)
+    parsewordsCounts.set(Number(r.puzzle_id), Number((r as any).count))
   }
 
   // Group by puzzle

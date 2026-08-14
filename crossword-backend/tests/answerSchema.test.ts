@@ -16,14 +16,15 @@ describe('answerSchema', () => {
     expect(jsonSchema.strict).toBe(true)
     expect(jsonSchema.schema).toBeDefined()
 
+    const schema = jsonSchema.schema as any
     // Verify the schema structure
-    expect(jsonSchema.schema.type).toBe('object')
-    expect(jsonSchema.schema.properties).toBeDefined()
-    expect(jsonSchema.schema.properties.puzzles).toBeDefined()
-    expect(jsonSchema.schema.properties.puzzles.type).toBe('array')
+    expect(schema.type).toBe('object')
+    expect(schema.properties).toBeDefined()
+    expect(schema.properties.puzzles).toBeDefined()
+    expect(schema.properties.puzzles.type).toBe('array')
 
     // Verify puzzle structure
-    const puzzleSchema = jsonSchema.schema.properties.puzzles.items
+    const puzzleSchema = schema.properties.puzzles.items
     expect(puzzleSchema.type).toBe('object')
     expect(puzzleSchema.properties.puzzle_id).toBeDefined()
     expect(puzzleSchema.properties.across).toBeDefined()
@@ -171,14 +172,14 @@ describe('answerSchema', () => {
     expect(schema.additionalProperties).toBe(false)
 
     // Verify puzzle item schema
-    const puzzleItemSchema = schema.properties.puzzles.items
+    const puzzleItemSchema = (schema as any).properties.puzzles.items
     expect(puzzleItemSchema.required).toEqual(
       expect.arrayContaining(['puzzle_id', 'across', 'down']),
     )
     expect(puzzleItemSchema.additionalProperties).toBe(false)
 
     // Verify answer item schema
-    const answerItemSchema = puzzleItemSchema.properties.across.items
+    const answerItemSchema = (puzzleItemSchema as any).properties.across.items
     expect(answerItemSchema.required).toEqual(expect.arrayContaining(['number', 'answer']))
     expect(answerItemSchema.additionalProperties).toBe(false)
   })

@@ -1,24 +1,23 @@
+import React from 'react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
-
-// Mock react-icons/fa to prevent React dual-resolution issues in Vitest
-vi.mock('react-icons/fa', () => ({
-  FaLongArrowAltRight: () => <span data-testid="arrow-right" />,
-  FaLongArrowAltDown: () => <span data-testid="arrow-down" />,
-}))
-
 import { screen, fireEvent, act } from '@testing-library/react'
-import { memo } from 'react'
 import { renderWithProviders } from './test-utils'
 import { CrosswordGrid } from './CrosswordGrid'
 import * as GridCellModule from './GridCell'
 import { setCursor, updateCell, moveCursor } from './store/slices/puzzleSlice'
 import type { RenderedCell, CellType } from './types'
 
+// Mock react-icons/fa to prevent React dual-resolution issues in Vitest
+vi.mock('react-icons/fa', () => ({
+  FaLongArrowAltRight: () => React.createElement('span', { 'data-testid': 'arrow-right' }),
+  FaLongArrowAltDown: () => React.createElement('span', { 'data-testid': 'arrow-down' }),
+}))
+
 // Mock GridCell to track strict render counts
 vi.mock('./GridCell', async (importOriginal) => {
   const actual = await importOriginal<typeof GridCellModule>()
-  const spy = vi.fn((props) => <actual.GridCell {...props} />)
-  const MemoizedGridCell = memo(spy)
+  const spy = vi.fn((props) => React.createElement(actual.GridCell, props))
+  const MemoizedGridCell = React.memo(spy)
   // Attach spy to the component so we can verify calls
   Object.assign(MemoizedGridCell, { spy })
   return {

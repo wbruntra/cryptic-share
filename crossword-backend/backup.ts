@@ -8,7 +8,7 @@ try {
   // Check if puzzle_sessions exists first to avoid error if it doesn't (though we know it does)
   const sessionsExists = db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='puzzle_sessions'").get();
   
-  let sessions = [];
+  let sessions: unknown[] = [];
   if (sessionsExists) {
     sessions = db.query('SELECT * FROM puzzle_sessions').all();
   }

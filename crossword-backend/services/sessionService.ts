@@ -316,7 +316,13 @@ export class SessionService {
 
   private static setCache(
     sessionId: string,
-    data: { state: string[]; lastAccess: number; dirty: boolean }
+    data: {
+      state: string[]
+      lastAccess: number
+      dirty: boolean
+      letter_count?: number | null
+      is_complete?: boolean
+    }
   ) {
     if (!this.cache.has(sessionId)) {
       this.evictCache()
