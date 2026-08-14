@@ -27,6 +27,7 @@ export interface ExplanationVerification {
   clueText: string
   steps: StepVerification[]
   finalAnswerPresent: boolean
+  isOldFormat?: boolean
   error?: string
 }
 
@@ -179,6 +180,18 @@ function verifyStep(
   }
 }
 
+function isOldFormatStep(s: Record<string, unknown>): boolean {
+  const hasTokens = 'tokens' in s && s.tokens !== undefined && s.tokens !== null
+  const hasIndicator = 'indicator' in s && s.indicator !== undefined && s.indicator !== null
+  const hasClueAfter = 'clue_after' in s && s.clue_after !== undefined && s.clue_after !== null
+  return !hasTokens && hasIndicator && !hasClueAfter
+}
+
+function isOldFormatSteps(steps: Record<string, unknown>[]): boolean {
+  if (steps.length === 0) return false
+  return steps.every(isOldFormatStep)
+}
+
 function normalizeForAnswerCheck(s: string): string {
   return s
     .toLowerCase()
@@ -212,19 +225,49 @@ export function verifyExplanation(
     const obj = explanationJson as Record<string, unknown>
 
     let clueType = 'unknown'
-    let steps: WordplayStep[] | undefined
 
     if (typeof obj.clue_type === 'string') {
       clueType = obj.clue_type
-      steps = obj.wordplay_steps as WordplayStep[] | undefined
     }
 
-    // Filter out placeholder steps (handles both string and legacy array tokens)
-    if (steps) {
-      steps = steps.filter((s) => !isPlaceholderStep(s))
+    const rawSteps = obj.wordplay_steps as Record<string, unknown>[] | undefined
+
+    if (!rawSteps || rawSteps.length === 0) {
+      return {
+        verified: false,
+        clueType,
+        answer,
+        clueText,
+        steps: [],
+        finalAnswerPresent: false,
+        error: `no wordplay_steps for clue_type=${clueType}`,
+      }
     }
 
-    if (!steps || steps.length === 0) {
+    // Detect old-format steps before filtering (old format has indicator instead of tokens,
+    // and no clue_after, so placeholder filtering would strip all steps)
+    if (isOldFormatSteps(rawSteps)) {
+      const lastStep = rawSteps[rawSteps.length - 1]!
+      const lastResult = typeof lastStep.result === 'string' ? lastStep.result : ''
+      const answerPresent = lastResult ? answerPresentInFinalState(lastResult, answer) : false
+
+      return {
+        verified: false,
+        clueType,
+        answer,
+        clueText,
+        steps: [],
+        finalAnswerPresent: answerPresent,
+        isOldFormat: true,
+        error: 'old-format explanation (no tokens/clue_after); re-generate for full verification',
+      }
+    }
+
+    // Cast and filter placeholder steps
+    let steps: WordplayStep[] = rawSteps as WordplayStep[]
+    steps = steps.filter((s) => !isPlaceholderStep(s))
+
+    if (steps.length === 0) {
       return {
         verified: false,
         clueType,

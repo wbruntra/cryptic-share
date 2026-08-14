@@ -11,12 +11,14 @@
  *
  * Usage:
  *   bun scripts/auto-generate-parsewords.ts                         # uses most recent puzzle
- *   bun scripts/auto-generate-parsewords.ts --puzzle-title "Ham"    # partial match ok
+ *   bun scripts/auto-generate-parsewords.ts -t "19"                 # exact title match
+ *   bun scripts/auto-generate-parsewords.ts --puzzle-id 4           # by puzzle ID directly
  *   bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet" --book 3 --count 4
  *   bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet" --dry-run
  *
  * Options:
- *   --puzzle-title <t>  Puzzle title to process (partial match; default: most recent)
+ *   --puzzle-title <t>  Puzzle title to process (exact match; default: most recent)
+ *   --puzzle-id <id>    Puzzle ID to process (bypasses title lookup)
  *   --book <b>          Book number to search in (default: 3)
  *   --count <n>         Max parsewords puzzles to generate (default: 4)
  *   --dry-run           Preview without saving to DB
@@ -77,11 +79,27 @@ async function resolveMostRecentPuzzleId(book: string): Promise<{ id: number; ti
   return row
 }
 
+async function resolvePuzzleById(puzzleId: number, book: string): Promise<{ id: number; title: string }> {
+  const row = await db<PuzzleRow>('puzzles')
+    .select('id', 'title', 'book', 'puzzle_number')
+    .where('id', puzzleId)
+    .first()
+
+  if (!row) {
+    throw new Error(`No puzzle found with ID ${puzzleId}`)
+  }
+  if (row.book !== book) {
+    throw new Error(`Puzzle ID ${puzzleId} is in book ${row.book}, but you specified book ${book}`)
+  }
+  console.log(`  Resolved puzzle: ID ${row.id} — "${row.title}"`)
+  return row
+}
+
 async function resolvePuzzleId(puzzleTitle: string, book: string): Promise<number> {
   const matches = await db<PuzzleRow>('puzzles')
     .select('id', 'title', 'book', 'puzzle_number')
     .where('book', book)
-    .whereRaw('LOWER(title) LIKE LOWER(?)', [`%${puzzleTitle}%`])
+    .whereRaw('LOWER(title) = LOWER(?)', [puzzleTitle])
 
   if (matches.length === 0) {
     throw new Error(`No puzzle found matching "${puzzleTitle}" in book ${book}`)
@@ -102,7 +120,7 @@ async function resolvePuzzleId(puzzleTitle: string, book: string): Promise<numbe
 async function main() {
   const argv = minimist(Bun.argv.slice(2), {
     boolean: ['dry-run', 'help', 'force'],
-    string: ['puzzle-title', 'book', 'count', 'model'],
+    string: ['puzzle-title', 'puzzle-id', 'book', 'count', 'model'],
     alias: { h: 'help', t: 'puzzle-title', b: 'book', n: 'count', m: 'model' },
   })
 
@@ -112,7 +130,8 @@ async function main() {
 Pipeline: explanations → verify wordplay steps → generate parsewords → BFS validate → save
 
 Options:
-  --puzzle-title <t>  Puzzle title to process (partial match; default: most recent)
+  --puzzle-title <t>  Puzzle title to process (exact match; default: most recent)
+  --puzzle-id <id>    Puzzle ID to process (bypasses title lookup)
   --book <b>          Book number to search in (default: 3)
   --count <n>         Max parsewords puzzles to generate (default: 4)
   --model <slug>      Model for parsewords generation (default: deepseek-pro)
@@ -121,7 +140,8 @@ Options:
 
 Examples:
   bun scripts/auto-generate-parsewords.ts
-  bun scripts/auto-generate-parsewords.ts --puzzle-title "Ham"
+  bun scripts/auto-generate-parsewords.ts -t "19"
+  bun scripts/auto-generate-parsewords.ts --puzzle-id 4
   bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet" --count 2 --model flash
   bun scripts/auto-generate-parsewords.ts --puzzle-title "Hamlet" --dry-run
 `)
@@ -129,10 +149,14 @@ Examples:
   }
 
   const puzzleTitleFilter: string | null = argv['puzzle-title'] || null
+  const puzzleIdArg: string | null = argv['puzzle-id'] || null
   const book: string = argv['book'] || '3'
 
   let puzzleId: number
-  if (puzzleTitleFilter) {
+  if (puzzleIdArg) {
+    const resolved = await resolvePuzzleById(parseInt(puzzleIdArg, 10), book)
+    puzzleId = resolved.id
+  } else if (puzzleTitleFilter) {
     puzzleId = await resolvePuzzleId(puzzleTitleFilter, book)
   } else {
     const recent = await resolveMostRecentPuzzleId(book)
@@ -198,6 +222,7 @@ Examples:
   )
 
   const candidates: ClueCandidate[] = []
+  let oldFormatCount = 0
 
   for (const row of rows) {
     const key = `${row.clue_number}|${row.direction}`
@@ -222,6 +247,7 @@ Examples:
     const verification = verifyExplanation(explanation, row.clue_text, row.answer)
 
     const status = verification.verified ? '✅' : '❌'
+    const oldFmtInfo = verification.isOldFormat ? ' [old fmt]' : ''
     const ansInfo = verification.verified
       ? ''
       : verification.finalAnswerPresent
@@ -229,8 +255,12 @@ Examples:
         : ' (ans✗)'
     const skipInfo = alreadyHas && !force ? ' [has parsewords]' : ''
     console.log(
-      `  ${status} ${row.clue_number.toString().padEnd(3)}${row.direction[0]} ${clueType.padEnd(18)}${ansInfo}${skipInfo}`,
+      `  ${status} ${row.clue_number.toString().padEnd(3)}${row.direction[0]} ${clueType.padEnd(18)}${ansInfo}${oldFmtInfo}${skipInfo}`,
     )
+
+    if (verification.isOldFormat) {
+      oldFormatCount++
+    }
 
     if (verification.verified) {
       candidates.push({ row, explanation, clueType, verification, alreadyHasParsewords: alreadyHas })
@@ -238,6 +268,10 @@ Examples:
   }
 
   console.log(`\n  Verified wordplay candidates: ${candidates.length}`)
+
+  if (oldFormatCount > 0) {
+    console.log(`  Old-format explanations (needs re-generation): ${oldFormatCount}`)
+  }
 
   const toGenerate = candidates.filter((c) => !c.alreadyHasParsewords || force)
   console.log(`  After skipping existing parsewords: ${toGenerate.length}`)
