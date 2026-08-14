@@ -25,15 +25,18 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 async function regenerateExplanation(clueText: string, answer: string): Promise<unknown> {
   console.log('Re-generating explanation with new step schema...')
-  const res = await openai.chat.completions.create({
-    model: 'gpt-5-mini',
-    messages: [
+  const res = await (openai as any).responses.create({
+    model: 'gpt-5.6-luna',
+    reasoning: { effort: 'medium' },
+    input: [
       { role: 'system', content: crypticInstructions },
       { role: 'user', content: `Clue: ${clueText}\nAnswer: ${answer}` },
     ],
-    response_format: { type: 'json_object' },
+    text: { format: { type: 'json_object' } },
   })
-  return JSON.parse(res.choices[0]!.message.content!)
+  const outputText = res.output_text
+  if (!outputText) throw new Error('No content received from OpenAI')
+  return JSON.parse(outputText)
 }
 
 async function main() {
@@ -71,7 +74,7 @@ async function main() {
     console.log()
   }
 
-  console.log('Generating Parsewords puzzle via gpt-5-mini...')
+  console.log('Generating Parsewords puzzle...')
   const puzzle = await generateParsewordsPuzzle(row.clue_text, row.answer, explanation)
 
   console.log('\n=== Generated Puzzle ===')

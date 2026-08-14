@@ -53,7 +53,7 @@ Rules:
 
   // Using specific API and model as requested
   const response = await (openai as any).responses.create({
-    model: 'gpt-5-mini',
+    model: 'gpt-5.6-luna',
     input: [
       {
         role: 'user',
@@ -122,7 +122,7 @@ Rules:
   return JSON.parse(content)
 }
 
-export const transcribeAnswers = async (input: any, expectedPuzzleIds?: number[], model = 'gpt-5-mini') => {
+export const transcribeAnswers = async (input: any, expectedPuzzleIds?: number[], model = 'gpt-5.6-luna') => {
   // Prepare the image data
   let base64Data: string
   let mimeType: string

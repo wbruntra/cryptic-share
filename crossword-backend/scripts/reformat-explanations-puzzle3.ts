@@ -3,7 +3,7 @@
  * whether each can be turned into a Parsewords skeleton.
  *
  * For each wordplay/&lit clue we:
- *   1. Generate a fresh explanation with gpt-5-mini from ONLY the clue + answer
+ *   1. Generate a fresh explanation with gpt-5.6-luna from ONLY the clue + answer
  *      (we deliberately do NOT feed any prior, unverified explanation).
  *   2. Build a skeleton Parsewords puzzle deterministically.
  *   3. BFS-validate that the skeleton is solvable.

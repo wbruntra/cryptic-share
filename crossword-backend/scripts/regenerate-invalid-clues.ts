@@ -146,7 +146,7 @@ async function createRegenerationBatch(clues: InvalidClue[], limit: number = 6) 
       method: 'POST',
       url: '/v1/responses',
       body: {
-        model: 'gpt-5-mini',
+        model: 'gpt-5.6-luna',
         reasoning: { effort: 'medium' },
         input: messages,
         text: {

@@ -3,7 +3,10 @@ import { calculateLetterCount } from '../utils/stateHelpers'
 
 export class PuzzleService {
   static async getAllPuzzles(includeUnpublished = false) {
-    const query = db('puzzles').select('id', 'title')
+    const query = db('puzzles')
+      .select('id', 'title', 'book', 'puzzle_number')
+      // Numeric-cast so book "10" sorts after "9", not before "2"
+      .orderByRaw('CAST(book as INTEGER), puzzle_number, title')
     if (!includeUnpublished) {
       query.where((b) => b.where('is_published', true).orWhere('is_published', 1))
     }
