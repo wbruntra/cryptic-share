@@ -129,6 +129,9 @@ export function HomePage() {
   const [showBrowseAll, setShowBrowseAll] = useState(() => {
     return localStorage.getItem('homeShowBrowseAll') === 'true'
   })
+  const [selectedBook, setSelectedBook] = useState<string | null>(() => {
+    return localStorage.getItem('homeSelectedBook')
+  })
   const [cachedHome, setCachedHome] = useState<HomeData | null>(null)
   const [newPuzzleGridFor, setNewPuzzleGridFor] = useState<{ puzzleId: number; grid: string } | null>(null)
   const navigate = useNavigate()
@@ -145,6 +148,10 @@ export function HomePage() {
   useEffect(() => {
     localStorage.setItem('homeShowBrowseAll', String(showBrowseAll))
   }, [showBrowseAll])
+
+  useEffect(() => {
+    if (selectedBook) localStorage.setItem('homeSelectedBook', selectedBook)
+  }, [selectedBook])
 
   useEffect(() => {
     axios
@@ -278,7 +285,21 @@ export function HomePage() {
     }
   }
 
+  const books = useMemo(() => {
+    const set = new Set<string>()
+    for (const p of puzzles) set.add(p.book ?? 'Unsorted')
+    return Array.from(set).sort((a, b) => {
+      const na = Number(a)
+      const nb = Number(b)
+      if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb
+      return a.localeCompare(b)
+    })
+  }, [puzzles])
+
+  const effectiveBook = selectedBook && books.includes(selectedBook) ? selectedBook : books[books.length - 1]
+
   const visiblePuzzles = puzzles.filter((puzzle) => {
+    if ((puzzle.book ?? 'Unsorted') !== effectiveBook) return false
     if (showCompleted) return true
     const status = puzzleStatus.get(puzzle.id)
     return status !== 'complete'
@@ -371,6 +392,23 @@ export function HomePage() {
 
         {showBrowseAll && (
           <>
+            {books.length > 1 && (
+              <div className="flex gap-2 flex-wrap mb-4">
+                {books.map((book) => (
+                  <button
+                    key={book}
+                    onClick={() => setSelectedBook(book)}
+                    className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-colors cursor-pointer ${
+                      effectiveBook === book
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-surface text-text-secondary border-border hover:text-text hover:border-primary'
+                    }`}
+                  >
+                    {book === 'Unsorted' ? book : `Book ${book}`}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex justify-end mb-6">
               <div className="flex flex-col sm:flex-row items-end sm:items-center gap-4">
                 <div className="flex bg-surface border border-border rounded-lg overflow-hidden shadow-sm">

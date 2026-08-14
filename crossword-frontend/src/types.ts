@@ -5,6 +5,8 @@ export type Direction = 'across' | 'down'
 export interface PuzzleSummary {
   id: number
   title: string
+  book?: string | null
+  puzzle_number?: number | null
 }
 
 export interface Clue {
