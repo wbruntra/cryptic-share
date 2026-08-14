@@ -127,7 +127,7 @@ export const generateGrid = async (input: any) => {
   try {
     const result = await client.chat.send({
       chatRequest: {
-        model: 'google/gemini-3-flash-preview',
+        model: 'google/gemini-3.7-flash',
         provider: { sort: 'price' },
         messages: [
           {
@@ -326,7 +326,7 @@ export const explainCrypticClue = async (input: {
   model?: string
   timeoutMs?: number
 }) => {
-  const { clue, answer, mode = 'full', model = models['gpt-terra'], timeoutMs = 60_000 } = input
+  const { clue, answer, mode = 'full', model = models.flash, timeoutMs = 60_000 } = input
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -401,7 +401,7 @@ export const regenerateCrypticClueExplanation = async (input: {
     answer,
     feedback,
     previousExplanation,
-    model = models['gpt-terra'],
+    model = models.flash,
     timeoutMs = 120_000,
   } = input
 
@@ -497,7 +497,7 @@ if (import.meta.main) {
 
   const clue = args[0]!
   const answer = args[1]!
-  const model = args[2] ?? models['gpt-terra']
+  const model = args[2] ?? models.flash
 
   console.log(`Clue:   ${clue}`)
   console.log(`Answer: ${answer}`)

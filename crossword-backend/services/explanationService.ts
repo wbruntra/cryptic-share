@@ -1,6 +1,7 @@
 import db from '../db-knex'
 import { explainCrypticClue } from '../utils/openrouter'
 import { assertValidExplanation } from '../utils/validateExplanation'
+import { OPENROUTER_MODELS } from '../config'
 
 export type FlatClueExplanation =
   | WordplayExplanation
@@ -222,11 +223,12 @@ export class ExplanationService {
       return { explanation: cached, cached: true }
     }
 
-    // Generate new explanation from OpenAI
+    // Generate new explanation via OpenRouter (Gemini 3.7 Flash)
     const explanation = (await explainCrypticClue({
       clue: clueText,
       answer: answer,
       mode: 'full',
+      model: OPENROUTER_MODELS.flash,
     })) as StoredClueExplanation
 
     // Save to cache

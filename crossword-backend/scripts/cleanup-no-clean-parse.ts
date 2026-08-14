@@ -6,7 +6,7 @@
  *
  * Options:
  *   --puzzle-id <id>     Puzzle to process (required)
- *   --model <slug>       OpenRouter model (default: google/gemini-3.5-flash)
+ *   --model <slug>       OpenRouter model (default: google/gemini-3.7-flash)
  *   --concurrency <n>    Max parallel requests (default: 4)
  *   --timeout <ms>       Per-request timeout ms (default: 90000)
  *   --dry-run            Preview which clues would be retried
@@ -53,7 +53,7 @@ async function main() {
 
 Options:
   --puzzle-id <id>     Puzzle to process (required)
-  --model <slug>       OpenRouter model (default: google/gemini-3.5-flash)
+  --model <slug>       OpenRouter model (default: google/gemini-3.7-flash)
   --concurrency <n>    Max parallel requests (default: 4)
   --timeout <ms>       Per-request timeout ms (default: 90000)
   --dry-run            Preview which clues would be retried without calling API`)
@@ -61,7 +61,7 @@ Options:
   }
 
   const puzzleId = parseInt(argv['puzzle-id'], 10)
-  const model: string = argv['model'] ?? 'google/gemini-3.5-flash'
+  const model: string = argv['model'] ?? 'google/gemini-3.7-flash'
   const concurrency = parseInt(argv['concurrency'] ?? '4', 10)
   const timeoutMs = parseInt(argv['timeout'] ?? '90000', 10)
   const dryRun: boolean = argv['dry-run']

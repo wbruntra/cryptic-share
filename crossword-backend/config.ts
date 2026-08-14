@@ -2,9 +2,8 @@ export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin-password'
 export const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret'
 
 export const OPENROUTER_MODELS = {
-  flash: 'google/gemini-3-flash-preview',
-  ['flash-3.5']: 'google/gemini-3.6-flash',
-  ['flash-3.6']: 'google/gemini-3.6-flash',
+  flash: 'google/gemini-3.7-flash',
+  ['flash-3.7']: 'google/gemini-3.7-flash',
   gemini: 'google/gemini-3-pro-preview',
   haiku: 'anthropic/claude-haiku-4.5',
   sonnet: 'anthropic/claude-sonnet-4.6',
