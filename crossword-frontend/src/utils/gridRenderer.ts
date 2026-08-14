@@ -23,6 +23,12 @@ export function parseGridJson(jsonString: string): CellType[][] {
   }
 }
 
+export function parseGrid(raw: string): CellType[][] {
+  const parsedJson = parseGridJson(raw)
+  if (parsedJson.length > 0) return parsedJson
+  return parseGridString(raw)
+}
+
 interface RenderGridOptions {
   grid: CellType[][]
   answers?: string[]

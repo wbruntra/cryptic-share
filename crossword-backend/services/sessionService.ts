@@ -5,8 +5,11 @@ import {
   createEmptyState,
   migrateLegacyState,
   countFilledLetters,
+  isSessionUntouched,
+  mergeStates,
 } from '../utils/stateHelpers'
 import { FriendshipService } from './friendshipService'
+import { getVerifiedCorrectState } from '../utils/answerChecker'
 
 export class SessionService {
   static generateSessionId(length = 12) {
@@ -38,6 +41,48 @@ export class SessionService {
     }))
   }
 
+  /**
+   * Merges two states of the same puzzle by first stripping each down to only
+   * its verified-correct, fully-filled answers (via `getVerifiedCorrectState`).
+   * Two verified-correct states can never disagree on a shared cell, so this
+   * sidesteps conflict resolution entirely - any incomplete or wrong guesses on
+   * either side are simply dropped rather than guessed at.
+   */
+  private static async mergeVerifiedStates(
+    puzzleId: number,
+    baseState: string[],
+    overlayState: string[],
+  ): Promise<string[]> {
+    const [verifiedBase, verifiedOverlay] = await Promise.all([
+      getVerifiedCorrectState(puzzleId, baseState),
+      getVerifiedCorrectState(puzzleId, overlayState),
+    ])
+    return mergeStates(verifiedBase, verifiedOverlay)
+  }
+
+  /**
+   * Finds a friend's session for a puzzle, if any (oldest one if multiple).
+   */
+  private static async findFriendSessionForPuzzle(
+    userId: number,
+    puzzleId: number,
+    excludeSessionId?: string,
+  ) {
+    const friendIds = await FriendshipService.getFriendIds(userId)
+    if (friendIds.length === 0) return null
+
+    const query = db('puzzle_sessions')
+      .where({ puzzle_id: puzzleId })
+      .whereIn('user_id', friendIds)
+      .orderBy('created_at', 'asc')
+
+    if (excludeSessionId) {
+      query.andWhereNot({ session_id: excludeSessionId })
+    }
+
+    return await query.first()
+  }
+
   static async syncSessions(userId: number, sessionIds: string[]): Promise<number> {
     const now = new Date().toISOString()
     let count = 0
@@ -67,40 +112,23 @@ export class SessionService {
           const anonState = migrateLegacyState(JSON.parse(anonymousSession.state))
           const userState = migrateLegacyState(JSON.parse(userSession.state))
 
-          // Merge: Anonymous takes precedence for non-empty cells
-          // We assume dimensions match because it's the same puzzle
-          const mergedState = [...userState]
-          if (anonState.length > 0) {
-            // Ensure mergedState is initialized if userState was empty
-            if (mergedState.length === 0 && anonState.length > 0) {
-              // If user state is empty, just take anon state
-              mergedState.push(...anonState)
-            } else {
-              for (let r = 0; r < anonState.length; r++) {
-                const anonRow = anonState[r]
-                if (!anonRow) continue
-
-                if (!mergedState[r]) mergedState[r] = ''
-                for (let c = 0; c < anonRow.length; c++) {
-                  const anonChar = anonRow[c]
-                  // If anon has a letter (and it's not a space), overwrite
-                  if (anonChar && anonChar.trim() !== '') {
-                    mergedState[r] = setCharAt(mergedState[r], c, anonChar as string)
-                  }
-                }
-              }
-            }
-          }
+          // Merge only verified-correct, fully-filled answers from each side -
+          // that guarantees no cell-level conflicts between the two states.
+          const mergedState = await this.mergeVerifiedStates(
+            anonymousSession.puzzle_id,
+            userState,
+            anonState,
+          )
 
           // Update user session with merged state
           const filledCount = countFilledLetters(mergedState)
-          
+
           // Get puzzle's letter_count for completion check
           const puzzle = await db('puzzles')
             .where({ id: anonymousSession.puzzle_id })
             .select('letter_count')
             .first()
-            
+
           const isComplete = puzzle?.letter_count != null && filledCount >= puzzle.letter_count
 
           await db('puzzle_sessions')
@@ -126,12 +154,60 @@ export class SessionService {
           )
         }
       } else {
-        // NO CONFLICT: Just claim it
-        await db('puzzle_sessions').where({ session_id: anonymousSessionId }).update({
-          user_id: userId,
-          updated_at: now,
-        })
-        count++
+        // NO CONFLICT for this user's own sessions - but a friend may already have
+        // a session for this puzzle. Join that instead of creating an orphan session,
+        // merging in any progress made anonymously.
+        const friendSession = await this.findFriendSessionForPuzzle(
+          userId,
+          anonymousSession.puzzle_id,
+          anonymousSessionId,
+        )
+
+        if (friendSession) {
+          try {
+            const anonState = migrateLegacyState(JSON.parse(anonymousSession.state))
+            if (countFilledLetters(anonState) > 0) {
+              const friendState = migrateLegacyState(JSON.parse(friendSession.state))
+              const mergedState = await this.mergeVerifiedStates(
+                anonymousSession.puzzle_id,
+                friendState,
+                anonState,
+              )
+              const filledCount = countFilledLetters(mergedState)
+
+              const puzzle = await db('puzzles')
+                .where({ id: anonymousSession.puzzle_id })
+                .select('letter_count')
+                .first()
+              const isComplete = puzzle?.letter_count != null && filledCount >= puzzle.letter_count
+
+              await db('puzzle_sessions')
+                .where({ session_id: friendSession.session_id })
+                .update({
+                  state: JSON.stringify(mergedState),
+                  updated_at: now,
+                  is_complete: isComplete,
+                })
+              this.cache.delete(friendSession.session_id)
+            }
+
+            await db('puzzle_sessions').where({ session_id: anonymousSessionId }).del()
+            this.cache.delete(anonymousSessionId)
+            count++
+          } catch (e) {
+            console.error(
+              `Failed to merge anonymous session into friend's session for puzzle ${anonymousSession.puzzle_id}`,
+              e,
+            )
+          }
+        } else {
+          // No conflict, no friend session either: just claim it
+          await db('puzzle_sessions').where({ session_id: anonymousSessionId }).update({
+            user_id: userId,
+            updated_at: now,
+          })
+          count++
+        }
       }
     }
 
@@ -225,25 +301,32 @@ export class SessionService {
         .first()
 
       if (existingSession) {
+        // If this session is untouched, prefer joining a friend's session over
+        // sitting on an orphan - this self-heals cases where an untouched session
+        // got created for this user/puzzle before a friend's session was found
+        // (e.g. via syncSessions, or a race between devices).
+        if (isSessionUntouched(existingSession.state, existingSession.attributions)) {
+          const friendSession = await this.findFriendSessionForPuzzle(
+            userId,
+            puzzleId,
+            existingSession.session_id,
+          )
+          if (friendSession) {
+            await db('puzzle_sessions').where({ session_id: existingSession.session_id }).del()
+            this.cache.delete(existingSession.session_id)
+            return { sessionId: friendSession.session_id, isNew: false }
+          }
+        }
+
         return { sessionId: existingSession.session_id, isNew: false }
       }
 
       // Check if any friend has a session for this puzzle
-      const { FriendshipService } = await import('./friendshipService')
-      const friendIds = await FriendshipService.getFriendIds(userId)
-
-      if (friendIds.length > 0) {
-        const friendSession = await db('puzzle_sessions')
-          .where({ puzzle_id: puzzleId })
-          .whereIn('user_id', friendIds)
-          .orderBy('created_at', 'asc') // Use the oldest session if multiple friends have one
-          .first()
-
-        if (friendSession) {
-          // Join the friend's session by creating a record for this user pointing to the same session
-          // Actually, we want to share the SAME session_id, so just return the friend's session
-          return { sessionId: friendSession.session_id, isNew: false }
-        }
+      const friendSession = await this.findFriendSessionForPuzzle(userId, puzzleId)
+      if (friendSession) {
+        // Join the friend's session by sharing the SAME session_id, rather than
+        // creating a separate record for this user.
+        return { sessionId: friendSession.session_id, isNew: false }
       }
     } else if (anonymousId) {
       // If user is anonymous, check for existing session with this anonymousId
@@ -683,6 +766,7 @@ export class SessionService {
         filled_count: filledCount,
         total_count: totalCount,
         completion_pct: completionPct,
+        grid: s.grid,
       }
     })
   }

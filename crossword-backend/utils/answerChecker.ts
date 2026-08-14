@@ -224,3 +224,30 @@ export async function checkSessionAnswers(
 
   return { results, totalClues: metadata.length, totalLetters, filledLetters }
 }
+
+/**
+ * Strips a session state down to only the letters that belong to a fully-filled,
+ * verified-correct clue - every other cell comes back blank. Useful for merging
+ * two independent sessions of the same puzzle: two verified-correct states can
+ * never disagree on a shared cell, so the merge needs no conflict resolution.
+ */
+export async function getVerifiedCorrectState(puzzleId: number, sessionState: string[]): Promise<string[]> {
+  const puzzle = await PuzzleService.getPuzzleById(puzzleId)
+  if (!puzzle) return []
+
+  const grid: CellType[][] = puzzle.grid.split('\n').map((row: string) => row.trim().split(' ') as CellType[])
+  const height = grid.length
+  const width = grid[0]?.length ?? 0
+  const verified: string[] = Array(height).fill(' '.repeat(width))
+
+  const { results } = await checkSessionAnswers(puzzleId, sessionState)
+  for (const result of results) {
+    if (!result.isCorrect) continue
+    for (let i = 0; i < result.cells.length; i++) {
+      const { r, c } = result.cells[i]
+      verified[r] = setCharAt(verified[r], c, result.userAnswer[i]!.toUpperCase())
+    }
+  }
+
+  return verified
+}

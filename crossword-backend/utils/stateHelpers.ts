@@ -71,3 +71,54 @@ export function countFilledLetters(state: string[]): number {
   }
   return count
 }
+
+/**
+ * Merge one state array on top of a base state array. Non-space cells in
+ * `overlayState` win; everything else keeps the base value.
+ */
+export function mergeStates(baseState: string[], overlayState: string[]): string[] {
+  const mergedState = [...baseState]
+  if (overlayState.length === 0) return mergedState
+
+  if (mergedState.length === 0) {
+    mergedState.push(...overlayState)
+    return mergedState
+  }
+
+  for (let r = 0; r < overlayState.length; r++) {
+    const overlayRow = overlayState[r]
+    if (!overlayRow) continue
+
+    if (!mergedState[r]) mergedState[r] = ''
+    for (let c = 0; c < overlayRow.length; c++) {
+      const overlayChar = overlayRow[c]
+      if (overlayChar && overlayChar.trim() !== '') {
+        mergedState[r] = setCharAt(mergedState[r], c, overlayChar as string)
+      }
+    }
+  }
+
+  return mergedState
+}
+
+/**
+ * True if a session has no filled letters and no attributions - i.e. nobody
+ * has actually done anything in it yet, so it's safe to discard.
+ */
+export function isSessionUntouched(stateJson: string, attributionsJson: string | null | undefined): boolean {
+  let filled = 0
+  try {
+    filled = countFilledLetters(migrateLegacyState(JSON.parse(stateJson || '[]')))
+  } catch {
+    // Treat unparseable state as untouched
+  }
+
+  let attrCount = 0
+  try {
+    attrCount = Object.keys(JSON.parse(attributionsJson || '{}')).length
+  } catch {
+    // ignore
+  }
+
+  return filled === 0 && attrCount === 0
+}

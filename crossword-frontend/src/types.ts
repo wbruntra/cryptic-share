@@ -57,6 +57,7 @@ export interface RemoteSession {
   completion_pct?: number
   owner_user_id?: number
   owner_username?: string
+  grid?: string
 }
 
 export interface Attribution {
