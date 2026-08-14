@@ -617,8 +617,13 @@ async function retrieveAndApplyCompletedBatches() {
   console.log('='.repeat(60))
 
   // Get all pending/in_progress batches that haven't been applied
-  const batches = await db<BatchRow>('explanation_batches')
-    .select('*')
+  const batches = await db('explanation_batches')
+    .join('puzzles', 'explanation_batches.puzzle_id', 'puzzles.id')
+    .select(
+      'explanation_batches.*',
+      'puzzles.title as puzzle_title',
+      'puzzles.puzzle_number',
+    )
     .whereNull('applied_at')
     .orderBy('created_at', 'desc')
 
@@ -648,7 +653,8 @@ async function retrieveAndApplyCompletedBatches() {
           expired: '⏰',
         }[batchStatus.status as string] || '❓'
 
-      console.log(`${statusEmoji} ${batch.batch_id} - ${batchStatus.status}`)
+      const pn = String(batch.puzzle_number ?? '?').padStart(3)
+      console.log(`${statusEmoji} P#${pn} "${batch.puzzle_title}" ${batch.batch_id} - ${batchStatus.status}`)
 
       if (batchStatus.status === 'completed') {
         completedBatches.push(batch)

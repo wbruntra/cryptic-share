@@ -645,11 +645,12 @@ export class SessionService {
 
     // Calculate completion percentage for each
     return sessions.map((s: any) => {
-      // Prefer the in-memory cache (which may contain unsaved edits) so the
-      // HomePage progress always matches what the user sees on the play page.
+      // Only use the in-memory cache if it has unsaved (dirty) edits.
+      // Otherwise read from the DB so that the HomePage reflects the
+      // persisted truth (important after DB migrations/manual fixes).
       const cached = this.cache.get(s.session_id)
       let state: string[]
-      if (cached) {
+      if (cached && cached.dirty) {
         state = cached.state
         cached.lastAccess = Date.now()
       } else {
