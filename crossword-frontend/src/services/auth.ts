@@ -53,8 +53,13 @@ export const getMe = async () => {
   try {
     const response = await axios.get(`${API_URL}/me`)
     return response.data.user
-  } catch {
-    removeAuthToken() // Invalid token
+  } catch (e) {
+    if (axios.isAxiosError(e) && e.response?.status === 401) {
+      removeAuthToken() // Invalid or expired token
+    }
+    // No response (offline, network error, timeout, etc.) - keep the
+    // token so the user isn't logged out just because the backend
+    // was unreachable.
     return null
   }
 }
