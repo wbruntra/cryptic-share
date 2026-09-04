@@ -127,7 +127,7 @@ export const generateGrid = async (input: any) => {
   try {
     const result = await client.chat.send({
       chatRequest: {
-        model: 'google/gemini-3.7-flash',
+        model: OPENROUTER_MODELS.flash,
         provider: { sort: 'price' },
         messages: [
           {

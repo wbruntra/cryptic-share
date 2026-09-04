@@ -9,16 +9,17 @@
  *   bun scripts/transcribe-answers-from-pdf.ts --help
  *
  * PDF NAMING:
- *   Name your PDF with the pattern: <anything>_<start>.pdf
+ *   Name your PDF with the pattern: answers<start>.pdf
  *   Examples:
- *     - solutions_105.pdf → page 1 is puzzles 105-108, page 2 is 109-112, etc.
- *     - answers_50.pdf → page 1 is puzzles 50-53, page 2 is 54-57, etc.
+ *     - answers33.pdf → page 1 is puzzles 33-36, page 2 is 37-40, etc.
+ *     - answers105.pdf → page 1 is puzzles 105-108, page 2 is 109-112, etc.
+ *   Older names like solutions_105.pdf still work (trailing number is used).
  *   The script extracts the starting puzzle number from the filename.
  *   You can override with --start <n> flag if needed.
  *
  * OPTIONS:
  *   --help              Show this help message
- *   --book <n>          Book number (default: 3)
+ *   --book <n>          Book number (default: 4)
  *   --start <n>         Starting puzzle number (overrides filename)
  *   --dry-run           Preview changes without saving to DB
  *   --update-existing   Update existing puzzles instead of skipping
@@ -27,14 +28,17 @@
  *   --height <n>        Grid height for construction (default: 15)
  *
  * EXAMPLES:
- *   # Process puzzles 105-112+ from book 3
- *   bun scripts/transcribe-answers-from-pdf.ts solutions_105.pdf
+ *   # Process puzzles 33-36+ from book 4
+ *   bun scripts/transcribe-answers-from-pdf.ts answers33.pdf
  *
  *   # Dry run to preview
- *   bun scripts/transcribe-answers-from-pdf.ts solutions_105.pdf --dry-run
+ *   bun scripts/transcribe-answers-from-pdf.ts answers33.pdf --dry-run
+ *
+ *   # Straight from object storage
+ *   bun scripts/transcribe-answers-from-pdf.ts https://us-iad-1.linodeobjects.com/wbruntra/file-share/admin/answers33.pdf
  *
  *   # Different book and update existing puzzles
- *   bun scripts/transcribe-answers-from-pdf.ts answers_50.pdf --book 2 --update-existing
+ *   bun scripts/transcribe-answers-from-pdf.ts answers50.pdf --book 2 --update-existing
  *
  * REQUIREMENTS:
  *   - pdftoppm (from poppler-utils): sudo apt-get install poppler-utils
@@ -50,6 +54,7 @@ import db from '../db-knex'
 import { transcribeAnswers, transcribeAnswersOpenRouter } from '../utils/openai'
 import { calculateLetterCount } from '../utils/stateHelpers'
 import { constructGridFromAnswerKey } from '../utils/gridConstructor'
+import { OPENROUTER_MODELS } from '../config'
 
 const HELP_TEXT = `
 Transcribe puzzle answers from a PDF using OpenAI vision.
@@ -61,18 +66,19 @@ USAGE:
   bun scripts/transcribe-answers-from-pdf.ts <pdf_file> [options]
 
 PDF NAMING:
-  Name your PDF with the pattern: <anything>_<start>.pdf
+  Name your PDF with the pattern: answers<start>.pdf
 
   Examples:
-    solutions_105.pdf   → page 1 is puzzles 105-108, page 2 is 109-112, etc.
-    answers_50.pdf      → page 1 is puzzles 50-53, page 2 is 54-57, etc.
+    answers33.pdf    → page 1 is puzzles 33-36, page 2 is 37-40, etc.
+    answers105.pdf   → page 1 is puzzles 105-108, page 2 is 109-112, etc.
 
+  Older names like solutions_105.pdf still work (the trailing number is used).
   The script extracts the starting puzzle number from the filename.
   You can override with --start <n> flag if needed.
 
 OPTIONS:
   --help              Show this help message
-  --book <n>          Book number (default: 3)
+  --book <n>          Book number (default: 4)
   --start <n>         Starting puzzle number (overrides filename)
   --page <n>          Only process this page number (1-based), skip all others
   --dry-run           Preview changes without saving to DB
@@ -80,19 +86,24 @@ OPTIONS:
   --skip-validation   Skip answer/grid validation (faster but riskier)
   --width <n>         Grid width for construction (default: 15)
   --height <n>        Grid height for construction (default: 15)
+  --model <slug>      Model to use (default: OPENROUTER_MODELS['muse-spark'] in config.ts)
+  --no-openrouter     Use the direct OpenAI path instead of OpenRouter
 
 EXAMPLES:
-  # Process puzzles 105-112+ from book 3
-  bun scripts/transcribe-answers-from-pdf.ts solutions_105.pdf
+  # Process puzzles 33-40+ from book 4
+  bun scripts/transcribe-answers-from-pdf.ts answers33.pdf
 
-  # Redo only page 4 (puzzles 117-120) with update-existing
-  bun scripts/transcribe-answers-from-pdf.ts solutions_105.pdf --page 4 --update-existing
+  # Redo only page 4 (puzzles 45-48) with update-existing
+  bun scripts/transcribe-answers-from-pdf.ts answers33.pdf --page 4 --update-existing
 
   # Dry run to preview
-  bun scripts/transcribe-answers-from-pdf.ts solutions_105.pdf --dry-run
+  bun scripts/transcribe-answers-from-pdf.ts answers33.pdf --dry-run
+
+  # Straight from object storage
+  bun scripts/transcribe-answers-from-pdf.ts https://us-iad-1.linodeobjects.com/wbruntra/file-share/admin/answers33.pdf
 
   # Different book and update existing puzzles
-  bun scripts/transcribe-answers-from-pdf.ts answers_50.pdf --book 2 --update-existing
+  bun scripts/transcribe-answers-from-pdf.ts answers50.pdf --book 2 --update-existing
 
 REQUIREMENTS:
   - pdftoppm (from poppler-utils): sudo apt-get install poppler-utils
@@ -117,8 +128,12 @@ interface AnswerResponse {
 
 function parseStartFromFilename(pdfPath: string): number | null {
   const name = basename(pdfPath)
-  const match = name.match(/(\d+)\.pdf$/i)
-  if (match) return Number(match[1])
+  // Current convention: answers<start>.pdf (also tolerates answers-33 / answers_33)
+  const answersMatch = name.match(/^answers[-_]?(\d+)\.pdf$/i)
+  if (answersMatch) return Number(answersMatch[1])
+  // Legacy fallback: any name ending in a number, e.g. solutions_105.pdf
+  const trailingMatch = name.match(/(\d+)\.pdf$/i)
+  if (trailingMatch) return Number(trailingMatch[1])
   return null
 }
 
@@ -166,6 +181,7 @@ async function main() {
   const argv = minimist(Bun.argv.slice(2), {
     string: ['book', 'start', 'page', 'width', 'height', 'model'],
     boolean: ['dry-run', 'update-existing', 'skip-validation', 'help', 'openrouter'],
+    default: { openrouter: true },
     alias: {
       h: 'help',
       b: 'book',
@@ -190,6 +206,8 @@ async function main() {
   const isUrl = pdfInput.startsWith('http://') || pdfInput.startsWith('https://')
   let resolvedPath = pdfInput
   let tempPdfPath = ''
+  // Keep the original name for parsing — the download temp path is prefixed
+  let originalName = pdfInput
 
   try {
     if (isUrl) {
@@ -208,7 +226,8 @@ async function main() {
         // Fallback
       }
       
-      tempPdfPath = `${tmpdir()}/downloaded_${Date.now()}_${basename(cleanFilename)}`
+      originalName = basename(cleanFilename)
+      tempPdfPath = `${tmpdir()}/downloaded_${Date.now()}_${originalName}`
       await Bun.write(tempPdfPath, arrayBuffer)
       resolvedPath = tempPdfPath
       console.log(`Downloaded to temporary file: ${resolvedPath}`)
@@ -216,7 +235,7 @@ async function main() {
       resolvedPath = resolve(process.cwd(), pdfInput)
     }
 
-    const book = argv.book ?? '3'
+    const book = argv.book ?? '4'
     const dryRun = argv['dry-run'] ?? false
     const updateExisting = argv['update-existing'] ?? false
     const skipValidation = argv['skip-validation'] ?? false
@@ -224,15 +243,15 @@ async function main() {
     const height = argv.height ? Number(argv.height) : 15
     const explicitStart = argv.start ? Number(argv.start) : null
     const onlyPage = argv.page ? Number(argv.page) : null
-    const useOpenRouter = argv.openrouter ?? false
+    const useOpenRouter = argv.openrouter ?? true
     const modelOverride = argv.model as string | undefined
 
     await checkPdftoppm()
 
-    const startPuzzle = explicitStart ?? parseStartFromFilename(resolvedPath)
+    const startPuzzle = explicitStart ?? parseStartFromFilename(originalName)
     if (startPuzzle === null) {
       console.error('Error: Could not determine starting puzzle number')
-      console.error('Use --start <n> or name the file like solutions_105.pdf\n')
+      console.error('Use --start <n> or name the file like answers33.pdf\n')
       console.error(HELP_TEXT)
       process.exit(1)
     }
@@ -276,7 +295,7 @@ async function main() {
         const imageBuffer = await Bun.file(imageFile).arrayBuffer()
         const base64 = Buffer.from(imageBuffer).toString('base64')
         if (useOpenRouter) {
-          const model = modelOverride ?? 'google/gemini-3.1-flash-lite'
+          const model = modelOverride ?? OPENROUTER_MODELS['muse-spark']
           console.log(`  Using OpenRouter model: ${model}`)
           transcription = (await transcribeAnswersOpenRouter({ base64, mimeType: 'image/jpeg' }, expectedIdsArray, model)) as AnswerResponse
         } else {

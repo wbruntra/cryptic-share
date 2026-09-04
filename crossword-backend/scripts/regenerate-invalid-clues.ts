@@ -8,6 +8,7 @@ import db from '../db-knex'
 import { generateExplanationMessages, crypticSchema } from '../utils/crypticSchema'
 import { ExplanationSchema } from '../utils/crypticSchema'
 import { Readable } from 'stream'
+import { DIRECT_MODELS } from '../config'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -146,7 +147,7 @@ async function createRegenerationBatch(clues: InvalidClue[], limit: number = 6) 
       method: 'POST',
       url: '/v1/responses',
       body: {
-        model: 'gpt-5.6-luna',
+        model: DIRECT_MODELS.gptLuna,
         reasoning: { effort: 'medium' },
         input: messages,
         text: {

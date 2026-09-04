@@ -4,6 +4,7 @@ import { generateExplanationMessages, crypticSchema, ExplanationSchema } from '.
 import { ExplanationService } from '../services/explanationService'
 import he from 'he'
 import { select, confirm, input } from '@inquirer/prompts'
+import { DIRECT_MODELS } from '../config'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -131,7 +132,7 @@ async function createBatch(puzzleId: number) {
       method: 'POST',
       url: '/v1/responses',
       body: {
-        model: 'gpt-5.6-luna',
+        model: DIRECT_MODELS.gptLuna,
         reasoning: { effort: 'medium' },
         input: messages,
         text: {
@@ -154,7 +155,7 @@ async function createBatch(puzzleId: number) {
       method: 'POST',
       url: '/v1/responses',
       body: {
-        model: 'gpt-5.6-luna',
+        model: DIRECT_MODELS.gptLuna,
         reasoning: { effort: 'medium' },
         input: messages,
         text: {

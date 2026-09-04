@@ -20,13 +20,14 @@ import OpenAI from 'openai'
 import db from '../db-knex'
 import { crypticInstructions } from '../utils/crypticSchema'
 import { generateParsewordsPuzzle } from '../utils/parsewordsGenerator'
+import { DIRECT_MODELS } from '../config'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 async function regenerateExplanation(clueText: string, answer: string): Promise<unknown> {
   console.log('Re-generating explanation with new step schema...')
   const res = await (openai as any).responses.create({
-    model: 'gpt-5.6-luna',
+    model: DIRECT_MODELS.gptLuna,
     reasoning: { effort: 'medium' },
     input: [
       { role: 'system', content: crypticInstructions },

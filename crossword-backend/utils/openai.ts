@@ -9,6 +9,7 @@ import {
   openaiCrypticSchema,
 } from './crypticSchema'
 import { transcribeAnswersJsonSchema, TranscribeAnswersResponse } from './answerSchema'
+import { OPENROUTER_MODELS, DIRECT_MODELS } from '../config'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -53,7 +54,7 @@ Rules:
 
   // Using specific API and model as requested
   const response = await (openai as any).responses.create({
-    model: 'gpt-5.6-luna',
+    model: DIRECT_MODELS.gptLuna,
     input: [
       {
         role: 'user',
@@ -79,7 +80,7 @@ Rules:
 
 export const getCrosswordCluesOpenRouter = async (
   base64Image: string,
-  model = 'google/gemini-3.1-flash-lite',
+  model = OPENROUTER_MODELS['muse-spark'],
 ) => {
   const instructions = `You are transcribing crossword clues from an image.
 
@@ -122,7 +123,11 @@ Rules:
   return JSON.parse(content)
 }
 
-export const transcribeAnswers = async (input: any, expectedPuzzleIds?: number[], model = 'gpt-5.6-luna') => {
+export const transcribeAnswers = async (
+  input: any,
+  expectedPuzzleIds?: number[],
+  model = DIRECT_MODELS.gptLuna,
+) => {
   // Prepare the image data
   let base64Data: string
   let mimeType: string
@@ -184,7 +189,7 @@ Extract all puzzle IDs, across clues with their numbers and answers, and down cl
 export const transcribeAnswersOpenRouter = async (
   input: any,
   expectedPuzzleIds?: number[],
-  model = 'google/gemini-3.1-flash-lite',
+  model = OPENROUTER_MODELS['muse-spark'],
 ): Promise<TranscribeAnswersResponse> => {
   let base64Data: string
   let mimeType: string
@@ -254,7 +259,7 @@ const EXPLANATION_CACHE_KEY = 'cryptic-explanation-v2'
 
 export function buildExplanationRequestBody(clue: string, answer: string, mode: 'hint' | 'full' = 'full') {
   return {
-    model: 'gpt-5.6-luna',
+    model: DIRECT_MODELS.gptLuna,
     reasoning: { effort: 'medium' },
     prompt_cache_key: EXPLANATION_CACHE_KEY,
     input: generateExplanationMessages(clue, answer, mode),
@@ -297,7 +302,7 @@ export const regenerateCrypticClueExplanation = async (input: {
     },
   ]
 
-  console.log('[regenerateCrypticClueExplanation] Sending request to OpenAI (gpt-5.6-luna)...')
+  console.log(`[regenerateCrypticClueExplanation] Sending request to OpenAI (${DIRECT_MODELS.gptLuna})...`)
   const startTime = performance.now()
   const response = await (openai as any).responses.create({ ...body, input: inputWithFeedback })
   const duration = (performance.now() - startTime) / 1000

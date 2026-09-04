@@ -9,29 +9,33 @@
  *   bun scripts/transcribe-clues-from-pdf.ts --help
  *
  * PDF NAMING:
- *   Name your PDF with the pattern: <anything>_<start>_<end>.pdf
+ *   Name your PDF with the pattern: cw<start>.pdf
  *   Examples:
- *     - clues_97_100.pdf → starts at puzzle 97 (3 pages)
- *     - london_5_12.pdf → starts at puzzle 5 (8 pages)
+ *     - cw33.pdf → page 1 is puzzle 33, page 2 is 34, etc.
+ *     - cw97.pdf → page 1 is puzzle 97, page 2 is 98, etc.
+ *   Older names like clues_97_100.pdf still work (the first number is used).
  *   The script extracts the starting puzzle number from the filename.
  *   You can override with --start <n> flag if needed.
  *
  * OPTIONS:
  *   --help         Show this help message
- *   --book <n>     Book number (default: 3)
+ *   --book <n>     Book number (default: 4)
  *   --start <n>    Starting puzzle number (overrides filename)
  *   --dry-run      Preview changes without saving to DB
  *   --no-publish   Skip marking puzzles as is_published=true (publishing is default)
  *
  * EXAMPLES:
- *   # Process puzzles 97-100 from book 3
- *   bun scripts/transcribe-clues-from-pdf.ts clues_97_100.pdf
+ *   # Process puzzles starting at 33 from book 4
+ *   bun scripts/transcribe-clues-from-pdf.ts cw33.pdf
  *
  *   # Dry run to preview
- *   bun scripts/transcribe-clues-from-pdf.ts clues_97_100.pdf --dry-run
+ *   bun scripts/transcribe-clues-from-pdf.ts cw33.pdf --dry-run
+ *
+ *   # Straight from object storage
+ *   bun scripts/transcribe-clues-from-pdf.ts https://us-iad-1.linodeobjects.com/wbruntra/file-share/admin/cw33.pdf
  *
  *   # Different book without publishing
- *   bun scripts/transcribe-clues-from-pdf.ts clues_5_12.pdf --book 2 --no-publish
+ *   bun scripts/transcribe-clues-from-pdf.ts cw5.pdf --book 2 --no-publish
  *
  * REQUIREMENTS:
  *   - pdftoppm (from poppler-utils): sudo apt-get install poppler-utils
@@ -45,6 +49,7 @@ import { unlink } from 'fs/promises'
 import minimist from 'minimist'
 import db from '../db-knex'
 import { getCrosswordClues, getCrosswordCluesOpenRouter } from '../utils/openai'
+import { OPENROUTER_MODELS } from '../config'
 
 const HELP_TEXT = `
 Transcribe crossword clues from a PDF using OpenAI vision.
@@ -53,31 +58,37 @@ USAGE:
   bun scripts/transcribe-clues-from-pdf.ts <pdf_file> [options]
 
 PDF NAMING:
-  Name your PDF with the pattern: <anything>_<start>_<end>.pdf
+  Name your PDF with the pattern: cw<start>.pdf
 
   Examples:
-    clues_97_100.pdf   → starts at puzzle 97 (3 pages)
-    london_5_12.pdf    → starts at puzzle 5 (8 pages)
+    cw33.pdf   → page 1 is puzzle 33, page 2 is 34, etc.
+    cw97.pdf   → page 1 is puzzle 97, page 2 is 98, etc.
 
+  Older names like clues_97_100.pdf still work (the first number is used).
   The script extracts the starting puzzle number from the filename.
   You can override with --start <n> flag if needed.
 
 OPTIONS:
   --help             Show this help message
-  --book <n>         Book number (default: 3)
+  --book <n>         Book number (default: 4)
   --start <n>        Starting puzzle number (overrides filename)
   --dry-run          Preview changes without saving to DB
   --no-publish       Skip marking puzzles as is_published=true (publishing is default)
+  --model <slug>     Model to use (default: OPENROUTER_MODELS['muse-spark'] in config.ts)
+  --no-openrouter    Use the direct OpenAI path instead of OpenRouter
 
 EXAMPLES:
-  # Process puzzles 97-100 from book 3 (published by default)
-  bun scripts/transcribe-clues-from-pdf.ts clues_97_100.pdf
+  # Process puzzles starting at 33 from book 4 (published by default)
+  bun scripts/transcribe-clues-from-pdf.ts cw33.pdf
 
   # Dry run to preview
-  bun scripts/transcribe-clues-from-pdf.ts clues_97_100.pdf --dry-run
+  bun scripts/transcribe-clues-from-pdf.ts cw33.pdf --dry-run
+
+  # Straight from object storage
+  bun scripts/transcribe-clues-from-pdf.ts https://us-iad-1.linodeobjects.com/wbruntra/file-share/admin/cw33.pdf
 
   # Different book without publishing
-  bun scripts/transcribe-clues-from-pdf.ts clues_5_12.pdf --book 2 --no-publish
+  bun scripts/transcribe-clues-from-pdf.ts cw5.pdf --book 2 --no-publish
 
   # Override filename-based puzzle number
   bun scripts/transcribe-clues-from-pdf.ts some_file.pdf --start 50
@@ -90,8 +101,12 @@ REQUIREMENTS:
 
 function parseStartFromFilename(pdfPath: string): number | null {
   const name = basename(pdfPath)
-  const match = name.match(/(\d+)_(\d+)\.pdf$/i)
-  if (match) return Number(match[1])
+  // Current convention: cw<start>.pdf (also tolerates cw-33 / cw_33)
+  const cwMatch = name.match(/^cw[-_]?(\d+)\.pdf$/i)
+  if (cwMatch) return Number(cwMatch[1])
+  // Legacy fallback: <anything>_<start>_<end>.pdf, e.g. clues_97_100.pdf
+  const rangeMatch = name.match(/(\d+)_(\d+)\.pdf$/i)
+  if (rangeMatch) return Number(rangeMatch[1])
   return null
 }
 
@@ -124,7 +139,7 @@ async function main() {
   const argv = minimist(Bun.argv.slice(2), {
     string: ['book', 'start', 'model'],
     boolean: ['dry-run', 'no-publish', 'help', 'openrouter'],
-    default: { 'no-publish': false },
+    default: { 'no-publish': false, openrouter: true },
     alias: {
       h: 'help',
       b: 'book',
@@ -148,6 +163,8 @@ async function main() {
   const isUrl = pdfInput.startsWith('http://') || pdfInput.startsWith('https://')
   let resolvedPath = pdfInput
   let tempPdfPath = ''
+  // Keep the original name for parsing — the download temp path is prefixed
+  let originalName = pdfInput
 
   try {
     if (isUrl) {
@@ -166,7 +183,8 @@ async function main() {
         // Fallback
       }
       
-      tempPdfPath = `${tmpdir()}/downloaded_${Date.now()}_${basename(cleanFilename)}`
+      originalName = basename(cleanFilename)
+      tempPdfPath = `${tmpdir()}/downloaded_${Date.now()}_${originalName}`
       await Bun.write(tempPdfPath, arrayBuffer)
       resolvedPath = tempPdfPath
       console.log(`Downloaded to temporary file: ${resolvedPath}`)
@@ -174,19 +192,19 @@ async function main() {
       resolvedPath = resolve(process.cwd(), pdfInput)
     }
 
-    const book = argv.book ?? '3'
+    const book = argv.book ?? '4'
     const dryRun = argv['dry-run'] ?? false
     const publish = !argv['no-publish']
     const explicitStart = argv.start ? Number(argv.start) : null
-    const useOpenRouter = argv.openrouter ?? false
+    const useOpenRouter = argv.openrouter ?? true
     const modelOverride = argv.model as string | undefined
 
     await checkPdftoppm()
 
-    const startPuzzle = explicitStart ?? parseStartFromFilename(resolvedPath)
+    const startPuzzle = explicitStart ?? parseStartFromFilename(originalName)
     if (startPuzzle === null) {
       console.error('Error: Could not determine starting puzzle number')
-      console.error('Use --start <n> or name the file like clues_97_100.pdf\n')
+      console.error('Use --start <n> or name the file like cw33.pdf\n')
       console.error(HELP_TEXT)
       process.exit(1)
     }
@@ -249,7 +267,7 @@ async function main() {
         const arrayBuffer = await Bun.file(imageFile).arrayBuffer()
         const base64 = Buffer.from(arrayBuffer).toString('base64')
         if (useOpenRouter) {
-          const model = modelOverride ?? 'google/gemini-3.1-flash-lite'
+          const model = modelOverride ?? OPENROUTER_MODELS['muse-spark']
           console.log(`  Using OpenRouter model: ${model}`)
           transcribed = await getCrosswordCluesOpenRouter(base64, model)
         } else {
