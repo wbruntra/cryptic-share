@@ -1,12 +1,12 @@
 import { OpenRouter } from '@openrouter/sdk'
-import { crypticSchema, crypticInstructions } from './crypticSchema'
+import { crypticSchema, crypticInstructions, clueReferenceInstructions } from './crypticSchema'
 import { OPENROUTER_MODELS } from '../config'
 
 const client = new OpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
 })
 
-export const getCrosswordClues = async (base64Image: string, model = models.flash) => {
+export const getCrosswordClues = async (base64Image: string, model = models['flash-latest']) => {
   const instructions = `
 You are transcribing crossword clues from an image.
 
@@ -127,7 +127,7 @@ export const generateGrid = async (input: any) => {
   try {
     const result = await client.chat.send({
       chatRequest: {
-        model: OPENROUTER_MODELS.flash,
+        model: OPENROUTER_MODELS['flash-latest'],
         provider: { sort: 'price' },
         messages: [
           {
@@ -190,7 +190,7 @@ export const generateGrid = async (input: any) => {
   }
 }
 
-export const transcribeAnswers = async (input: any, model = models.flash) => {
+export const transcribeAnswers = async (input: any, model = models['flash-latest']) => {
   // Prepare the image data
   let base64Data: string
   let mimeType: string
@@ -319,72 +319,147 @@ export const transcribeAnswers = async (input: any, model = models.flash) => {
 
 const models = OPENROUTER_MODELS
 
+export interface ReferencedClue {
+  number: number
+  direction: 'across' | 'down'
+  clue: string
+  answer: string
+}
+
+/** Resolves a clue number (optionally restricted to a direction) to the matching puzzle clue(s). */
+export type ClueLookup = (number: number, direction?: 'across' | 'down') => Promise<ReferencedClue[]>
+
+const MAX_TOOL_ROUNDS = 5
+
+const getClueTool = {
+  type: 'function' as const,
+  function: {
+    name: 'get_clue',
+    description:
+      'Look up another clue in the same puzzle by number, with its answer. Use when the clue refers to another entry (e.g. "10 down", "see 7", "15 across").',
+    parameters: {
+      type: 'object',
+      properties: {
+        number: { type: 'integer', description: 'Clue number, e.g. 10' },
+        direction: {
+          type: 'string',
+          enum: ['across', 'down'],
+          description: 'Omit if the reference does not say; both directions are returned.',
+        },
+      },
+      required: ['number'],
+      additionalProperties: false,
+    },
+  },
+}
+
 export const explainCrypticClue = async (input: {
   clue: string
   answer: string
   mode?: 'hint' | 'full'
   model?: string
   timeoutMs?: number
+  lookupClue?: ClueLookup
 }) => {
-  const { clue, answer, mode = 'full', model = models.flash, timeoutMs = 60_000 } = input
+  const {
+    clue,
+    answer,
+    mode = 'full',
+    model = models['flash-latest'],
+    timeoutMs = 60_000,
+    lookupClue,
+  } = input
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
 
-  try {
-    const fetchPromise = client.chat.send({
-      chatRequest: {
-        model: model,
-        provider: { sort: 'price' },
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: crypticInstructions },
-              {
-                type: 'text',
-                text: `Clue: ${clue}\nAnswer: ${answer}`,
-              },
-            ],
-          },
-        ],
-        responseFormat: {
-          type: 'json_schema',
-          jsonSchema: {
-            name: crypticSchema.name,
-            strict: crypticSchema.strict,
-            schema: crypticSchema.schema,
-          },
+  const messages: any[] = [
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: lookupClue ? crypticInstructions + clueReferenceInstructions : crypticInstructions },
+        {
+          type: 'text',
+          text: `Clue: ${clue}\nAnswer: ${answer}`,
         },
-        plugins: [{ id: 'response-healing' }],
-        maxTokens: 4000,
-        stream: false,
-      },
-    })
+      ],
+    },
+  ]
 
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      controller.signal.addEventListener('abort', () =>
-        reject(new Error(`Request timed out after ${timeoutMs / 1000}s (model: ${model})`)),
-      )
-    })
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    controller.signal.addEventListener('abort', () =>
+      reject(new Error(`Request timed out after ${timeoutMs / 1000}s (model: ${model})`)),
+    )
+  })
+  // Avoid an unhandled rejection if the race is already settled when the timer fires.
+  timeoutPromise.catch(() => {})
 
-    const result = await Promise.race([fetchPromise, timeoutPromise])
+  try {
+    for (let round = 0; ; round++) {
+      const toolsAllowed = !!lookupClue && round < MAX_TOOL_ROUNDS
 
-    const content = result?.choices[0]?.message.content
+      const fetchPromise = client.chat.send({
+        chatRequest: {
+          model: model,
+          provider: { sort: 'price' },
+          messages,
+          ...(toolsAllowed ? { tools: [getClueTool] } : {}),
+          responseFormat: {
+            type: 'json_schema',
+            jsonSchema: {
+              name: crypticSchema.name,
+              strict: crypticSchema.strict,
+              schema: crypticSchema.schema,
+            },
+          },
+          plugins: [{ id: 'response-healing' }],
+          maxTokens: 4000,
+          stream: false,
+        },
+      })
 
-    if (!content) {
-      throw new Error('No content received from OpenRouter')
+      const result = await Promise.race([fetchPromise, timeoutPromise])
+      const message = result?.choices[0]?.message
+      const toolCalls = message?.toolCalls
+
+      if (toolsAllowed && toolCalls?.length) {
+        messages.push(message)
+        for (const call of toolCalls) {
+          messages.push({
+            role: 'tool',
+            toolCallId: call.id,
+            content: await runGetClue(call.function.arguments, lookupClue!),
+          })
+        }
+        continue
+      }
+
+      const content = message?.content
+
+      if (!content) {
+        throw new Error('No content received from OpenRouter')
+      }
+
+      if (typeof content !== 'string') {
+        throw new Error('Expected string content from OpenRouter')
+      }
+
+      return JSON.parse(content)
     }
-
-    if (typeof content !== 'string') {
-      throw new Error('Expected string content from OpenRouter')
-    }
-
-    return JSON.parse(content)
-  } catch (error) {
-    throw error
   } finally {
     clearTimeout(timer)
+  }
+}
+
+const runGetClue = async (rawArgs: string, lookupClue: ClueLookup): Promise<string> => {
+  try {
+    const args = JSON.parse(rawArgs || '{}')
+    const direction = args.direction === 'across' || args.direction === 'down' ? args.direction : undefined
+    const matches = await lookupClue(Number(args.number), direction)
+    if (!matches.length) return JSON.stringify({ error: 'No such clue in this puzzle.' })
+    return JSON.stringify(matches)
+  } catch (error) {
+    return JSON.stringify({ error: `Invalid get_clue request: ${(error as Error).message}` })
   }
 }
 
@@ -401,7 +476,7 @@ export const regenerateCrypticClueExplanation = async (input: {
     answer,
     feedback,
     previousExplanation,
-    model = models.flash,
+    model = models['flash-latest'],
     timeoutMs = 120_000,
   } = input
 
@@ -497,7 +572,7 @@ if (import.meta.main) {
 
   const clue = args[0]!
   const answer = args[1]!
-  const model = args[2] ?? models.flash
+  const model = args[2] ?? models['flash-latest']
 
   console.log(`Clue:   ${clue}`)
   console.log(`Answer: ${answer}`)

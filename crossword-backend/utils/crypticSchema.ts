@@ -384,6 +384,12 @@ Style examples (each is Clue → Answer: full_explanation):
 - “Run more (5)” → EXTRA: “'Run' and 'more' both define EXTRA: a cricket extra is a run, and an extra is something additional.”
 `
 
+// Appended to crypticInstructions only when the get_clue tool is offered.
+export const clueReferenceInstructions = `
+Cross-references:
+Some clues refer to other entries in the puzzle (e.g. "10 down", "see 7", "15"). Before parsing, call get_clue for each such reference; the referenced answer (and enumeration) may be part of the definition or wordplay. A bare number with no direction is usually the same direction as this clue, but omit the direction if unsure. A referenced clue may itself refer to another. Do not call get_clue for numbers that are merely part of the wordplay (e.g. a spelled-out number) or when the clue has no reference.
+`
+
 export const generateExplanationMessages = (
   clue: string,
   answer: string,

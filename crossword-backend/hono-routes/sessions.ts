@@ -8,6 +8,7 @@ import { SSEService } from '../services/sseService'
 import { Broadcaster } from '../services/broadcaster'
 import { PushService } from '../services/pushService'
 import db from '../db-knex'
+import type { ClueLookup, ReferencedClue } from '../utils/openrouter'
 
 type Variables = { user: AuthUser | null }
 
@@ -356,6 +357,23 @@ sessions.post('/:sessionId/explain', async (c) => {
           .toUpperCase()
           .replace(/[^A-Z]/g, '')
 
+        const lookupClue: ClueLookup = async (number, dir) => {
+          const found: ReferencedClue[] = []
+          for (const d of ['across', 'down'] as const) {
+            if (dir && dir !== d) continue
+            const clue = session.clues[d]?.find((c: any) => c.number === number)
+            const answer = puzzleAnswers[d]?.find((a: any) => a.number === number)
+            if (!clue || !answer) continue
+            found.push({
+              number,
+              direction: d,
+              clue: clue.clue,
+              answer: rot13(answer.answer).toUpperCase().replace(/[^A-Z]/g, ''),
+            })
+          }
+          return found
+        }
+
         const { ExplanationService: ES } = await import('../services/explanationService')
         const { explanation } = await ES.getOrCreateExplanation(
           session.id,
@@ -363,6 +381,7 @@ sessions.post('/:sessionId/explain', async (c) => {
           direction,
           clueEntry.clue,
           decryptedAnswer,
+          lookupClue,
         )
 
         await Broadcaster.broadcast(sessionId, 'explanation_ready', {

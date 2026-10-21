@@ -1,5 +1,5 @@
 import db from '../db-knex'
-import { explainCrypticClue } from '../utils/openrouter'
+import { explainCrypticClue, type ClueLookup } from '../utils/openrouter'
 import { assertValidExplanation } from '../utils/validateExplanation'
 import { OPENROUTER_MODELS } from '../config'
 
@@ -216,6 +216,7 @@ export class ExplanationService {
     direction: string,
     clueText: string,
     answer: string,
+    lookupClue?: ClueLookup,
   ): Promise<{ explanation: FlatClueExplanation; cached: boolean }> {
     // Check cache first
     const cached = await this.getCachedExplanation(puzzleId, clueNumber, direction)
@@ -223,12 +224,14 @@ export class ExplanationService {
       return { explanation: cached, cached: true }
     }
 
-    // Generate new explanation via OpenRouter (Gemini 3.7 Flash)
+    // Generate new explanation via OpenRouter (Gemini Flash)
     const explanation = (await explainCrypticClue({
       clue: clueText,
       answer: answer,
       mode: 'full',
-      model: OPENROUTER_MODELS.flash,
+      model: OPENROUTER_MODELS['flash-latest'],
+      timeoutMs: lookupClue ? 90_000 : undefined,
+      lookupClue,
     })) as StoredClueExplanation
 
     // Save to cache
